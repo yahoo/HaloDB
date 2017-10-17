@@ -10,6 +10,8 @@ import org.HdrHistogram.Histogram;
 import org.caffinitas.ohc.Eviction;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Set;
@@ -17,6 +19,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 public class OffHeapCache implements KeyCache {
+    private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 
     private static final Histogram putLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
@@ -38,7 +41,7 @@ public class OffHeapCache implements KeyCache {
             .eviction(Eviction.NONE)
             .build();
 
-        System.out.printf("Initialized the cache in %d\n", (System.currentTimeMillis() - start));
+        logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
 
         return ohCache;
     }

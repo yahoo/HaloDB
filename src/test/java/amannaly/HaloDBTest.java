@@ -181,4 +181,43 @@ public class HaloDBTest {
 
         openAgainDB.close();
     }
+
+    @Test
+    public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws IOException {
+
+        File directory = new File("/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen");
+        TestUtils.deleteDirectory(directory);
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.isMergeDisabled = true;
+
+        // sized to ensure that there will be two files.
+        options.maxFileSize = 1500;
+
+        HaloDB db = HaloDB.open(directory, options);
+
+        ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString(7));
+        ByteString value = null;
+
+        // update the same record 100 times.
+        // each key-value pair with the metadata is 20 bytes.
+        // therefore 20 * 100 = 2000 bytes
+        for (int i = 0; i < 100; i++) {
+            value = ByteString.copyFromUtf8(generateRandomAsciiString(7));
+            db.put(key, value);
+        }
+
+        db.close();
+
+        // open and read contents again.
+        HaloDB openAgainDB = HaloDB.open(directory, options);
+
+        List<Record> actual = new ArrayList<>();
+        openAgainDB.newIterator().forEachRemaining(actual::add);
+
+        Assert.assertTrue(actual.size() == 1);
+
+        Assert.assertEquals(openAgainDB.get(key), value);
+        openAgainDB.close();
+    }
 }

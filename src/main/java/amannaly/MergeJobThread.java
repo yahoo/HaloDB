@@ -1,9 +1,13 @@
 package amannaly;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.Set;
 
 public class MergeJobThread extends Thread {
+    private static final Logger logger = LoggerFactory.getLogger(MergeJobThread.class);
 
     private  final HaloDBInternal dbInternal;
 
@@ -17,8 +21,7 @@ public class MergeJobThread extends Thread {
         this.intervalBetweenRunsInSeconds = intervalBetweenRunsInSeconds;
 
         this.setUncaughtExceptionHandler((t, e) -> {
-            System.out.println("merge thread crashed");
-            e.printStackTrace();
+            logger.error("Merge thread crashed", e);
             //TODO: error handling logic.
         });
     }
@@ -46,6 +49,9 @@ public class MergeJobThread extends Thread {
                 MergeJob job = new MergeJob(filesToMerge, mergedFile, dbInternal);
                 job.merge();
                 dbInternal.submitMergedFiles(filesToMerge);
+            }
+            else {
+                logger.info("Not enough files to merge. Skipping merge run. ");
             }
 
             long msToSleep = Math.max(0, nextRun-System.currentTimeMillis());

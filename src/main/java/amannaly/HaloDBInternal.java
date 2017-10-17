@@ -3,6 +3,8 @@ package amannaly;
 import com.google.protobuf.ByteString;
 
 import org.HdrHistogram.Histogram;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 import amannaly.ohc.OffHeapCache;
 
 class HaloDBInternal {
+
+    private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
 
     private static final Histogram writeLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
@@ -65,6 +69,13 @@ class HaloDBInternal {
 
         result.mergeJobThread = new MergeJobThread(result, options.mergeJobIntervalInSeconds);
         result.mergeJobThread.start();
+
+        logger.info("Opened HaloDB {}", directory.getName());
+        logger.info("isMergeDisabled - {}", options.isMergeDisabled);
+        logger.info("maxFileSize - {}", options.maxFileSize);
+        logger.info("mergeJobIntervalInSeconds - {}", options.mergeJobIntervalInSeconds);
+        logger.info("mergeThresholdPerFile - {}", options.mergeThresholdPerFile);
+        logger.info("mergeThresholdFileNumber - {}", options.mergeThresholdFileNumber);
 
         return result;
     }
@@ -130,8 +141,9 @@ class HaloDBInternal {
             long stale = recordMetaData.recordSize;
             long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.fileId, stale, (oldValue, newValue) -> oldValue + newValue);
 
-            //TODO: use actual file recordSize rather than maxFileSize.
-            if (currentStaleSize >= options.maxFileSize * options.mergeThresholdPerFile) {
+            HaloDBFile file = readFileMap.get(recordMetaData.fileId);
+
+            if (currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
                 filesToMerge.add(recordMetaData.fileId);
                 staleDataPerFileMap.remove(recordMetaData.fileId);
             }
@@ -222,7 +234,7 @@ class HaloDBInternal {
 
     void scanKeyFiles(List<Integer> fileIds) throws IOException {
 
-        System.out.printf("About to scan %d key files to construct cache\n", fileIds.size());
+        logger.info("About to scan {} key files to construct cache\n", fileIds.size());
 
         long start = System.currentTimeMillis();
 
@@ -253,7 +265,7 @@ class HaloDBInternal {
 
         long time = (System.currentTimeMillis() - start)/1000;
 
-        System.out.printf("Completed scanning all key files in %d.\n", time);
+        logger.info("Completed scanning all key files in {}.\n", time);
     }
 
     HaloDBFile getHaloDBFile(int fileId) {

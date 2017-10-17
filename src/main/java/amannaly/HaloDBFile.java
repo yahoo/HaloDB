@@ -119,6 +119,10 @@ public class HaloDBFile {
 		return written;
 	}
 
+	public long getSize() {
+		return backingFile.length();
+	}
+
 	public FileChannel getWriteChannel() {
 		return writeChannel;
 	}

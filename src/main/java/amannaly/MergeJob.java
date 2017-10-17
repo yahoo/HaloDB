@@ -2,6 +2,9 @@ package amannaly;
 
 import com.google.protobuf.ByteString;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -10,6 +13,8 @@ import java.util.Date;
 import java.util.Set;
 
 class MergeJob {
+
+    private static final Logger logger = LoggerFactory.getLogger(MergeJob.class);
 
     private final Set<Integer> fileIdsToMerge;
     private final HaloDBFile mergedFile;
@@ -27,8 +32,7 @@ class MergeJob {
     public void merge() {
 
         long start = System.currentTimeMillis();
-        System.out.printf("%s About to start a merge run. Merging %s to %d\n", printDate(),
-                          fileIdsToMerge, mergedFile.fileId);
+        logger.info("About to start a merge run. Merging {} to {}", fileIdsToMerge, mergedFile.fileId);
 
         for (int fileId : fileIdsToMerge) {
             try {
@@ -45,7 +49,7 @@ class MergeJob {
         }
 
         long time = (System.currentTimeMillis()-start)/1000;
-        System.out.printf("Completed merge run in %d seconds for file %d\n", time, mergedFile.fileId);
+        logger.info("Completed merge run in {} seconds for file {}", time, mergedFile.fileId);
     }
 
     private static SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");

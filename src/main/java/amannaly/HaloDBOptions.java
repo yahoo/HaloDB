@@ -13,7 +13,14 @@ public class HaloDBOptions {
 
 	public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
+	/**
+	 * Data will be flushed to disk after flushDataSizeBytes have been written.
+	 * -1 disables explicit flushing and let the kernel handle it.
+	 */
+	public long flushDataSizeBytes = -1;
+
 	// used primarily for testing.
 	public boolean isMergeDisabled = false;
+
 
 }

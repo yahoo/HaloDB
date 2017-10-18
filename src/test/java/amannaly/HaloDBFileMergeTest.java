@@ -71,7 +71,7 @@ public class HaloDBFileMergeTest {
 //        db.getDbInternal().keyCache.printMapContents();
 //        System.out.println("*********************************\n");
 
-        HaloDBFile mergedFile = HaloDBFile.create(directory, 1000);
+        HaloDBFile mergedFile = HaloDBFile.create(directory, 1000, options);
         MergeJob mergeJob = new MergeJob(fileIdsToMerge, mergedFile, db.getDbInternal());
         mergeJob.merge();
 

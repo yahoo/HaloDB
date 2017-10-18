@@ -28,15 +28,19 @@ public class HaloDBFile {
 	private HintFile hintFile;
 	final int fileId;
 
+	private final HaloDBOptions options;
+
+	private long unFlushedData = 0;
+
 	private HaloDBFile(int fileId, File backingFile, HintFile hintFile, FileChannel writeChannel,
-					   FileChannel readChannel) throws IOException {
+					   FileChannel readChannel, HaloDBOptions options) throws IOException {
 		this.fileId = fileId;
 		this.backingFile = backingFile;
 		this.hintFile = hintFile;
 		this.writeChannel = writeChannel;
 		this.readChannel = readChannel;
 		this.writeOffset = readChannel.size();
-
+		this.options = options;
 	}
 	
 	public Record read(long offset, int length) throws IOException {
@@ -116,6 +120,13 @@ public class HaloDBFile {
 			written += writeChannel.write(buffers);
 		}
 
+		unFlushedData += written;
+
+		if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
+			writeChannel.force(true);
+			unFlushedData = 0;
+		}
+
 		return written;
 	}
 
@@ -135,16 +146,16 @@ public class HaloDBFile {
 		return readChannel;
 	}
 
-	public static HaloDBFile openForReading(File filename) throws IOException {
+	public static HaloDBFile openForReading(File filename, HaloDBOptions options) throws IOException {
 
 		int fileId = HaloDBFile.getFileTimeStamp(filename);
 		
 		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
 
-		return new HaloDBFile(fileId, filename, null, null, rch);
+		return new HaloDBFile(fileId, filename, null, null, rch, options);
 	}
 
-	static HaloDBFile create(File haloDBDirectory, int fileId) throws IOException {
+	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
 		boolean created = false;
 
 		File filename = null;
@@ -167,7 +178,7 @@ public class HaloDBFile {
 		HintFile hintFile = new HintFile(fileId, haloDBDirectory);
 		hintFile.open();
 
-		return new HaloDBFile(fileId, filename, hintFile, wch, rch);
+		return new HaloDBFile(fileId, filename, hintFile, wch, rch, options);
 	}
 
 	public HaloDBFileIterator newIterator() throws IOException {

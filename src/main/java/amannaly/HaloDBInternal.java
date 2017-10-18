@@ -175,7 +175,7 @@ class HaloDBInternal {
     }
 
     HaloDBFile createHaloDBFile() throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory, generateFileId());
+        HaloDBFile file = HaloDBFile.create(dbDirectory, generateFileId(), options);
         readFileMap.put(file.fileId, file);
         return file;
     }
@@ -190,7 +190,7 @@ class HaloDBInternal {
 
         List<HaloDBFile> result = new ArrayList<>();
         for (File f : files) {
-            result.add(HaloDBFile.openForReading(f));
+            result.add(HaloDBFile.openForReading(f, options));
         }
 
         return result;

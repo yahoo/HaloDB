@@ -1,8 +1,7 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class Record {
 
@@ -15,35 +14,35 @@ public class Record {
      */
     public static final int HEADER_SIZE = 6;
 
-    private final ByteString key, value;
+    private final byte[] key, value;
 
     private final int recordSize;
 
     private RecordMetaData recordMetaData;
 
-    public Record(ByteString key, ByteString value) {
+    public Record(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
 
-        this.recordSize = key.size() + value.size() + HEADER_SIZE;
+        this.recordSize = key.length + value.length + HEADER_SIZE;
     }
 
     public ByteBuffer[] serialize() {
         byte[] header = new byte[HEADER_SIZE];
 
         ByteBuffer headerBuffer = ByteBuffer.wrap(header);
-        headerBuffer.putShort((short) key.size());
-        headerBuffer.putInt(value.size());
+        headerBuffer.putShort((short) key.length);
+        headerBuffer.putInt(value.length);
         headerBuffer.flip();
 
-        return new ByteBuffer[] {headerBuffer, key.asReadOnlyByteBuffer(), value.asReadOnlyByteBuffer()};
+        return new ByteBuffer[] {headerBuffer, ByteBuffer.wrap(key), ByteBuffer.wrap(value)};
     }
 
-    public ByteString getKey() {
+    public byte[] getKey() {
         return key;
     }
 
-    public ByteString getValue() {
+    public byte[] getValue() {
         return value;
     }
 
@@ -77,7 +76,7 @@ public class Record {
         if (getValue() == null || record.getValue() == null)
             return false;
 
-        return getKey().equals(record.getKey()) && getValue().equals(record.getValue());
+        return Arrays.equals(getKey(), record.getKey()) && Arrays.equals(getValue(), record.getValue());
     }
 
     //TODO: override hash code.

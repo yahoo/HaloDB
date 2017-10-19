@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import amannaly.ohc.OffHeapCache;
+import amannaly.cache.OffHeapCache;
 
 class HaloDBInternal {
 
@@ -98,7 +96,7 @@ class HaloDBInternal {
         }
     }
 
-    void put(ByteString key, ByteString value) throws IOException {
+    void put(byte[] key, byte[] value) throws IOException {
         currentWriteFile = getCurrentWriteFile(key, value);
         RecordMetaData entry = currentWriteFile.write(key, value);
 
@@ -107,7 +105,7 @@ class HaloDBInternal {
         keyCache.put(key, entry);
     }
 
-    ByteString get(ByteString key) throws IOException {
+    byte[] get(byte[] key) throws IOException {
         RecordMetaData metaData = keyCache.get(key);
         if (metaData == null) {
             return null;
@@ -120,8 +118,8 @@ class HaloDBInternal {
         return readFile.read(metaData.offset, metaData.recordSize).getValue();
     }
 
-    private HaloDBFile getCurrentWriteFile(ByteString key, ByteString value) throws IOException {
-        int size = key.size() + value.size() + Record.HEADER_SIZE;
+    private HaloDBFile getCurrentWriteFile(byte[] key, byte[] value) throws IOException {
+        int size = key.length + value.length + Record.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
             if (currentWriteFile != null) {
@@ -135,7 +133,7 @@ class HaloDBInternal {
 
     }
 
-    private void updateStaleDataMap(ByteString key) {
+    private void updateStaleDataMap(byte[] key) {
         RecordMetaData recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
             long stale = recordMetaData.recordSize;
@@ -245,7 +243,7 @@ class HaloDBInternal {
 
             while (iterator.hasNext()) {
                 HintFileEntry hintFileEntry = iterator.next();
-                ByteString key = hintFileEntry.getKey();
+                byte[] key = hintFileEntry.getKey();
                 long recordOffset = hintFileEntry.getRecordOffset();
                 int recordSize = hintFileEntry.getRecordSize();
 

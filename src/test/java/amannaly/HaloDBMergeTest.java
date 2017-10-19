@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -9,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -61,8 +60,8 @@ public class HaloDBMergeTest {
         Assert.assertEquals(hintFileSizemap.get(sizeOfHintEntry * 20l).size(), 2);
 
         for (Record r : records) {
-            ByteString actual = db.get(r.getKey());
-            Assert.assertEquals(actual, r.getValue());
+            byte[] actual = db.get(r.getKey());
+            Assert.assertArrayEquals(actual, r.getValue());
         }
 
         db.close();
@@ -96,8 +95,8 @@ public class HaloDBMergeTest {
         db = HaloDB.open(directory, options);
 
         for (Record r : records) {
-            ByteString actual = db.get(r.getKey());
-            Assert.assertEquals(actual, r.getValue());
+            byte[] actual = db.get(r.getKey());
+            Assert.assertArrayEquals(actual, r.getValue());
         }
 
         db.close();
@@ -125,8 +124,8 @@ public class HaloDBMergeTest {
         db = HaloDB.open(directory, options);
 
         for (Record r : records) {
-            ByteString actual = db.get(r.getKey());
-            Assert.assertEquals(actual, r.getValue());
+            byte[] actual = db.get(r.getKey());
+            Assert.assertArrayEquals(actual, r.getValue());
         }
 
         db.close();
@@ -154,8 +153,8 @@ public class HaloDBMergeTest {
         db = HaloDB.open(directory, options);
 
         for (Record r : records) {
-            ByteString actual = db.get(r.getKey());
-            Assert.assertEquals(actual, r.getValue());
+            byte[] actual = db.get(r.getKey());
+            Assert.assertArrayEquals(actual, r.getValue());
         }
 
         db.close();
@@ -164,26 +163,24 @@ public class HaloDBMergeTest {
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {
-        byte[] data = new byte[recordSize - Record.HEADER_SIZE - 8 - 8];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = (byte)i;
-        }
+        int valueSize = recordSize - Record.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {
-            ByteString key = ByteString.copyFrom(Utils.longToBytes(i));
-            ByteString value = ByteString.copyFrom(data).concat(key);
+            byte[] key = Utils.longToBytes(i);
+            byte[] value = TestUtils.generateRandomByteArray(valueSize);
             records[i] = new Record(key, value);
             db.put(records[i].getKey(), records[i].getValue());
         }
 
         // modify first 5 records of each file.
-        ByteString modifiedMark = ByteString.copyFromUtf8("modified");
+        byte[] modifiedMark = "modified".getBytes();
         for (int k = 0; k < numberOfFiles; k++) {
             for (int i = 0; i < 5; i++) {
                 Record r = records[i + k*10];
-                ByteString modifiedValue = r.getValue().substring(modifiedMark.size()).concat(modifiedMark);
-                Record modifiedRecord = new Record(r.getKey(), modifiedValue);
+                byte[] value = r.getValue();
+                System.arraycopy(modifiedMark, 0, value, 0, modifiedMark.length);
+                Record modifiedRecord = new Record(r.getKey(), value);
                 records[i + k*10] = modifiedRecord;
                 db.put(modifiedRecord.getKey(), modifiedRecord.getValue());
             }
@@ -192,19 +189,16 @@ public class HaloDBMergeTest {
     }
 
     private Record[] insertAndUpdateRecordsToSameFile(int numberOfRecords, HaloDB db) throws IOException {
-        byte[] data = new byte[recordSize - Record.HEADER_SIZE - 8 - 8 - 8];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = (byte)i;
-        }
+        int valueSize = recordSize - Record.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {
-            ByteString key = ByteString.copyFrom(Utils.longToBytes(i));
-            ByteString value = ByteString.copyFrom(data).concat(key);
+            byte[] key = Utils.longToBytes(i);
+            byte[] value = TestUtils.generateRandomByteArray(valueSize);
 
-            ByteString updatedValue = null;
+            byte[] updatedValue = null;
             for (long j = 0; j < recordsPerFile; j++) {
-                updatedValue = value.concat(ByteString.copyFrom(Utils.longToBytes(j)));
+                updatedValue = TestUtils.concatenateArrays(value, Utils.longToBytes(j));
                 db.put(key, updatedValue);
             }
 

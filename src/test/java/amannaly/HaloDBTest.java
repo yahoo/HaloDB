@@ -7,12 +7,11 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static amannaly.RandomUtils.*;
 
 public class HaloDBTest {
 
@@ -27,20 +26,7 @@ public class HaloDBTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
-
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
@@ -49,8 +35,8 @@ public class HaloDBTest {
 
         records.forEach(record -> {
             try {
-                ByteString value = db.get(record.getKey());
-                Assert.assertEquals(record.getValue(), value);
+                byte[] value = db.get(record.getKey());
+                Assert.assertArrayEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -71,33 +57,9 @@ public class HaloDBTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
-
-        List<Record> updated = new ArrayList<>();
-
-        // update all records.
-        records.forEach(record -> {
-            try {
-                ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-                db.put(record.getKey(), value);
-                updated.add(new Record(record.getKey(), value));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        List<Record> updated = TestUtils.updateRecords(db, records);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
@@ -106,8 +68,8 @@ public class HaloDBTest {
 
         updated.forEach(record -> {
             try {
-                ByteString value = db.get(record.getKey());
-                Assert.assertEquals(record.getValue(), value);
+                byte[] value = db.get(record.getKey());
+                Assert.assertArrayEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -129,27 +91,14 @@ public class HaloDBTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
-
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
         // update half the records.
         for (int i = 0; i < records.size(); i++) {
             if (i % 2 == 0) {
                 Record record = records.get(i);
                 try {
-                    ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
+                    byte[] value = TestUtils.generateRandomByteArray();
                     db.put(record.getKey(), value);
                     records.set(i, new Record(record.getKey(), value));
                 } catch (IOException e) {
@@ -161,7 +110,6 @@ public class HaloDBTest {
 
         db.close();
 
-
         // open and read contents again.
         HaloDB openAgainDB = HaloDB.open(directory, options);
 
@@ -172,8 +120,8 @@ public class HaloDBTest {
 
         records.forEach(record -> {
             try {
-                ByteString value = openAgainDB.get(record.getKey());
-                Assert.assertEquals(record.getValue(), value);
+                byte[] value = openAgainDB.get(record.getKey());
+                Assert.assertArrayEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -196,14 +144,14 @@ public class HaloDBTest {
 
         HaloDB db = HaloDB.open(directory, options);
 
-        ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString(7));
-        ByteString value = null;
+        byte[] key = TestUtils.generateRandomByteArray(7);
+        byte[] value = null;
 
         // update the same record 100 times.
         // each key-value pair with the metadata is 20 bytes.
         // therefore 20 * 100 = 2000 bytes
         for (int i = 0; i < 100; i++) {
-            value = ByteString.copyFromUtf8(generateRandomAsciiString(7));
+            value = TestUtils.generateRandomByteArray(7);
             db.put(key, value);
         }
 
@@ -217,7 +165,7 @@ public class HaloDBTest {
 
         Assert.assertTrue(actual.size() == 1);
 
-        Assert.assertEquals(openAgainDB.get(key), value);
+        Assert.assertArrayEquals(openAgainDB.get(key), value);
         openAgainDB.close();
     }
 }

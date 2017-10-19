@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -37,15 +35,11 @@ public class HaloDBFileMergeTest {
 
         Record[] records = new Record[recordNumber];
         for (int i = 0; i < recordNumber; i++) {
-            ByteString key = ByteString.copyFrom(Utils.longToBytes(i));
-            ByteString value = ByteString.copyFrom(data).concat(key);
+            byte[] key = Utils.longToBytes(i);
+            byte[] value = TestUtils.concatenateArrays(data, key);
             records[i] = new Record(key, value);
             db.put(records[i].getKey(), records[i].getValue());
         }
-
-//        System.out.println("*********************************");
-//        db.getDbInternal().keyCache.printMapContents();
-//        System.out.println("*********************************\n");
 
         Set<Integer> fileIdsToMerge = db.listDataFileIds();
 
@@ -64,12 +58,7 @@ public class HaloDBFileMergeTest {
 
         for (Record r : staleRecords) {
             db.put(r.getKey(), r.getValue());
-            //System.out.printf("Stale %s\n", HaloDB.bytesToLong(staleRecords[i].getKey().toByteArray()));
         }
-
-//        System.out.println("*********************************");
-//        db.getDbInternal().keyCache.printMapContents();
-//        System.out.println("*********************************\n");
 
         HaloDBFile mergedFile = HaloDBFile.create(directory, 1000, options);
         MergeJob mergeJob = new MergeJob(fileIdsToMerge, mergedFile, db.getDbInternal());
@@ -89,7 +78,4 @@ public class HaloDBFileMergeTest {
         TestUtils.deleteDirectory(directory);
 
     }
-
-
-
 }

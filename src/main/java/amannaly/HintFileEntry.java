@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import java.nio.ByteBuffer;
 
 public class HintFileEntry {
@@ -13,17 +11,17 @@ public class HintFileEntry {
      */
     public final static int HINT_FILE_HEADER_SIZE = 14;
 
-    private final ByteString key;
+    private final byte[] key;
     private final int recordSize;
     private final long recordOffset;
     private final short keySize;
 
-    public HintFileEntry(ByteString key, int recordSize, long recordOffset) {
+    public HintFileEntry(byte[] key, int recordSize, long recordOffset) {
         this.key = key;
         this.recordSize = recordSize;
         this.recordOffset = recordOffset;
 
-        this.keySize = (short)key.size();
+        this.keySize = (short)key.length;
     }
 
     public ByteBuffer[] serialize() {
@@ -36,10 +34,10 @@ public class HintFileEntry {
 
         h.flip();
 
-        return new ByteBuffer[] { h, key.asReadOnlyByteBuffer() };
+        return new ByteBuffer[] { h, ByteBuffer.wrap(key) };
     }
 
-    public ByteString getKey() {
+    public byte[] getKey() {
         return key;
     }
 

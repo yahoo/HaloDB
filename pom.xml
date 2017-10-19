@@ -18,18 +18,6 @@
     <dependencies>
 
         <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.4.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hdrhistogram</groupId>
-            <artifactId>HdrHistogram</artifactId>
-            <version>2.1.9</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.caffinitas.ohc</groupId>
             <artifactId>ohc-core</artifactId>
             <version>0.6.1</version>
@@ -39,6 +27,12 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.12</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hdrhistogram</groupId>
+            <artifactId>HdrHistogram</artifactId>
+            <version>2.1.9</version>
         </dependency>
 
         <dependency>

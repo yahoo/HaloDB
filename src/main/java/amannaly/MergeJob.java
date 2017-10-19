@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +68,7 @@ class MergeJob {
 
         while (iterator.hasNext()) {
             HintFileEntry hintFileEntry = iterator.next();
-            ByteString key = hintFileEntry.getKey();
+            byte[] key = hintFileEntry.getKey();
             long recordOffset = hintFileEntry.getRecordOffset();
             int recordSize = hintFileEntry.getRecordSize();
 
@@ -127,7 +125,7 @@ class MergeJob {
             assert readSize == keySize;
 
             keyBuff.flip();
-            ByteString key = ByteString.copyFrom(keyBuff);
+            byte[] key = keyBuff.array();
 
             RecordMetaData currentRecordMetaData = db.getKeyCache().get(key);
 

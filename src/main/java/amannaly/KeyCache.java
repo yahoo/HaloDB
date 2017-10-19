@@ -1,16 +1,14 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 public interface KeyCache {
 
-    boolean put(ByteString key, RecordMetaData metaData);
+    boolean put(byte[] key, RecordMetaData metaData);
 
-    RecordMetaData get(ByteString key);
+    RecordMetaData get(byte[] key);
 
-    boolean replace(ByteString key, RecordMetaData oldValue, RecordMetaData newValue);
+    boolean replace(byte[] key, RecordMetaData oldValue, RecordMetaData newValue);
 
-    boolean containsKey(ByteString key);
+    boolean containsKey(byte[] key);
 
     void close();
 

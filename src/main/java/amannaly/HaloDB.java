@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.HdrHistogram.Histogram;
 
 import java.io.File;
@@ -27,11 +25,11 @@ public class HaloDB {
 		return db;
 	}
 
-	public ByteString get(ByteString key) throws IOException {
+	public byte[] get(byte[] key) throws IOException {
 		return dbInternal.get(key);
 	}
 
-	public void put(ByteString key, ByteString value) throws IOException {
+	public void put(byte[] key, byte[] value) throws IOException {
 		dbInternal.put(key, value);
 	}
 

@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -80,20 +78,23 @@ public class HaloDBFile {
 
 		recordBuf.flip();
 
-		ByteString key = ByteString.copyFrom(recordBuf, keySize);
-		ByteString value = ByteString.copyFrom(recordBuf, valueSize);
+		byte[] key = new byte[keySize];
+		byte[] value = new byte[valueSize];
+
+		recordBuf.get(key);
+		recordBuf.get(value);
 
 		Record record = new Record(key, value);
 		record.setRecordMetaData(new RecordMetaData(fileId, offset, recordSize));
 		return record;
 	}
 	
-	public RecordMetaData write(ByteString key, ByteString value) throws IOException {
+	public RecordMetaData write(byte[] key, byte[] value) throws IOException {
 
 		long start = System.nanoTime();
 
-		int keySize = key.size();
-		int valueSize = value.size();
+		int keySize = key.length;
+		int valueSize = value.length;
 
 		int recordSize = HEADER_SIZE + keySize + valueSize;
 

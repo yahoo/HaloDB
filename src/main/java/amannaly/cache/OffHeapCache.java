@@ -1,10 +1,4 @@
-package amannaly.ohc;
-
-import com.google.protobuf.ByteString;
-
-import amannaly.KeyCache;
-import amannaly.RecordMetaData;
-import amannaly.Utils;
+package amannaly.cache;
 
 import org.HdrHistogram.Histogram;
 import org.caffinitas.ohc.Eviction;
@@ -18,22 +12,26 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
+import amannaly.KeyCache;
+import amannaly.RecordMetaData;
+import amannaly.Utils;
+
 public class OffHeapCache implements KeyCache {
     private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 
     private static final Histogram putLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
-    private final OHCache<ByteString, RecordMetaData> ohCache;
+    private final OHCache<byte[], RecordMetaData> ohCache;
 
     public OffHeapCache() {
         this.ohCache = initializeCache();
     }
 
-    private OHCache<ByteString, RecordMetaData> initializeCache() {
+    private OHCache<byte[], RecordMetaData> initializeCache() {
 
         long start = System.currentTimeMillis();
-        OHCache<ByteString, RecordMetaData> ohCache = OHCacheBuilder.<ByteString, RecordMetaData>newBuilder()
-            .keySerializer(new ByteStringSerializer())
+        OHCache<byte[], RecordMetaData> ohCache = OHCacheBuilder.<byte[], RecordMetaData>newBuilder()
+            .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
             .capacity(10l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
             .segmentCount(32)
@@ -47,7 +45,7 @@ public class OffHeapCache implements KeyCache {
     }
 
     @Override
-    public boolean put(ByteString key, RecordMetaData metaData) {
+    public boolean put(byte[] key, RecordMetaData metaData) {
         long start = System.nanoTime();
         ohCache.put(key, metaData);
         putLatencyHistogram.recordValue(System.nanoTime()-start);
@@ -55,17 +53,17 @@ public class OffHeapCache implements KeyCache {
     }
 
     @Override
-    public boolean replace(ByteString key, RecordMetaData oldValue, RecordMetaData newValue) {
+    public boolean replace(byte[] key, RecordMetaData oldValue, RecordMetaData newValue) {
         return ohCache.addOrReplace(key, oldValue, newValue);
     }
 
     @Override
-    public RecordMetaData get(ByteString key) {
+    public RecordMetaData get(byte[] key) {
         return ohCache.get(key);
     }
 
     @Override
-    public boolean containsKey(ByteString key) {
+    public boolean containsKey(byte[] key) {
         return ohCache.containsKey(key);
     }
 
@@ -86,9 +84,9 @@ public class OffHeapCache implements KeyCache {
     @Override
     public void printMapContents() {
         Set<Long> set = new TreeSet<>();
-        ohCache.keyIterator().forEachRemaining(key -> set.add(Utils.bytesToLong(key.toByteArray())));
+        ohCache.keyIterator().forEachRemaining(key -> set.add(Utils.bytesToLong(key)));
         set.forEach(key -> System.out
-            .printf("%d -> %d\n", key, ohCache.get(ByteString.copyFrom(Utils.longToBytes(key))).fileId));
+            .printf("%d -> %d\n", key, ohCache.get(Utils.longToBytes(key)).fileId));
     }
 
     @Override

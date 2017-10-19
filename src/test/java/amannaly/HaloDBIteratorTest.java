@@ -1,18 +1,15 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static amannaly.RandomUtils.generateRandomAsciiString;
 
 public class HaloDBIteratorTest {
 
@@ -28,20 +25,7 @@ public class HaloDBIteratorTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
-
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
@@ -61,32 +45,9 @@ public class HaloDBIteratorTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
-
-        List<Record> updated = new ArrayList<>();
-
-        records.forEach(record -> {
-            try {
-                ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-                db.put(record.getKey(), value);
-                updated.add(new Record(record.getKey(), value));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        List<Record> updated = TestUtils.updateRecords(db, records);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
@@ -111,32 +72,9 @@ public class HaloDBIteratorTest {
         HaloDB db = HaloDB.open(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = new ArrayList<>();
-        Set<ByteString> keySet = new HashSet<>();
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
-        for (int i = 0; i < noOfRecords; i++) {
-            ByteString key = ByteString.copyFromUtf8(generateRandomAsciiString());
-            ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-            if (keySet.contains(key))
-                continue;
-
-            records.add(new Record(key, value));
-            keySet.add(key);
-
-            db.put(key, value);
-        }
-
-        List<Record> updated = new ArrayList<>();
-
-        records.forEach(record -> {
-            try {
-                ByteString value = ByteString.copyFromUtf8(generateRandomAsciiString());
-                db.put(record.getKey(), value);
-                updated.add(new Record(record.getKey(), value));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        List<Record> updated = TestUtils.updateRecords(db, records);
 
         // wait for merge to complete.
         Thread.sleep(10_000);

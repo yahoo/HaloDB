@@ -1,7 +1,5 @@
 package amannaly;
 
-import com.google.protobuf.ByteString;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -91,9 +89,8 @@ public class HintFile {
                 int recordSize = buffer.getInt();
                 long offset = buffer.getLong();
 
-                byte[] array = new byte[keySize];
-                buffer.get(array);
-                ByteString key = ByteString.copyFrom(array);
+                byte[] key = new byte[keySize];
+                buffer.get(key);
 
                 return new HintFileEntry(key, recordSize, offset);
             }

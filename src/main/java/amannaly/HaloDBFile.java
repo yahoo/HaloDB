@@ -43,7 +43,7 @@ public class HaloDBFile {
 	
 	public Record read(long offset, int length) throws IOException {
 		Record record = readRecord(offset);
-		assert length == record.getRecordMetaData().recordSize;
+		assert length == record.getRecordSize();
 
 		return record;
 	}
@@ -63,53 +63,40 @@ public class HaloDBFile {
 	public Record readRecord(long offset) throws IOException {
 		long tempOffset = offset;
 
-		ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
-		int readSize = readFromFile(offset, header);
+		// read the header from disk.
+		ByteBuffer headerBuf = ByteBuffer.allocate(HEADER_SIZE);
+		int readSize = readFromFile(offset, headerBuf);
 		assert readSize == HEADER_SIZE;
 		tempOffset += readSize;
 
-		// read key size and value size from header.
-		int keySize = header.getShort(Record.KEY_SIZE_OFFSET);
-		int valueSize = header.getInt(Record.VALUE_SIZE_OFFSET);
-		int recordSize = HEADER_SIZE + keySize + valueSize;
+		Record.Header header = Record.Header.deserialize(headerBuf);
 
-		ByteBuffer recordBuf = ByteBuffer.allocate(recordSize);
+		// read key-value from disk.
+		ByteBuffer recordBuf = ByteBuffer.allocate(header.getRecordSize());
 		readFromFile(tempOffset, recordBuf);
 
-		recordBuf.flip();
-
-		byte[] key = new byte[keySize];
-		byte[] value = new byte[valueSize];
-
-		recordBuf.get(key);
-		recordBuf.get(value);
-
-		Record record = new Record(key, value);
-		record.setRecordMetaData(new RecordMetaData(fileId, offset, recordSize));
+		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
+		record.setRecordMetaData(new RecordMetaDataForCache(fileId, offset, header.getRecordSize()));
 		return record;
 	}
-	
-	public RecordMetaData write(byte[] key, byte[] value) throws IOException {
+
+	public RecordMetaDataForCache writeRecord(Record record) throws IOException {
 
 		long start = System.nanoTime();
+		writeToChannel(record.serialize(), writeChannel);
 
-		int keySize = key.length;
-		int valueSize = value.length;
-
-		int recordSize = HEADER_SIZE + keySize + valueSize;
-
-		writeToChannel(new Record(key, value).serialize(), writeChannel);
-
+		int recordSize = record.getRecordSize();
 		long recordOffset = writeOffset;
-		HintFileEntry hintFileEntry = new HintFileEntry(key, recordSize, recordOffset);
 		writeOffset += recordSize;
+
+		HintFileEntry hintFileEntry = new HintFileEntry(record.getKey(), recordSize, recordOffset, record.getFlags());
 		hintFile.write(hintFileEntry);
 
 		HaloDB.recordWriteLatency(System.nanoTime() - start);
 
-		return new RecordMetaData(fileId, recordOffset, recordSize);
+		return new RecordMetaDataForCache(fileId, recordOffset, recordSize);
 	}
-
+	
 	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
 		long toWrite = 0;
 		for (ByteBuffer buffer : buffers) {

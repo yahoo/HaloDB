@@ -85,14 +85,7 @@ public class HintFile {
         @Override
         public HintFileEntry next() {
             if (hasNext()) {
-                short keySize = buffer.getShort();
-                int recordSize = buffer.getInt();
-                long offset = buffer.getLong();
-
-                byte[] key = new byte[keySize];
-                buffer.get(key);
-
-                return new HintFileEntry(key, recordSize, offset);
+                return HintFileEntry.deserialize(buffer);
             }
 
             return null;

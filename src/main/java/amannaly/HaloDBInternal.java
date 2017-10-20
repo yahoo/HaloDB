@@ -58,7 +58,7 @@ class HaloDBInternal {
 
         result.keyCache = new OffHeapCache();
         result.buildReadFileMap();
-        result.scanKeyFiles(result.listHintFiles());
+        result.buildKeyCache();
 
         result.dbDirectory = directory;
         result.options = options;
@@ -97,8 +97,8 @@ class HaloDBInternal {
     }
 
     void put(byte[] key, byte[] value) throws IOException {
-        currentWriteFile = getCurrentWriteFile(key, value);
-        RecordMetaData entry = currentWriteFile.write(key, value);
+        Record record = new Record(key, value);
+        RecordMetaDataForCache entry = writeRecordToFile(record);
 
         updateStaleDataMap(key);
 
@@ -106,7 +106,7 @@ class HaloDBInternal {
     }
 
     byte[] get(byte[] key) throws IOException {
-        RecordMetaData metaData = keyCache.get(key);
+        RecordMetaDataForCache metaData = keyCache.get(key);
         if (metaData == null) {
             return null;
         }
@@ -118,8 +118,23 @@ class HaloDBInternal {
         return readFile.read(metaData.offset, metaData.recordSize).getValue();
     }
 
-    private HaloDBFile getCurrentWriteFile(byte[] key, byte[] value) throws IOException {
-        int size = key.length + value.length + Record.HEADER_SIZE;
+    void delete(byte[] key) throws IOException {
+        Record record = new Record(key, Record.TOMBSTONE_VALUE);
+        record.markAsTombStone();
+        writeRecordToFile(record);
+
+        updateStaleDataMap(key);
+
+        keyCache.remove(key);
+    }
+
+    private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException {
+        currentWriteFile = getCurrentWriteFile(record);
+        return currentWriteFile.writeRecord(record);
+    }
+
+    private HaloDBFile getCurrentWriteFile(Record record) throws IOException {
+        int size = record.getKey().length + record.getValue().length + Record.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
             if (currentWriteFile != null) {
@@ -134,7 +149,7 @@ class HaloDBInternal {
     }
 
     private void updateStaleDataMap(byte[] key) {
-        RecordMetaData recordMetaData = keyCache.get(key);
+        RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
             long stale = recordMetaData.recordSize;
             long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.fileId, stale, (oldValue, newValue) -> oldValue + newValue);
@@ -230,7 +245,8 @@ class HaloDBInternal {
             .collect(Collectors.toList());
     }
 
-    void scanKeyFiles(List<Integer> fileIds) throws IOException {
+    void buildKeyCache() throws IOException {
+        List<Integer> fileIds = listHintFiles();
 
         logger.info("About to scan {} key files to construct cache\n", fileIds.size());
 
@@ -247,10 +263,10 @@ class HaloDBInternal {
                 long recordOffset = hintFileEntry.getRecordOffset();
                 int recordSize = hintFileEntry.getRecordSize();
 
-                RecordMetaData existing = keyCache.get(key);
+                RecordMetaDataForCache existing = keyCache.get(key);
 
                 if (existing == null || existing.fileId == fileId) {
-                    keyCache.put(key, new RecordMetaData(fileId, recordOffset, recordSize));
+                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
                 }
                 else {
                     //TODO: stale record, add the stale file map to remove later.
@@ -304,7 +320,7 @@ class HaloDBInternal {
     }
 
     public boolean isRecordFresh(Record record) {
-        RecordMetaData metaData = keyCache.get(record.getKey());
+        RecordMetaDataForCache metaData = keyCache.get(record.getKey());
 
         return
             metaData != null

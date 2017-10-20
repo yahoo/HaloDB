@@ -33,6 +33,10 @@ public class HaloDB {
 		dbInternal.put(key, value);
 	}
 
+	public void delete(byte[] key) throws IOException {
+		dbInternal.delete(key);
+	}
+
 	public void close() throws IOException {
 		dbInternal.close();
 	}

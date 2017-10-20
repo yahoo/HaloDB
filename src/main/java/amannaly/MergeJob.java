@@ -72,15 +72,15 @@ class MergeJob {
             long recordOffset = hintFileEntry.getRecordOffset();
             int recordSize = hintFileEntry.getRecordSize();
 
-            RecordMetaData currentRecordMetaData = db.getKeyCache().get(key);
+            RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
                 // fresh record copy to merged file.
                 readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
-                HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset);
+                HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset, hintFileEntry.getFlag());
                 mergedFile.getHintFile().write(newEntry);
 
-                RecordMetaData newMetaData = new RecordMetaData(mergedFile.fileId, mergedFileOffset,
+                RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,
                                                                 recordSize);
 
                 //TODO: if stale record, add the stale file map to remove later.
@@ -115,11 +115,10 @@ class MergeJob {
             // read key size and value size from header.
             int keySize = header.getShort(Record.KEY_SIZE_OFFSET);
             int valueSize = header.getInt(Record.VALUE_SIZE_OFFSET);
+            byte flag = header.get(Record.FLAGS_OFFSET);
             int recordSize = Record.HEADER_SIZE + keySize + valueSize;
 
             // read key from file.
-            //TODO: wrapping an array of bytes if more efficient.
-            //TODO: as it avoids array copy.
             ByteBuffer keyBuff = ByteBuffer.allocate(keySize);
             readSize = readFrom.read(keyBuff, temp);
             assert readSize == keySize;
@@ -127,17 +126,18 @@ class MergeJob {
             keyBuff.flip();
             byte[] key = keyBuff.array();
 
-            RecordMetaData currentRecordMetaData = db.getKeyCache().get(key);
+            RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == fileToMergeOffset) {
                 //System.out.printf("Key -> %d, current file %d\n", BitCaskDB.bytesToLong(key.toByteArray()), currentRecordMetaData.fileId);
 
                 // fresh record copy to merged file.
                 readFrom.transferTo(fileToMergeOffset, recordSize, mergedFile.getWriteChannel());
-                HintFileEntry hintFileEntry = new HintFileEntry(key, recordSize, mergedFileOffset);
+                HintFileEntry hintFileEntry = new HintFileEntry(key, recordSize, mergedFileOffset, flag);
                 mergedFile.getHintFile().write(hintFileEntry);
 
-                RecordMetaData newMetaData = new RecordMetaData(mergedFile.fileId, mergedFileOffset, recordSize);
+                RecordMetaDataForCache
+                    newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset, recordSize);
 
                 db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
                 mergedFileOffset += recordSize;

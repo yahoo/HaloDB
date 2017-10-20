@@ -2,11 +2,13 @@ package amannaly;
 
 public interface KeyCache {
 
-    boolean put(byte[] key, RecordMetaData metaData);
+    boolean put(byte[] key, RecordMetaDataForCache metaData);
 
-    RecordMetaData get(byte[] key);
+    RecordMetaDataForCache get(byte[] key);
 
-    boolean replace(byte[] key, RecordMetaData oldValue, RecordMetaData newValue);
+    boolean remove(byte[] key);
+
+    boolean replace(byte[] key, RecordMetaDataForCache oldValue, RecordMetaDataForCache newValue);
 
     boolean containsKey(byte[] key);
 

@@ -13,7 +13,7 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 import amannaly.KeyCache;
-import amannaly.RecordMetaData;
+import amannaly.RecordMetaDataForCache;
 import amannaly.Utils;
 
 public class OffHeapCache implements KeyCache {
@@ -21,16 +21,16 @@ public class OffHeapCache implements KeyCache {
 
     private static final Histogram putLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
-    private final OHCache<byte[], RecordMetaData> ohCache;
+    private final OHCache<byte[], RecordMetaDataForCache> ohCache;
 
     public OffHeapCache() {
         this.ohCache = initializeCache();
     }
 
-    private OHCache<byte[], RecordMetaData> initializeCache() {
+    private OHCache<byte[], RecordMetaDataForCache> initializeCache() {
 
         long start = System.currentTimeMillis();
-        OHCache<byte[], RecordMetaData> ohCache = OHCacheBuilder.<byte[], RecordMetaData>newBuilder()
+        OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
             .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
             .capacity(10l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
@@ -45,20 +45,25 @@ public class OffHeapCache implements KeyCache {
     }
 
     @Override
-    public boolean put(byte[] key, RecordMetaData metaData) {
+    public boolean put(byte[] key, RecordMetaDataForCache metaData) {
         long start = System.nanoTime();
         ohCache.put(key, metaData);
-        putLatencyHistogram.recordValue(System.nanoTime()-start);
+        putLatencyHistogram.recordValue(System.nanoTime() - start);
         return true;
     }
 
     @Override
-    public boolean replace(byte[] key, RecordMetaData oldValue, RecordMetaData newValue) {
+    public boolean remove(byte[] key) {
+        return ohCache.remove(key);
+    }
+
+    @Override
+    public boolean replace(byte[] key, RecordMetaDataForCache oldValue, RecordMetaDataForCache newValue) {
         return ohCache.addOrReplace(key, oldValue, newValue);
     }
 
     @Override
-    public RecordMetaData get(byte[] key) {
+    public RecordMetaDataForCache get(byte[] key) {
         return ohCache.get(key);
     }
 

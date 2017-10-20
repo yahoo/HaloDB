@@ -1,13 +1,13 @@
 
 package amannaly;
 
-public class RecordMetaData {
+public class RecordMetaDataForCache {
 
 	public final int fileId;
 	public final long offset;
 	public final int recordSize;
 
-	public RecordMetaData(int fileId, long offset, int recordSize) {
+	public RecordMetaDataForCache(int fileId, long offset, int recordSize) {
 		this.fileId = fileId;
 		this.offset = offset;
 		this.recordSize = recordSize;

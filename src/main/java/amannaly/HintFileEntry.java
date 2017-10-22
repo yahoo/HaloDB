@@ -8,7 +8,7 @@ public class HintFileEntry {
      * Key size      - 2 bytes.
      * record size   - 4 bytes.
      * record offset - 8 bytes.
-     * flag          - 1 byte.
+     * flags          - 1 byte.
      */
     public final static int HINT_FILE_HEADER_SIZE = 15;
 
@@ -22,13 +22,13 @@ public class HintFileEntry {
     private final int recordSize;
     private final long recordOffset;
     private final short keySize;
-    private final byte flag;
+    private final byte flags;
 
-    public HintFileEntry(byte[] key, int recordSize, long recordOffset, byte flag) {
+    public HintFileEntry(byte[] key, int recordSize, long recordOffset, byte flags) {
         this.key = key;
         this.recordSize = recordSize;
         this.recordOffset = recordOffset;
-        this.flag = flag;
+        this.flags = flags;
 
         this.keySize = (short)key.length;
     }
@@ -40,7 +40,7 @@ public class HintFileEntry {
         h.putShort(KEY_SIZE_OFFSET, keySize);
         h.putInt(RECORD_SIZE_OFFSET, recordSize);
         h.putLong(RECORD_OFFSET, recordOffset);
-        h.put(FLAG_OFFSET, flag);
+        h.put(FLAG_OFFSET, flags);
 
         return new ByteBuffer[] { h, ByteBuffer.wrap(key) };
     }
@@ -69,7 +69,14 @@ public class HintFileEntry {
         return recordOffset;
     }
 
-    public byte getFlag() {
-        return flag;
+    public byte getFlags() {
+        return flags;
+    }
+
+    /**
+     * tombstones will have the lsb of flags set to 1
+     */
+    public boolean isTombStone() {
+        return (flags & 1) == 1;
     }
 }

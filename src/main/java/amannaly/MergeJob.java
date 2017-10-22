@@ -77,7 +77,7 @@ class MergeJob {
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
                 // fresh record copy to merged file.
                 readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
-                HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset, hintFileEntry.getFlag());
+                HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset, hintFileEntry.getFlags());
                 mergedFile.getHintFile().write(newEntry);
 
                 RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,

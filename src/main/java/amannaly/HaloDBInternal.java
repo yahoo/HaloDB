@@ -39,7 +39,7 @@ class HaloDBInternal {
 
     private KeyCache keyCache;
 
-    private final Map<Integer, Long> staleDataPerFileMap = new ConcurrentHashMap<>();
+    private final Map<Integer, Integer> staleDataPerFileMap = new ConcurrentHashMap<>();
 
     private MergeJobThread mergeJobThread;
 
@@ -151,7 +151,7 @@ class HaloDBInternal {
     private void updateStaleDataMap(byte[] key) {
         RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
-            long stale = recordMetaData.recordSize;
+            int stale = recordMetaData.recordSize;
             long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.fileId, stale, (oldValue, newValue) -> oldValue + newValue);
 
             HaloDBFile file = readFileMap.get(recordMetaData.fileId);
@@ -231,11 +231,11 @@ class HaloDBInternal {
             }
         });
 
-        // sort in descending order. we want the latest hint files to be processed first.
+        // sort in ascending order. we want the earliest hint files to be processed first.
 
         return
         Arrays.stream(files)
-            .sorted((f1, f2) -> f2.getName().compareTo(f1.getName()))
+            .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
             .map(file -> HINT_FILE_PATTERN.matcher(file.getName()))
             .map(matcher -> {
                 matcher.find();
@@ -265,11 +265,17 @@ class HaloDBInternal {
 
                 RecordMetaDataForCache existing = keyCache.get(key);
 
-                if (existing == null || existing.fileId == fileId) {
+                if (existing == null && !hintFileEntry.isTombStone()) {
                     keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
                 }
-                else {
-                    //TODO: stale record, add the stale file map to remove later.
+                else if (existing != null) {
+                    if (hintFileEntry.isTombStone()) {
+                        keyCache.remove(key);
+                    }
+                    else {
+                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
+                    }
+                    staleDataPerFileMap.merge(existing.fileId, existing.recordSize, (oldValue, newValue) -> oldValue + newValue);
                 }
             }
 

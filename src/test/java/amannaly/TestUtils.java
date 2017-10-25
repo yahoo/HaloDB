@@ -23,13 +23,14 @@ public class TestUtils {
 
         for (int i = 0; i < noOfRecords; i++) {
             byte[] key = TestUtils.generateRandomByteArray();
-            byte[] value = TestUtils.generateRandomByteArray();
+            while (keySet.contains(ByteBuffer.wrap(key))) {
+                key = TestUtils.generateRandomByteArray();
+            }
             ByteBuffer buf = ByteBuffer.wrap(key);
-            if (keySet.contains(buf))
-                continue;
-
-            records.add(new Record(key, value));
             keySet.add(buf);
+
+            byte[] value = TestUtils.generateRandomByteArray();
+            records.add(new Record(key, value));
 
             db.put(key, value);
         }
@@ -53,6 +54,15 @@ public class TestUtils {
         return updated;
     }
 
+    public static void deleteRecords(HaloDB db, List<Record> records) {
+        records.forEach(r -> {
+            try {
+                db.delete(r.getKey());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
 
     public static void deleteDirectory(File directory) throws IOException {
         if (!directory.exists())

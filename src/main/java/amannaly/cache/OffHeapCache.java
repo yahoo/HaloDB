@@ -102,4 +102,9 @@ public class OffHeapCache implements KeyCache {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public long size() {
+        return ohCache.size();
+    }
 }

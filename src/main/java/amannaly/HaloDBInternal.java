@@ -128,6 +128,10 @@ class HaloDBInternal {
         keyCache.remove(key);
     }
 
+    long size() {
+        return keyCache.size();
+    }
+
     private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException {
         currentWriteFile = getCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);

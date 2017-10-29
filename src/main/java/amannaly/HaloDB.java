@@ -41,6 +41,10 @@ public class HaloDB {
 		dbInternal.close();
 	}
 
+	public long size() {
+		return dbInternal.size();
+	}
+
 	//TODO: probably don't expose this?
 	//TODO: current we need this for unit testing.
 	public Set<Integer> listDataFileIds() {

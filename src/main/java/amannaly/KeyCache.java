@@ -14,6 +14,8 @@ public interface KeyCache {
 
     void close();
 
+    long size();
+
     /********************************
      * FOR TESTING.
      ********************************/

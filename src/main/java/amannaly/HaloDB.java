@@ -57,6 +57,10 @@ public class HaloDB {
 		return dbInternal;
 	}
 
+	public String stats() {
+		return dbInternal.stats();
+	}
+
 	public static void recordWriteLatency(long time) {
 		//writeLatencyHistogram.recordValue(time);
 	}

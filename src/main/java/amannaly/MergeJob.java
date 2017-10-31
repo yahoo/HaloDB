@@ -35,15 +35,15 @@ class MergeJob {
         for (int fileId : fileIdsToMerge) {
             try {
                 copyFreshRecordsToMergedFileUsingHintFile(fileId);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                logger.error("Error while compacting " + fileId, e);
             }
         }
 
         try {
             mergedFile.closeForWriting();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Error while closing merged file " + mergedFile.fileId, e);
         }
 
         long time = (System.currentTimeMillis()-start)/1000;

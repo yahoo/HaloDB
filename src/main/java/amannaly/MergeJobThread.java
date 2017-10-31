@@ -51,7 +51,7 @@ public class MergeJobThread extends Thread {
                 dbInternal.submitMergedFiles(filesToMerge);
             }
             else {
-                logger.info("Not enough files to merge. Skipping merge run. ");
+                //logger.info("Not enough files to merge. Skipping merge run. ");
             }
 
             long msToSleep = Math.max(0, nextRun-System.currentTimeMillis());

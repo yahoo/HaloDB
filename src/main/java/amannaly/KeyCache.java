@@ -16,6 +16,8 @@ public interface KeyCache {
 
     long size();
 
+    String stats();
+
     /********************************
      * FOR TESTING.
      ********************************/

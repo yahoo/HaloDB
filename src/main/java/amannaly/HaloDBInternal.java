@@ -207,7 +207,7 @@ class HaloDBInternal {
 
         List<HaloDBFile> result = new ArrayList<>();
         for (File f : files) {
-            result.add(HaloDBFile.openForReading(f, options));
+            result.add(HaloDBFile.openForReading(dbDirectory, f, options));
         }
 
         return result;
@@ -303,6 +303,8 @@ class HaloDBInternal {
             readFileMap.remove(fileId);
             file.delete();
         }
+
+        staleDataPerFileMap.remove(fileId);
     }
 
     public void printStaleFileStatus() {
@@ -344,5 +346,9 @@ class HaloDBInternal {
     // File id is the timestamp.
     private int generateFileId() {
         return (int) (System.currentTimeMillis() / 1000L);
+    }
+
+    String stats() {
+        return keyCache.stats().toString();
     }
 }

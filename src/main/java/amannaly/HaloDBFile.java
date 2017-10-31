@@ -134,13 +134,16 @@ public class HaloDBFile {
 		return readChannel;
 	}
 
-	public static HaloDBFile openForReading(File filename, HaloDBOptions options) throws IOException {
+	public static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
 
 		int fileId = HaloDBFile.getFileTimeStamp(filename);
 		
 		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
 
-		return new HaloDBFile(fileId, filename, null, null, rch, options);
+		HintFile hintFile = new HintFile(fileId, haloDBDirectory);
+		hintFile.open();
+
+		return new HaloDBFile(fileId, filename, hintFile, null, rch, options);
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {

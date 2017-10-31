@@ -112,7 +112,7 @@ public class OffHeapCache implements KeyCache {
 
     //TODO: remove only for testing.
     @Override
-    public OHCacheStats stats() {
-        return ohCache.stats();
+    public String stats() {
+        return ohCache.stats().toString();
     }
 }

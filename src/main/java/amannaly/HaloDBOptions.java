@@ -22,5 +22,6 @@ public class HaloDBOptions {
 	// used primarily for testing.
 	public boolean isMergeDisabled = false;
 
+	public int numberOfRecords = 1_000;
 
 }

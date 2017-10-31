@@ -24,19 +24,22 @@ public class OffHeapCache implements KeyCache {
 
     private final OHCache<byte[], RecordMetaDataForCache> ohCache;
 
-    public OffHeapCache() {
-        this.ohCache = initializeCache();
+    public OffHeapCache(int numberOfKeys) {
+        this.ohCache = initializeCache(numberOfKeys);
     }
 
-    private OHCache<byte[], RecordMetaDataForCache> initializeCache() {
+    private OHCache<byte[], RecordMetaDataForCache> initializeCache(int numberOfKeys) {
+
+        int noOfSegments = Runtime.getRuntime().availableProcessors() * 2;
+        int hashTableSize = numberOfKeys / noOfSegments;
 
         long start = System.currentTimeMillis();
         OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
             .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
             .capacity(100l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
-            .segmentCount(80)
-            .hashTableSize(5_000_000)  // recordSize per segment.
+            .segmentCount(noOfSegments)
+            .hashTableSize(hashTableSize)  // recordSize per segment.
             .eviction(Eviction.NONE)
             .loadFactor(1)   // to make sure that we don't rehash.
             .build();

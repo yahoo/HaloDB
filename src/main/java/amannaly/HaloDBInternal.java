@@ -56,7 +56,7 @@ class HaloDBInternal {
 
         result.dbDirectory = directory;
 
-        result.keyCache = new OffHeapCache();
+        result.keyCache = new OffHeapCache(options.numberOfRecords);
         result.buildReadFileMap();
         result.buildKeyCache();
 

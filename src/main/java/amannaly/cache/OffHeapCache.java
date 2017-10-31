@@ -4,6 +4,7 @@ import org.HdrHistogram.Histogram;
 import org.caffinitas.ohc.Eviction;
 import org.caffinitas.ohc.OHCache;
 import org.caffinitas.ohc.OHCacheBuilder;
+import org.caffinitas.ohc.OHCacheStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,10 +34,11 @@ public class OffHeapCache implements KeyCache {
         OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
             .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
-            .capacity(10l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
-            .segmentCount(32)
-            .hashTableSize(3_125_000)  // recordSize per segment.
+            .capacity(100l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
+            .segmentCount(80)
+            .hashTableSize(5_000_000)  // recordSize per segment.
             .eviction(Eviction.NONE)
+            .loadFactor(1)   // to make sure that we don't rehash.
             .build();
 
         logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
@@ -106,5 +108,11 @@ public class OffHeapCache implements KeyCache {
     @Override
     public long size() {
         return ohCache.size();
+    }
+
+    //TODO: remove only for testing.
+    @Override
+    public OHCacheStats stats() {
+        return ohCache.stats();
     }
 }

@@ -16,11 +16,16 @@ public class HintFile {
 
     private FileChannel channel;
 
+    private final HaloDBOptions options;
+
+    private long unFlushedData = 0;
+
     private static final String nullMessage = "Hint file entry cannot be null";
 
-    public HintFile(int fileId, File dbDirectory) {
+    public HintFile(int fileId, File dbDirectory, HaloDBOptions options) {
         this.fileId = fileId;
         this.dbDirectory = dbDirectory;
+        this.options = options;
     }
 
     public void open() throws IOException {
@@ -57,6 +62,14 @@ public class HintFile {
         while (written < toWrite) {
             written += channel.write(contents);
         }
+
+        unFlushedData += written;
+
+        if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
+            channel.force(true);
+            unFlushedData = 0;
+        }
+
     }
 
     public HintFileIterator newIterator() throws IOException {

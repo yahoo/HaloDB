@@ -262,7 +262,7 @@ class HaloDBInternal {
         long start = System.currentTimeMillis();
 
         for (int fileId : fileIds) {
-            HintFile hintFile = new HintFile(fileId, dbDirectory);
+            HintFile hintFile = new HintFile(fileId, dbDirectory, options);
             hintFile.open();
             HintFile.HintFileIterator iterator = hintFile.newIterator();
 

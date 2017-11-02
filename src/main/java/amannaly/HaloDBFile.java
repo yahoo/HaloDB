@@ -140,7 +140,7 @@ public class HaloDBFile {
 		
 		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
 
-		HintFile hintFile = new HintFile(fileId, haloDBDirectory);
+		HintFile hintFile = new HintFile(fileId, haloDBDirectory, options);
 		hintFile.open();
 
 		return new HaloDBFile(fileId, filename, hintFile, null, rch, options);
@@ -166,7 +166,7 @@ public class HaloDBFile {
 		//TODO: setting the length might improve performance.
 		//file.setLength(max_);
 
-		HintFile hintFile = new HintFile(fileId, haloDBDirectory);
+		HintFile hintFile = new HintFile(fileId, haloDBDirectory, options);
 		hintFile.open();
 
 		return new HaloDBFile(fileId, filename, hintFile, wch, rch, options);

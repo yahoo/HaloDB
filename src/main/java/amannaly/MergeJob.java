@@ -20,6 +20,8 @@ class MergeJob {
 
     private long mergedFileOffset = 0;
 
+    private long unFlushedData = 0;
+
     public MergeJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
         this.fileIdsToMerge = fileIdsToMerge;
         this.mergedFile = mergedFile;
@@ -60,8 +62,9 @@ class MergeJob {
 
         //System.out.printf("Merging %s\n", idOfFileToMerge);
 
-        //TODO: can I reuse read channel in the BitcaskFile, do I need to open another read channel
-        //TODO: which performs better.
+        //TODO: can I reuse read channel in the HaloDBFile, do I need to open another read channel
+        //TODO: which performs better?
+        //TODO: during transfer may be we can club together contiguous records?
         FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getReadChannel();
 
         HintFile.HintFileIterator iterator = db.getHaloDBFile(idOfFileToMerge).getHintFile().newIterator();
@@ -76,7 +79,21 @@ class MergeJob {
 
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
                 // fresh record copy to merged file.
-                readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
+                long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
+                assert transferred == recordSize;
+
+                //TODO: for testing. remove.
+                if (transferred != recordSize) {
+                    logger.error("Had to transfer {} but only did {}", recordSize, transferred);
+                }
+
+                unFlushedData += transferred;
+
+                if (db.options.flushDataSizeBytes != -1 && unFlushedData > db.options.flushDataSizeBytes) {
+                    mergedFile.getWriteChannel().force(true);
+                    unFlushedData = 0;
+                }
+
                 HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset, hintFileEntry.getFlags());
                 mergedFile.getHintFile().write(newEntry);
 

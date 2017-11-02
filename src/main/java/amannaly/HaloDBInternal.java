@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -29,7 +30,7 @@ class HaloDBInternal {
 
     private File dbDirectory;
 
-    private HaloDBFile currentWriteFile;
+    private volatile HaloDBFile currentWriteFile;
 
     private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
@@ -43,7 +44,7 @@ class HaloDBInternal {
 
     private MergeJobThread mergeJobThread;
 
-    private final Set<Integer> filesToMerge = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> filesToMerge = new ConcurrentSkipListSet<>();
 
     private HaloDBInternal() {
 
@@ -133,11 +134,11 @@ class HaloDBInternal {
     }
 
     private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException {
-        currentWriteFile = getCurrentWriteFile(record);
+        rollOverCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);
     }
 
-    private HaloDBFile getCurrentWriteFile(Record record) throws IOException {
+    private void rollOverCurrentWriteFile(Record record) throws IOException {
         int size = record.getKey().length + record.getValue().length + Record.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
@@ -147,9 +148,6 @@ class HaloDBInternal {
 
             currentWriteFile = createHaloDBFile();
         }
-
-        return currentWriteFile;
-
     }
 
     private void updateStaleDataMap(byte[] key) {
@@ -168,6 +166,9 @@ class HaloDBInternal {
     }
 
     public boolean areThereEnoughFilesToMerge() {
+        //TODO: size() is not a constant time operation.
+        //TODO: probably okay since number of files are usually
+        //TODO: not too many.
         return filesToMerge.size() >= options.mergeThresholdFileNumber;
     }
 
@@ -175,8 +176,12 @@ class HaloDBInternal {
         Set<Integer> fileIds = new HashSet<>();
         Iterator<Integer> it = filesToMerge.iterator();
 
-        while (fileIds.size() < options.mergeThresholdFileNumber) {
-            fileIds.add(it.next());
+        //TODO: there was a bug where currentWriteFile was being compacted.
+        //TODO: need to write a unit test for this.
+        while (fileIds.size() < options.mergeThresholdFileNumber && it.hasNext()) {
+            Integer next = it.next();
+            if (currentWriteFile.fileId != next)
+                fileIds.add(next);
         }
 
         return fileIds;

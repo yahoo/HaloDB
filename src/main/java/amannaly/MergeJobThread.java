@@ -37,21 +37,21 @@ public class MergeJobThread extends Thread {
 
             if (dbInternal.areThereEnoughFilesToMerge()) {
                 Set<Integer> filesToMerge = dbInternal.getFilesToMerge();
-                HaloDBFile mergedFile = null;
-                try {
-                    mergedFile = dbInternal.createHaloDBFile();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    isRunning = false;
-                    break;
+                if (filesToMerge.size() >= dbInternal.options.mergeThresholdFileNumber) {
+                    HaloDBFile mergedFile = null;
+                    try {
+                        mergedFile = dbInternal.createHaloDBFile();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        isRunning = false;
+                        break;
+                    }
+
+                    MergeJob job = new MergeJob(filesToMerge, mergedFile, dbInternal);
+                    job.merge();
+                    dbInternal.submitMergedFiles(filesToMerge);
                 }
 
-                MergeJob job = new MergeJob(filesToMerge, mergedFile, dbInternal);
-                job.merge();
-                dbInternal.submitMergedFiles(filesToMerge);
-            }
-            else {
-                //logger.info("Not enough files to merge. Skipping merge run. ");
             }
 
             long msToSleep = Math.max(0, nextRun-System.currentTimeMillis());

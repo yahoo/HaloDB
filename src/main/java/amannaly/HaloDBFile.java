@@ -111,7 +111,7 @@ public class HaloDBFile {
 		unFlushedData += written;
 
 		if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
-			writeChannel.force(true);
+			writeChannel.force(false);
 			unFlushedData = 0;
 		}
 

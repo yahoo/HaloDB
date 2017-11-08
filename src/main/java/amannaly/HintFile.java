@@ -66,7 +66,7 @@ public class HintFile {
         unFlushedData += written;
 
         if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
-            channel.force(true);
+            channel.force(false);
             unFlushedData = 0;
         }
 

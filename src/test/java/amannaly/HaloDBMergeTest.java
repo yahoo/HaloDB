@@ -30,6 +30,7 @@ public class HaloDBMergeTest {
         options.mergeThresholdFileNumber = 4;
         options.isMergeDisabled = false;
         options.mergeJobIntervalInSeconds = 2;
+        options.flushDataSizeBytes = 2048;
 
         HaloDB db = HaloDB.open(directory, options);
 

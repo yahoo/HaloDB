@@ -1,5 +1,7 @@
 package amannaly;
 
+import com.google.common.util.concurrent.RateLimiter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,6 +23,8 @@ class MergeJob {
     private long mergedFileOffset = 0;
 
     private long unFlushedData = 0;
+
+    RateLimiter rateLimiter = RateLimiter.create(35 * 1024 * 1024);
 
     public MergeJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
         this.fileIdsToMerge = fileIdsToMerge;
@@ -78,6 +82,8 @@ class MergeJob {
             RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
+                rateLimiter.acquire(recordSize);
+
                 // fresh record copy to merged file.
                 long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
                 assert transferred == recordSize;
@@ -90,7 +96,7 @@ class MergeJob {
                 unFlushedData += transferred;
 
                 if (db.options.flushDataSizeBytes != -1 && unFlushedData > db.options.flushDataSizeBytes) {
-                    mergedFile.getWriteChannel().force(true);
+                    mergedFile.getWriteChannel().force(false);
                     unFlushedData = 0;
                 }
 

@@ -42,13 +42,11 @@ class HaloDBInternal {
 
     private final Map<Integer, Integer> staleDataPerFileMap = new ConcurrentHashMap<>();
 
-    private MergeJobThread mergeJobThread;
+    private CompactionManager compactionManager;
 
     private final Set<Integer> filesToMerge = new ConcurrentSkipListSet<>();
 
-    private HaloDBInternal() {
-
-    }
+    private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
         HaloDBInternal result = new HaloDBInternal();
@@ -66,8 +64,8 @@ class HaloDBInternal {
 
         result.currentWriteFile = result.createHaloDBFile();
 
-        result.mergeJobThread = new MergeJobThread(result, options.mergeJobIntervalInSeconds);
-        result.mergeJobThread.start();
+        result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
+        result.compactionManager.start();
 
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isMergeDisabled - {}", options.isMergeDisabled);
@@ -81,7 +79,7 @@ class HaloDBInternal {
 
     void close() throws IOException {
 
-        mergeJobThread.stopThread();
+        compactionManager.stopThread();
 
         // release?
         keyCache.close();

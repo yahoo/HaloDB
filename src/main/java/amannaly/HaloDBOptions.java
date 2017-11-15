@@ -24,4 +24,7 @@ public class HaloDBOptions {
 
 	public int numberOfRecords = 1_000;
 
+	// MB of data to be compacted per second.
+	public int compactionJobRate = 1024 * 1024 * 1024;
+
 }

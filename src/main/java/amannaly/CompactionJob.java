@@ -12,28 +12,28 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Set;
 
-class MergeJob {
-
-    private static final Logger logger = LoggerFactory.getLogger(MergeJob.class);
+class CompactionJob {
+    private static final Logger logger = LoggerFactory.getLogger(CompactionJob.class);
 
     private final Set<Integer> fileIdsToMerge;
     private final HaloDBFile mergedFile;
     private final HaloDBInternal db;
 
+    // TODO: use 35 MB for tests.
+    private final RateLimiter compactionRateLimiter;
+
     private long mergedFileOffset = 0;
 
     private long unFlushedData = 0;
 
-    RateLimiter rateLimiter = RateLimiter.create(35 * 1024 * 1024);
-
-    public MergeJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
+    public CompactionJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
         this.fileIdsToMerge = fileIdsToMerge;
         this.mergedFile = mergedFile;
         this.db = db;
+        this.compactionRateLimiter = RateLimiter.create(db.options.compactionJobRate);
     }
 
-    //TODO: need a way to stop currently running job when db is closed.
-    public void merge() {
+    public void run() {
 
         long start = System.currentTimeMillis();
         logger.info("About to start a merge run. Merging {} to {}", fileIdsToMerge, mergedFile.fileId);
@@ -56,16 +56,8 @@ class MergeJob {
         logger.info("Completed merge run in {} seconds for file {}", time, mergedFile.fileId);
     }
 
-    private static SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
-    public static String printDate() {
-        return sdf.format(new Date()) + ": ";
-    }
-
     // TODO: group and move adjacent fresh records together for performance.
     private void copyFreshRecordsToMergedFileUsingHintFile(int idOfFileToMerge) throws IOException {
-
-        //System.out.printf("Merging %s\n", idOfFileToMerge);
-
         //TODO: can I reuse read channel in the HaloDBFile, do I need to open another read channel
         //TODO: which performs better?
         //TODO: during transfer may be we can club together contiguous records?
@@ -82,7 +74,7 @@ class MergeJob {
             RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
             if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
-                rateLimiter.acquire(recordSize);
+                compactionRateLimiter.acquire(recordSize);
 
                 // fresh record copy to merged file.
                 long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());

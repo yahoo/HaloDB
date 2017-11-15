@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Set;
 
-public class MergeJobThread extends Thread {
-    private static final Logger logger = LoggerFactory.getLogger(MergeJobThread.class);
+public class CompactionManager extends Thread {
+    private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
 
     private  final HaloDBInternal dbInternal;
 
@@ -15,8 +15,8 @@ public class MergeJobThread extends Thread {
 
     private final int intervalBetweenRunsInSeconds;
 
-    public MergeJobThread(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
-        super("MergeJobThread");
+    public CompactionManager(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
+        super("CompactionManager");
         this.dbInternal = dbInternal;
         this.intervalBetweenRunsInSeconds = intervalBetweenRunsInSeconds;
 
@@ -26,19 +26,16 @@ public class MergeJobThread extends Thread {
         });
     }
 
-    //TODO: make sure that the file is not being written to.
     @Override
     public void run() {
         while (isRunning && !dbInternal.options.isMergeDisabled) {
-            //System.out.println("Running Merge thread.");
-            //dbInternal.printStaleFileStatus();
 
             long nextRun = System.currentTimeMillis() + intervalBetweenRunsInSeconds * 1000;
 
             if (dbInternal.areThereEnoughFilesToMerge()) {
                 Set<Integer> filesToMerge = dbInternal.getFilesToMerge();
                 if (filesToMerge.size() >= dbInternal.options.mergeThresholdFileNumber) {
-                    HaloDBFile mergedFile = null;
+                    HaloDBFile mergedFile;
                     try {
                         mergedFile = dbInternal.createHaloDBFile();
                     } catch (IOException e) {
@@ -47,11 +44,10 @@ public class MergeJobThread extends Thread {
                         break;
                     }
 
-                    MergeJob job = new MergeJob(filesToMerge, mergedFile, dbInternal);
-                    job.merge();
+                    CompactionJob job = new CompactionJob(filesToMerge, mergedFile, dbInternal);
+                    job.run();
                     dbInternal.submitMergedFiles(filesToMerge);
                 }
-
             }
 
             long msToSleep = Math.max(0, nextRun-System.currentTimeMillis());

@@ -61,8 +61,8 @@ public class HaloDBFileMergeTest {
         }
 
         HaloDBFile mergedFile = HaloDBFile.create(directory, 1000, options);
-        MergeJob mergeJob = new MergeJob(fileIdsToMerge, mergedFile, db.getDbInternal());
-        mergeJob.merge();
+        CompactionJob compactionJob = new CompactionJob(fileIdsToMerge, mergedFile, db.getDbInternal());
+        compactionJob.run();
 
         HaloDBFile.HaloDBFileIterator iterator = mergedFile.newIterator();
 

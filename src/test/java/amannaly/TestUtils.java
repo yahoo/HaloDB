@@ -134,4 +134,10 @@ public class TestUtils {
 
         return array;
     }
+
+    public static void waitForMergeToComplete(HaloDB db) throws InterruptedException {
+        while (!db.isMergeComplete()) {
+            Thread.sleep(1_000);
+        }
+    }
 }

@@ -138,4 +138,8 @@ public class HaloDB {
 			throw new NoSuchElementException();
 		}
 	}
+
+	public boolean isMergeComplete() {
+		return dbInternal.isMergeComplete();
+	}
 }

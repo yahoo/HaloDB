@@ -9,7 +9,7 @@ public class FileUtils {
         if (directory.exists()  && directory.isDirectory())
             return;
 
-        if(!directory.mkdir()) {
+        if(!directory.mkdirs()) {
             throw new IOException("Cannot create directory " + directory.getName());
         }
     }

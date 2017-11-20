@@ -354,4 +354,8 @@ class HaloDBInternal {
     String stats() {
         return keyCache.stats().toString();
     }
+
+    boolean isMergeComplete() {
+        return filesToMerge.isEmpty();
+    }
 }

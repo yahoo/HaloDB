@@ -11,6 +11,9 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDB {
 
 	private static final Histogram writeLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);

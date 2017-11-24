@@ -22,6 +22,9 @@ import java.util.stream.Collectors;
 
 import amannaly.cache.OffHeapCache;
 
+/**
+ * @author Arjun Mannaly
+ */
 class HaloDBInternal {
 
     private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
@@ -228,22 +231,22 @@ class HaloDBInternal {
     }
 
 
-    public static final Pattern HINT_FILE_PATTERN = Pattern.compile("([0-9]+).hint");
-    private List<Integer> listHintFiles() {
+    public static final Pattern INDEX_FILE_PATTERN = Pattern.compile("([0-9]+).index");
+    private List<Integer> listIndexFiles() {
 
         File[] files = dbDirectory.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
-                return HINT_FILE_PATTERN.matcher(file.getName()).matches();
+                return INDEX_FILE_PATTERN.matcher(file.getName()).matches();
             }
         });
 
-        // sort in ascending order. we want the earliest hint files to be processed first.
+        // sort in ascending order. we want the earliest index files to be processed first.
 
         return
         Arrays.stream(files)
             .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
-            .map(file -> HINT_FILE_PATTERN.matcher(file.getName()))
+            .map(file -> INDEX_FILE_PATTERN.matcher(file.getName()))
             .map(matcher -> {
                 matcher.find();
                 return matcher.group(1);
@@ -253,30 +256,30 @@ class HaloDBInternal {
     }
 
     void buildKeyCache() throws IOException {
-        List<Integer> fileIds = listHintFiles();
+        List<Integer> fileIds = listIndexFiles();
 
         logger.info("About to scan {} key files to construct cache\n", fileIds.size());
 
         long start = System.currentTimeMillis();
 
         for (int fileId : fileIds) {
-            HintFile hintFile = new HintFile(fileId, dbDirectory, options);
-            hintFile.open();
-            HintFile.HintFileIterator iterator = hintFile.newIterator();
+            IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
+            indexFile.open();
+            IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
             while (iterator.hasNext()) {
-                HintFileEntry hintFileEntry = iterator.next();
-                byte[] key = hintFileEntry.getKey();
-                long recordOffset = hintFileEntry.getRecordOffset();
-                int recordSize = hintFileEntry.getRecordSize();
+                IndexFileEntry indexFileEntry = iterator.next();
+                byte[] key = indexFileEntry.getKey();
+                long recordOffset = indexFileEntry.getRecordOffset();
+                int recordSize = indexFileEntry.getRecordSize();
 
                 RecordMetaDataForCache existing = keyCache.get(key);
 
-                if (existing == null && !hintFileEntry.isTombStone()) {
+                if (existing == null && !indexFileEntry.isTombStone()) {
                     keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
                 }
                 else if (existing != null) {
-                    if (hintFileEntry.isTombStone()) {
+                    if (indexFileEntry.isTombStone()) {
                         keyCache.remove(key);
                     }
                     else {
@@ -286,7 +289,7 @@ class HaloDBInternal {
                 }
             }
 
-            hintFile.close();
+            indexFile.close();
         }
 
 

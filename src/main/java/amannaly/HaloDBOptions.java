@@ -1,5 +1,8 @@
 package amannaly;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDBOptions {
 
 	//TODO; convert to private with get+set.

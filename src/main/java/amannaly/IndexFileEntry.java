@@ -2,7 +2,10 @@ package amannaly;
 
 import java.nio.ByteBuffer;
 
-public class HintFileEntry {
+/**
+ * @author Arjun Mannaly
+ */
+public class IndexFileEntry {
 
     /**
      * Key size      - 2 bytes.
@@ -10,7 +13,7 @@ public class HintFileEntry {
      * record offset - 8 bytes.
      * flags          - 1 byte.
      */
-    public final static int HINT_FILE_HEADER_SIZE = 15;
+    public final static int INDEX_FILE_HEADER_SIZE = 15;
 
     public static final int KEY_SIZE_OFFSET = 0;
     public static final int RECORD_SIZE_OFFSET = 2;
@@ -24,7 +27,7 @@ public class HintFileEntry {
     private final short keySize;
     private final byte flags;
 
-    public HintFileEntry(byte[] key, int recordSize, long recordOffset, byte flags) {
+    public IndexFileEntry(byte[] key, int recordSize, long recordOffset, byte flags) {
         this.key = key;
         this.recordSize = recordSize;
         this.recordOffset = recordOffset;
@@ -34,7 +37,7 @@ public class HintFileEntry {
     }
 
     public ByteBuffer[] serialize() {
-        byte[] header = new byte[HINT_FILE_HEADER_SIZE];
+        byte[] header = new byte[INDEX_FILE_HEADER_SIZE];
         ByteBuffer h = ByteBuffer.wrap(header);
 
         h.putShort(KEY_SIZE_OFFSET, keySize);
@@ -45,7 +48,7 @@ public class HintFileEntry {
         return new ByteBuffer[] { h, ByteBuffer.wrap(key) };
     }
 
-    public static HintFileEntry deserialize(ByteBuffer buffer) {
+    public static IndexFileEntry deserialize(ByteBuffer buffer) {
         short keySize = buffer.getShort();
         int recordSize = buffer.getInt();
         long offset = buffer.getLong();
@@ -54,7 +57,7 @@ public class HintFileEntry {
         byte[] key = new byte[keySize];
         buffer.get(key);
 
-        return new HintFileEntry(key, recordSize, offset, flag);
+        return new IndexFileEntry(key, recordSize, offset, flag);
     }
 
     public byte[] getKey() {

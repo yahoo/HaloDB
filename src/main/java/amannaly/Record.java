@@ -3,6 +3,9 @@ package amannaly;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class Record {
 
     //TODO: move to Header.

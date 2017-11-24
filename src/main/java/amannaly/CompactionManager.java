@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Set;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class CompactionManager extends Thread {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
 

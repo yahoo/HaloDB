@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDBTest {
 
     @Test

@@ -6,6 +6,9 @@ import org.caffinitas.ohc.CacheSerializer;
 
 import java.nio.ByteBuffer;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class RecordMetaDataSerializer implements CacheSerializer<RecordMetaDataForCache> {
 
     public void serialize(RecordMetaDataForCache recordMetaData, ByteBuffer byteBuffer) {

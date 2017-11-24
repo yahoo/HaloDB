@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDBFileMergeTest {
 
     //TODO: use set up and tear down methods for creating DBs.

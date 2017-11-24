@@ -11,6 +11,9 @@ import java.util.regex.Matcher;
 
 import static amannaly.Record.HEADER_SIZE;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDBFile {
 
 	private FileChannel writeChannel;
@@ -23,18 +26,18 @@ public class HaloDBFile {
 	}
 
 	private final File backingFile;
-	private HintFile hintFile;
+	private IndexFile indexFile;
 	final int fileId;
 
 	private final HaloDBOptions options;
 
 	private long unFlushedData = 0;
 
-	private HaloDBFile(int fileId, File backingFile, HintFile hintFile, FileChannel writeChannel,
+	private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileChannel writeChannel,
 					   FileChannel readChannel, HaloDBOptions options) throws IOException {
 		this.fileId = fileId;
 		this.backingFile = backingFile;
-		this.hintFile = hintFile;
+		this.indexFile = indexFile;
 		this.writeChannel = writeChannel;
 		this.readChannel = readChannel;
 		this.writeOffset = readChannel.size();
@@ -89,8 +92,8 @@ public class HaloDBFile {
 		long recordOffset = writeOffset;
 		writeOffset += recordSize;
 
-		HintFileEntry hintFileEntry = new HintFileEntry(record.getKey(), recordSize, recordOffset, record.getFlags());
-		hintFile.write(hintFileEntry);
+		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getFlags());
+		indexFile.write(indexFileEntry);
 
 		HaloDB.recordWriteLatency(System.nanoTime() - start);
 
@@ -126,8 +129,8 @@ public class HaloDBFile {
 		return writeChannel;
 	}
 
-	public HintFile getHintFile() {
-		return hintFile;
+	public IndexFile getIndexFile() {
+		return indexFile;
 	}
 
 	public FileChannel getReadChannel() {
@@ -140,10 +143,10 @@ public class HaloDBFile {
 		
 		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
 
-		HintFile hintFile = new HintFile(fileId, haloDBDirectory, options);
-		hintFile.open();
+		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, hintFile, null, rch, options);
+		return new HaloDBFile(fileId, filename, indexFile, null, rch, options);
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
@@ -166,10 +169,10 @@ public class HaloDBFile {
 		//TODO: setting the length might improve performance.
 		//file.setLength(max_);
 
-		HintFile hintFile = new HintFile(fileId, haloDBDirectory, options);
-		hintFile.open();
+		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, hintFile, wch, rch, options);
+		return new HaloDBFile(fileId, filename, indexFile, wch, rch, options);
 	}
 
 	public HaloDBFileIterator newIterator() throws IOException {
@@ -195,8 +198,8 @@ public class HaloDBFile {
 		if (backingFile != null)
 			backingFile.delete();
 
-		if (hintFile != null)
-			hintFile.delete();
+		if (indexFile != null)
+			indexFile.delete();
 	}
 
 	private static File getDataFile(File haloDBDirectory, int fileId) {
@@ -212,7 +215,7 @@ public class HaloDBFile {
 
 
 	//TODO: we need to return only fresh files.
-	//TODO: scan Hint file iterator for performance.
+	//TODO: scan Index file iterator for performance.
 	public class HaloDBFileIterator implements Iterator<Record> {
 
 		private final long endOffset;

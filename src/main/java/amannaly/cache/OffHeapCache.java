@@ -17,6 +17,9 @@ import amannaly.KeyCache;
 import amannaly.RecordMetaDataForCache;
 import amannaly.Utils;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class OffHeapCache implements KeyCache {
     private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 

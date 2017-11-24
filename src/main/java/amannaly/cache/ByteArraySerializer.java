@@ -4,6 +4,9 @@ import org.caffinitas.ohc.CacheSerializer;
 
 import java.nio.ByteBuffer;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class ByteArraySerializer implements CacheSerializer<byte[]> {
 
     @Override

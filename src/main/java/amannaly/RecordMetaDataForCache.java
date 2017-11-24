@@ -1,6 +1,9 @@
 
 package amannaly;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class RecordMetaDataForCache {
 
 	public final int fileId;

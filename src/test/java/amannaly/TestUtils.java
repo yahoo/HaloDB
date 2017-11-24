@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class TestUtils {
 
     public static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws IOException {

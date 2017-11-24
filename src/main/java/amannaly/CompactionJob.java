@@ -9,6 +9,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Set;
 
+/**
+ * @author Arjun Mannaly
+ */
 class CompactionJob {
     private static final Logger logger = LoggerFactory.getLogger(CompactionJob.class);
 
@@ -37,7 +40,7 @@ class CompactionJob {
 
         for (int fileId : fileIdsToMerge) {
             try {
-                copyFreshRecordsToMergedFileUsingHintFile(fileId);
+                copyFreshRecordsToMergedFileUsingIndexFile(fileId);
             } catch (Exception e) {
                 logger.error("Error while compacting " + fileId, e);
             }
@@ -54,23 +57,23 @@ class CompactionJob {
     }
 
     // TODO: group and move adjacent fresh records together for performance.
-    private void copyFreshRecordsToMergedFileUsingHintFile(int idOfFileToMerge) throws IOException {
+    private void copyFreshRecordsToMergedFileUsingIndexFile(int idOfFileToMerge) throws IOException {
         //TODO: can I reuse read channel in the HaloDBFile, do I need to open another read channel
         //TODO: which performs better?
         //TODO: during transfer may be we can club together contiguous records?
         FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getReadChannel();
 
-        HintFile.HintFileIterator iterator = db.getHaloDBFile(idOfFileToMerge).getHintFile().newIterator();
+        IndexFile.IndexFileIterator iterator = db.getHaloDBFile(idOfFileToMerge).getIndexFile().newIterator();
 
         while (iterator.hasNext()) {
-            HintFileEntry hintFileEntry = iterator.next();
-            byte[] key = hintFileEntry.getKey();
-            long recordOffset = hintFileEntry.getRecordOffset();
-            int recordSize = hintFileEntry.getRecordSize();
+            IndexFileEntry indexFileEntry = iterator.next();
+            byte[] key = indexFileEntry.getKey();
+            long recordOffset = indexFileEntry.getRecordOffset();
+            int recordSize = indexFileEntry.getRecordSize();
 
             RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
-            if (isRecordFresh(hintFileEntry, currentRecordMetaData, idOfFileToMerge)) {
+            if (isRecordFresh(indexFileEntry, currentRecordMetaData, idOfFileToMerge)) {
                 compactionRateLimiter.acquire(recordSize);
 
                 // fresh record copy to merged file.
@@ -89,13 +92,13 @@ class CompactionJob {
                     unFlushedData = 0;
                 }
 
-                HintFileEntry newEntry = new HintFileEntry(key, recordSize, mergedFileOffset, hintFileEntry.getFlags());
-                mergedFile.getHintFile().write(newEntry);
+                IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, indexFileEntry.getFlags());
+                mergedFile.getIndexFile().write(newEntry);
 
                 RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,
                                                                 recordSize);
 
-                if (!hintFileEntry.isTombStone()) {
+                if (!indexFileEntry.isTombStone()) {
                     //TODO: if stale record, add the stale file map to remove later.
                     db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
                 }
@@ -106,7 +109,7 @@ class CompactionJob {
         db.deleteHaloDBFile(idOfFileToMerge);
     }
 
-    private boolean isRecordFresh(HintFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
+    private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
         return (metaData == null && entry.isTombStone()) ||
                 (metaData != null && metaData.fileId == idOfFileToMerge && metaData.offset == entry.getRecordOffset());
     }
@@ -153,8 +156,8 @@ class CompactionJob {
 
                 // fresh record copy to merged file.
                 readFrom.transferTo(fileToMergeOffset, recordSize, mergedFile.getWriteChannel());
-                HintFileEntry hintFileEntry = new HintFileEntry(key, recordSize, mergedFileOffset, flag);
-                mergedFile.getHintFile().write(hintFileEntry);
+                IndexFileEntry indexFileEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, flag);
+                mergedFile.getIndexFile().write(indexFileEntry);
 
                 RecordMetaDataForCache
                     newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset, recordSize);

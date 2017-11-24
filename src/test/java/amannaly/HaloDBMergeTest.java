@@ -7,11 +7,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * @author Arjun Mannaly
+ */
 public class HaloDBMergeTest {
 
     private final int recordSize = 1024;
@@ -49,16 +51,16 @@ public class HaloDBMergeTest {
         //2 merged data files of size 20K.
         Assert.assertEquals(map.get(20 * 1024l).size(), 2);
 
-        int sizeOfHintEntry = HintFileEntry.HINT_FILE_HEADER_SIZE + 8;
-        Map<Long, List<Path>> hintFileSizemap = Files.list(directory.toPath())
-            .filter(path -> HaloDBInternal.HINT_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
+        int sizeOfIndexEntry = IndexFileEntry.INDEX_FILE_HEADER_SIZE + 8;
+        Map<Long, List<Path>> indexFileSizemap = Files.list(directory.toPath())
+            .filter(path -> HaloDBInternal.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
             .collect(Collectors.groupingBy(path -> path.toFile().length()));
 
-        // 4 hint files of size 220 bytes.
-        Assert.assertEquals(hintFileSizemap.get(sizeOfHintEntry * 10l).size(), 4);
+        // 4 index files of size 220 bytes.
+        Assert.assertEquals(indexFileSizemap.get(sizeOfIndexEntry * 10l).size(), 4);
 
-        // 2 hint files of size 440 bytes.
-        Assert.assertEquals(hintFileSizemap.get(sizeOfHintEntry * 20l).size(), 2);
+        // 2 index files of size 440 bytes.
+        Assert.assertEquals(indexFileSizemap.get(sizeOfIndexEntry * 20l).size(), 2);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());

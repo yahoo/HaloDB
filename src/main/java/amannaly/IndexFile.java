@@ -9,7 +9,10 @@ import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Objects;
 
-public class HintFile {
+/**
+ * @author Arjun Mannaly
+ */
+public class IndexFile {
 
     private final int fileId;
     private final File dbDirectory;
@@ -20,16 +23,16 @@ public class HintFile {
 
     private long unFlushedData = 0;
 
-    private static final String nullMessage = "Hint file entry cannot be null";
+    private static final String nullMessage = "Index file entry cannot be null";
 
-    public HintFile(int fileId, File dbDirectory, HaloDBOptions options) {
+    public IndexFile(int fileId, File dbDirectory, HaloDBOptions options) {
         this.fileId = fileId;
         this.dbDirectory = dbDirectory;
         this.options = options;
     }
 
     public void open() throws IOException {
-        File file = getHintFile();
+        File file = getIndexFile();
         file.createNewFile();
 
         channel = new RandomAccessFile(file, "rw").getChannel();
@@ -45,10 +48,10 @@ public class HintFile {
         if (channel != null && channel.isOpen())
             channel.close();
 
-        getHintFile().delete();
+        getIndexFile().delete();
     }
 
-    public void write(HintFileEntry entry) throws IOException {
+    public void write(IndexFileEntry entry) throws IOException {
         Objects.requireNonNull(entry, nullMessage);
 
         ByteBuffer[] contents = entry.serialize();
@@ -72,21 +75,21 @@ public class HintFile {
 
     }
 
-    public HintFileIterator newIterator() throws IOException {
-        return new HintFileIterator();
+    public IndexFileIterator newIterator() throws IOException {
+        return new IndexFileIterator();
     }
 
-    private File getHintFile() {
-        return Paths.get(dbDirectory.getPath(), fileId + ".hint").toFile();
+    private File getIndexFile() {
+        return Paths.get(dbDirectory.getPath(), fileId + ".index").toFile();
     }
 
-    public class HintFileIterator implements Iterator<HintFileEntry> {
+    public class IndexFileIterator implements Iterator<IndexFileEntry> {
 
         private final ByteBuffer buffer;
 
-        //TODO: hint files are not that large, need to check the
+        //TODO: index files are not that large, need to check the
         // performance since we are memory mapping it.
-        public HintFileIterator() throws IOException {
+        public IndexFileIterator() throws IOException {
             buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
         }
 
@@ -96,9 +99,9 @@ public class HintFile {
         }
 
         @Override
-        public HintFileEntry next() {
+        public IndexFileEntry next() {
             if (hasNext()) {
-                return HintFileEntry.deserialize(buffer);
+                return IndexFileEntry.deserialize(buffer);
             }
 
             return null;

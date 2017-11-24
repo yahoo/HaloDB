@@ -70,7 +70,7 @@ class CompactionJob {
 
             RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
-            if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == recordOffset) {
+            if (isRecordFresh(hintFileEntry, currentRecordMetaData, idOfFileToMerge)) {
                 compactionRateLimiter.acquire(recordSize);
 
                 // fresh record copy to merged file.
@@ -95,12 +95,20 @@ class CompactionJob {
                 RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,
                                                                 recordSize);
 
-                //TODO: if stale record, add the stale file map to remove later.
-                db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
+                if (!hintFileEntry.isTombStone()) {
+                    //TODO: if stale record, add the stale file map to remove later.
+                    db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
+                }
+
                 mergedFileOffset += recordSize;
             }
         }
         db.deleteHaloDBFile(idOfFileToMerge);
+    }
+
+    private boolean isRecordFresh(HintFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
+        return (metaData == null && entry.isTombStone()) ||
+                (metaData != null && metaData.fileId == idOfFileToMerge && metaData.offset == entry.getRecordOffset());
     }
 
     private void copyFreshRecordsToMergedFile(int idOfFileToMerge) throws IOException {

@@ -26,14 +26,14 @@ class CompactionJob {
 
     private long unFlushedData = 0;
 
-    public CompactionJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
+    CompactionJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
         this.fileIdsToMerge = fileIdsToMerge;
         this.mergedFile = mergedFile;
         this.db = db;
         this.compactionRateLimiter = RateLimiter.create(db.options.compactionJobRate);
     }
 
-    public void run() {
+    void run() {
 
         long start = System.currentTimeMillis();
         logger.info("About to start a merge run. Merging {} to {}", fileIdsToMerge, mergedFile.fileId);

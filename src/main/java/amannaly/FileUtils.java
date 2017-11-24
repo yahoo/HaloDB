@@ -6,9 +6,9 @@ import java.io.IOException;
 /**
  * @author Arjun Mannaly
  */
-public class FileUtils {
+class FileUtils {
 
-    public static void createDirectory(File directory) throws IOException {
+    static void createDirectory(File directory) throws IOException {
         if (directory.exists()  && directory.isDirectory())
             return;
 

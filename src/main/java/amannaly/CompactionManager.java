@@ -9,7 +9,7 @@ import java.util.Set;
 /**
  * @author Arjun Mannaly
  */
-public class CompactionManager extends Thread {
+class CompactionManager extends Thread {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
 
     private  final HaloDBInternal dbInternal;
@@ -18,7 +18,7 @@ public class CompactionManager extends Thread {
 
     private final int intervalBetweenRunsInSeconds;
 
-    public CompactionManager(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
+    CompactionManager(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
         super("CompactionManager");
         this.dbInternal = dbInternal;
         this.intervalBetweenRunsInSeconds = intervalBetweenRunsInSeconds;
@@ -62,7 +62,7 @@ public class CompactionManager extends Thread {
         }
     }
 
-    public void stopThread() {
+    void stopThread() {
         isRunning = false;
     }
 }

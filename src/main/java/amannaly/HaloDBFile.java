@@ -14,14 +14,14 @@ import static amannaly.Record.HEADER_SIZE;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBFile {
+class HaloDBFile {
 
 	private FileChannel writeChannel;
 	private FileChannel readChannel;
 
 	private long writeOffset;
 
-	public long getWriteOffset() {
+	long getWriteOffset() {
 		return writeOffset;
 	}
 
@@ -44,7 +44,7 @@ public class HaloDBFile {
 		this.options = options;
 	}
 	
-	public Record read(long offset, int length) throws IOException {
+	Record read(long offset, int length) throws IOException {
 		Record record = readRecord(offset);
 		assert length == record.getRecordSize();
 
@@ -63,7 +63,7 @@ public class HaloDBFile {
 		return (int)(currentPosition - position);
 	}
 
-	public Record readRecord(long offset) throws IOException {
+	Record readRecord(long offset) throws IOException {
 		long tempOffset = offset;
 
 		// read the header from disk.
@@ -83,7 +83,7 @@ public class HaloDBFile {
 		return record;
 	}
 
-	public RecordMetaDataForCache writeRecord(Record record) throws IOException {
+	RecordMetaDataForCache writeRecord(Record record) throws IOException {
 
 		long start = System.nanoTime();
 		writeToChannel(record.serialize(), writeChannel);
@@ -125,19 +125,19 @@ public class HaloDBFile {
 		return backingFile.length();
 	}
 
-	public FileChannel getWriteChannel() {
+	FileChannel getWriteChannel() {
 		return writeChannel;
 	}
 
-	public IndexFile getIndexFile() {
+	IndexFile getIndexFile() {
 		return indexFile;
 	}
 
-	public FileChannel getReadChannel() {
+	FileChannel getReadChannel() {
 		return readChannel;
 	}
 
-	public static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
+	static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
 
 		int fileId = HaloDBFile.getFileTimeStamp(filename);
 		
@@ -175,11 +175,11 @@ public class HaloDBFile {
 		return new HaloDBFile(fileId, filename, indexFile, wch, rch, options);
 	}
 
-	public HaloDBFileIterator newIterator() throws IOException {
+	HaloDBFileIterator newIterator() throws IOException {
 		return new HaloDBFileIterator();
 	}
 
-	public synchronized void closeForWriting() throws IOException {
+	synchronized void closeForWriting() throws IOException {
 		if (writeChannel != null) {
 			writeChannel.close();
 			writeChannel = null;
@@ -193,7 +193,7 @@ public class HaloDBFile {
 		}
 	}
 
-	public synchronized void delete() throws IOException {
+	synchronized void delete() throws IOException {
 		close();
 		if (backingFile != null)
 			backingFile.delete();
@@ -206,7 +206,7 @@ public class HaloDBFile {
 		return Paths.get(haloDBDirectory.getPath(), fileId + ".data").toFile();
 	}
 
-	public static int getFileTimeStamp(File file) {
+	static int getFileTimeStamp(File file) {
 		Matcher matcher = HaloDBInternal.DATA_FILE_PATTERN.matcher(file.getName());
 		matcher.find();
 		String s = matcher.group(1);

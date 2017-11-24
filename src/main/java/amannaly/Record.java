@@ -6,7 +6,7 @@ import java.util.Arrays;
 /**
  * @author Arjun Mannaly
  */
-public class Record {
+class Record {
 
     //TODO: move to Header.
     public static final int KEY_SIZE_OFFSET = 0;
@@ -35,11 +35,11 @@ public class Record {
         header = new Header((short)key.length, value.length, (byte)0);
     }
 
-    public ByteBuffer[] serialize() {
+    ByteBuffer[] serialize() {
         return new ByteBuffer[] {header.serialize(), ByteBuffer.wrap(key), ByteBuffer.wrap(value)};
     }
 
-    public static Record deserialize(ByteBuffer buffer, short keySize, int valueSize) {
+    static Record deserialize(ByteBuffer buffer, short keySize, int valueSize) {
         buffer.flip();
 
         byte[] key = new byte[keySize];

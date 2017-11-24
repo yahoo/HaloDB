@@ -166,14 +166,14 @@ class HaloDBInternal {
         }
     }
 
-    public boolean areThereEnoughFilesToMerge() {
+    boolean areThereEnoughFilesToMerge() {
         //TODO: size() is not a constant time operation.
         //TODO: probably okay since number of files are usually
         //TODO: not too many.
         return filesToMerge.size() >= options.mergeThresholdFileNumber;
     }
 
-    public Set<Integer> getFilesToMerge() {
+    Set<Integer> getFilesToMerge() {
         Set<Integer> fileIds = new HashSet<>();
         Iterator<Integer> it = filesToMerge.iterator();
 
@@ -188,7 +188,7 @@ class HaloDBInternal {
         return fileIds;
     }
 
-    public void submitMergedFiles(Set<Integer> mergedFiles) {
+    void submitMergedFiles(Set<Integer> mergedFiles) {
         filesToMerge.removeAll(mergedFiles);
     }
 
@@ -225,13 +225,13 @@ class HaloDBInternal {
 
     //TODO: probably don't expose this?
     //TODO: current we need this for unit testing.
-    public final  static Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+).data");
-    public Set<Integer> listDataFileIds() {
+    final  static Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+).data");
+    Set<Integer> listDataFileIds() {
         return new HashSet<>(readFileMap.keySet());
     }
 
 
-    public static final Pattern INDEX_FILE_PATTERN = Pattern.compile("([0-9]+).index");
+    static final Pattern INDEX_FILE_PATTERN = Pattern.compile("([0-9]+).index");
     private List<Integer> listIndexFiles() {
 
         File[] files = dbDirectory.listFiles(new FileFilter() {
@@ -302,7 +302,7 @@ class HaloDBInternal {
         return readFileMap.get(fileId);
     }
 
-    public void deleteHaloDBFile(int fileId) throws IOException {
+    void deleteHaloDBFile(int fileId) throws IOException {
         HaloDBFile file = readFileMap.get(fileId);
 
         if (file != null) {

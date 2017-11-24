@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 /**
  * @author Arjun Mannaly
  */
-public class IndexFileEntry {
+class IndexFileEntry {
 
     /**
      * Key size      - 2 bytes.
@@ -27,7 +27,7 @@ public class IndexFileEntry {
     private final short keySize;
     private final byte flags;
 
-    public IndexFileEntry(byte[] key, int recordSize, long recordOffset, byte flags) {
+    IndexFileEntry(byte[] key, int recordSize, long recordOffset, byte flags) {
         this.key = key;
         this.recordSize = recordSize;
         this.recordOffset = recordOffset;
@@ -36,7 +36,7 @@ public class IndexFileEntry {
         this.keySize = (short)key.length;
     }
 
-    public ByteBuffer[] serialize() {
+    ByteBuffer[] serialize() {
         byte[] header = new byte[INDEX_FILE_HEADER_SIZE];
         ByteBuffer h = ByteBuffer.wrap(header);
 
@@ -48,7 +48,7 @@ public class IndexFileEntry {
         return new ByteBuffer[] { h, ByteBuffer.wrap(key) };
     }
 
-    public static IndexFileEntry deserialize(ByteBuffer buffer) {
+    static IndexFileEntry deserialize(ByteBuffer buffer) {
         short keySize = buffer.getShort();
         int recordSize = buffer.getInt();
         long offset = buffer.getLong();
@@ -68,18 +68,18 @@ public class IndexFileEntry {
         return recordSize;
     }
 
-    public long getRecordOffset() {
+    long getRecordOffset() {
         return recordOffset;
     }
 
-    public byte getFlags() {
+    byte getFlags() {
         return flags;
     }
 
     /**
      * tombstones will have the lsb of flags set to 1
      */
-    public boolean isTombStone() {
+    boolean isTombStone() {
         return (flags & 1) == 1;
     }
 }

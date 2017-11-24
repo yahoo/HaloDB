@@ -12,7 +12,7 @@ import java.util.Objects;
 /**
  * @author Arjun Mannaly
  */
-public class IndexFile {
+class IndexFile {
 
     private final int fileId;
     private final File dbDirectory;
@@ -25,7 +25,7 @@ public class IndexFile {
 
     private static final String nullMessage = "Index file entry cannot be null";
 
-    public IndexFile(int fileId, File dbDirectory, HaloDBOptions options) {
+    IndexFile(int fileId, File dbDirectory, HaloDBOptions options) {
         this.fileId = fileId;
         this.dbDirectory = dbDirectory;
         this.options = options;
@@ -44,14 +44,14 @@ public class IndexFile {
         }
     }
 
-    public void delete() throws IOException {
+    void delete() throws IOException {
         if (channel != null && channel.isOpen())
             channel.close();
 
         getIndexFile().delete();
     }
 
-    public void write(IndexFileEntry entry) throws IOException {
+    void write(IndexFileEntry entry) throws IOException {
         Objects.requireNonNull(entry, nullMessage);
 
         ByteBuffer[] contents = entry.serialize();
@@ -75,7 +75,7 @@ public class IndexFile {
 
     }
 
-    public IndexFileIterator newIterator() throws IOException {
+    IndexFileIterator newIterator() throws IOException {
         return new IndexFileIterator();
     }
 

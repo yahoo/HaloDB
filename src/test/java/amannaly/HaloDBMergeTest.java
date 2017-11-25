@@ -166,7 +166,7 @@ public class HaloDBMergeTest {
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {
-        int valueSize = recordSize - Record.HEADER_SIZE - 8; // 8 is the key size.
+        int valueSize = recordSize - Record.Header.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {
@@ -192,7 +192,7 @@ public class HaloDBMergeTest {
     }
 
     private Record[] insertAndUpdateRecordsToSameFile(int numberOfRecords, HaloDB db) throws IOException {
-        int valueSize = recordSize - Record.HEADER_SIZE - 8; // 8 is the key size.
+        int valueSize = recordSize - Record.Header.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {

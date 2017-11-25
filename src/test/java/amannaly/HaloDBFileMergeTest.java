@@ -31,7 +31,7 @@ public class HaloDBFileMergeTest {
 
         HaloDB db = HaloDB.open(directory, options);
 
-        byte[] data = new byte[recordSize - Record.HEADER_SIZE - 8 - 8];
+        byte[] data = new byte[recordSize - Record.Header.HEADER_SIZE - 8 - 8];
         for (int i = 0; i < data.length; i++) {
             data[i] = (byte)i;
         }

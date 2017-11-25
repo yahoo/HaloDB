@@ -9,7 +9,7 @@ import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.regex.Matcher;
 
-import static amannaly.Record.HEADER_SIZE;
+import static amannaly.Record.Header.HEADER_SIZE;
 
 /**
  * @author Arjun Mannaly
@@ -92,7 +92,7 @@ class HaloDBFile {
 		long recordOffset = writeOffset;
 		writeOffset += recordSize;
 
-		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getFlags());
+		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), record.getFlags());
 		indexFile.write(indexFileEntry);
 
 		HaloDB.recordWriteLatency(System.nanoTime() - start);

@@ -92,7 +92,7 @@ class CompactionJob {
                     unFlushedData = 0;
                 }
 
-                IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, indexFileEntry.getFlags());
+                IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, indexFileEntry.getSequenceNumber(), indexFileEntry.getFlags());
                 mergedFile.getIndexFile().write(newEntry);
 
                 RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,
@@ -124,7 +124,7 @@ class CompactionJob {
         long fileToMergeSize = readFrom.size();
         long fileToMergeOffset = 0;
 
-        ByteBuffer header = ByteBuffer.allocate(Record.HEADER_SIZE);
+        ByteBuffer header = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
 
         while (fileToMergeOffset < fileToMergeSize) {
             long temp = fileToMergeOffset;
@@ -132,14 +132,15 @@ class CompactionJob {
             // read header from file.
             header.clear();
             int readSize = readFrom.read(header, temp);
-            assert readSize == Record.HEADER_SIZE;
+            assert readSize == Record.Header.HEADER_SIZE;
             temp += readSize;
 
             // read key size and value size from header.
-            int keySize = header.getShort(Record.KEY_SIZE_OFFSET);
-            int valueSize = header.getInt(Record.VALUE_SIZE_OFFSET);
-            byte flag = header.get(Record.FLAGS_OFFSET);
-            int recordSize = Record.HEADER_SIZE + keySize + valueSize;
+            int keySize = header.getShort(Record.Header.KEY_SIZE_OFFSET);
+            int valueSize = header.getInt(Record.Header.VALUE_SIZE_OFFSET);
+            byte flag = header.get(Record.Header.FLAGS_OFFSET);
+            long sequenceNumber = header.get(Record.Header.SEQUENCE_NUMBER_OFFSET);
+            int recordSize = Record.Header.HEADER_SIZE + keySize + valueSize;
 
             // read key from file.
             ByteBuffer keyBuff = ByteBuffer.allocate(keySize);
@@ -156,7 +157,7 @@ class CompactionJob {
 
                 // fresh record copy to merged file.
                 readFrom.transferTo(fileToMergeOffset, recordSize, mergedFile.getWriteChannel());
-                IndexFileEntry indexFileEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, flag);
+                IndexFileEntry indexFileEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, sequenceNumber, flag);
                 mergedFile.getIndexFile().write(indexFileEntry);
 
                 RecordMetaDataForCache

@@ -1,6 +1,12 @@
 package amannaly;
 
+import amannaly.cache.ByteArraySerializer;
+import amannaly.cache.RecordMetaDataSerializer;
+import amannaly.cache.SequenceNumberSerializer;
 import org.HdrHistogram.Histogram;
+import org.caffinitas.ohc.Eviction;
+import org.caffinitas.ohc.OHCache;
+import org.caffinitas.ohc.OHCacheBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +45,6 @@ class HaloDBInternal {
 
     HaloDBOptions options;
 
-
-
     private KeyCache keyCache;
 
     private final Map<Integer, Integer> staleDataPerFileMap = new ConcurrentHashMap<>();
@@ -60,7 +64,7 @@ class HaloDBInternal {
 
         result.keyCache = new OffHeapCache(options.numberOfRecords);
         result.buildReadFileMap();
-        result.buildKeyCache();
+        result.buildKeyCache(options);
 
         result.dbDirectory = directory;
         result.options = options;
@@ -100,6 +104,7 @@ class HaloDBInternal {
 
     void put(byte[] key, byte[] value) throws IOException {
         Record record = new Record(key, value);
+        record.setSequenceNumber(getNextSequenceNumber());
         RecordMetaDataForCache entry = writeRecordToFile(record);
 
         updateStaleDataMap(key);
@@ -121,8 +126,13 @@ class HaloDBInternal {
     }
 
     void delete(byte[] key) throws IOException {
+        if (!keyCache.containsKey(key)) {
+            return;
+        }
+
         Record record = new Record(key, Record.TOMBSTONE_VALUE);
         record.markAsTombStone();
+        record.setSequenceNumber(getNextSequenceNumber());
         writeRecordToFile(record);
 
         updateStaleDataMap(key);
@@ -140,7 +150,7 @@ class HaloDBInternal {
     }
 
     private void rollOverCurrentWriteFile(Record record) throws IOException {
-        int size = record.getKey().length + record.getValue().length + Record.HEADER_SIZE;
+        int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
             if (currentWriteFile != null) {
@@ -255,12 +265,22 @@ class HaloDBInternal {
             .collect(Collectors.toList());
     }
 
-    void buildKeyCache() throws IOException {
+    private void buildKeyCache(HaloDBOptions options) throws IOException {
         List<Integer> fileIds = listIndexFiles();
 
         logger.info("About to scan {} key files to construct cache\n", fileIds.size());
 
         long start = System.currentTimeMillis();
+
+        OHCache<byte[], Long> sequenceNumberCache = OHCacheBuilder.<byte[], Long>newBuilder()
+                .keySerializer(new ByteArraySerializer())
+                .valueSerializer(new SequenceNumberSerializer())
+                .capacity(100l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
+                .segmentCount(1)
+                .hashTableSize(options.numberOfRecords)  // recordSize per segment.
+                .eviction(Eviction.NONE)
+                .loadFactor(1)   // to make sure that we don't rehash.
+                .build();
 
         for (int fileId : fileIds) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
@@ -272,26 +292,42 @@ class HaloDBInternal {
                 byte[] key = indexFileEntry.getKey();
                 long recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
+                long sequenceNumber = indexFileEntry.getSequenceNumber();
 
                 RecordMetaDataForCache existing = keyCache.get(key);
+                Long existingSequenceNumber = sequenceNumberCache.get(key);
 
-                if (existing == null && !indexFileEntry.isTombStone()) {
-                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
-                }
-                else if (existing != null) {
+                if (existing != null &&  existingSequenceNumber != null && sequenceNumber > existingSequenceNumber) {
+                    // an entry already exists in the key cache but its sequenceNumber is less than
+                    // the one in the current index file, therefore we need to replace the entry
+                    // in the key cache.
+
                     if (indexFileEntry.isTombStone()) {
                         keyCache.remove(key);
+                        sequenceNumberCache.put(key, sequenceNumber);
                     }
                     else {
                         keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
+                        sequenceNumberCache.put(key, sequenceNumber);
                     }
                     staleDataPerFileMap.merge(existing.fileId, existing.recordSize, (oldValue, newValue) -> oldValue + newValue);
+                }
+                else if (existing == null && !indexFileEntry.isTombStone()) {
+                    // there is  no entry in the key cache and the current index file entry is not a tombstone.
+                    // therefore, if sequence number of the index file entry is greater than the current one
+                    // in the sequenceNumber cache, we add the index file entry into the key cache.
+
+                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
+                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
+                        sequenceNumberCache.put(key, sequenceNumber);
+                    }
                 }
             }
 
             indexFile.close();
         }
 
+        sequenceNumberCache.close();
 
         long time = (System.currentTimeMillis() - start)/1000;
 
@@ -360,5 +396,9 @@ class HaloDBInternal {
 
     boolean isMergeComplete() {
         return filesToMerge.isEmpty();
+    }
+
+    long getNextSequenceNumber() {
+        return System.nanoTime();
     }
 }

@@ -8,18 +8,6 @@ import java.util.Arrays;
  */
 class Record {
 
-    //TODO: move to Header.
-    public static final int KEY_SIZE_OFFSET = 0;
-    public static final int VALUE_SIZE_OFFSET = 2;
-    public static final int FLAGS_OFFSET = 6;
-
-    /**
-     * key size     - 2 bytes.
-     * value size   - 4 bytes.
-     * flags         - 1 byte.
-     */
-    public static final int HEADER_SIZE = 7;
-
     private final byte[] key, value;
 
     public static final byte[] TOMBSTONE_VALUE = new byte[0];
@@ -32,7 +20,7 @@ class Record {
         this.key = key;
         this.value = value;
 
-        header = new Header((short)key.length, value.length, (byte)0);
+        header = new Header((short)key.length, value.length, -1, (byte)0);
     }
 
     ByteBuffer[] serialize() {
@@ -84,6 +72,14 @@ class Record {
         return header.isTombStone();
     }
 
+    void setSequenceNumber(long sequenceNumber) {
+        header.sequenceNumber = sequenceNumber;
+    }
+
+    long getSequenceNumber() {
+        return header.getSequenceNumber();
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) {
@@ -109,15 +105,32 @@ class Record {
 
 
     public static class Header {
+
+
+        /**
+         * key size         - 2 bytes.
+         * value size       - 4 bytes.
+         * sequence number  - 8 bytes.
+         * flags            - 1 byte.
+         */
+        static final int KEY_SIZE_OFFSET = 0;
+        static final int VALUE_SIZE_OFFSET = 2;
+        static final int SEQUENCE_NUMBER_OFFSET = 6;
+        static final int FLAGS_OFFSET = 14;
+
+        public static final int HEADER_SIZE = 15;
+
         private short keySize;
         private int valueSize;
+        private long sequenceNumber;
         private byte flags;
 
         private int recordSize;
 
-        public Header(short keySize, int valueSize, byte flags) {
+        public Header(short keySize, int valueSize, long sequenceNumber, byte flags) {
             this.keySize = keySize;
             this.valueSize = valueSize;
+            this.sequenceNumber = sequenceNumber;
             this.flags = flags;
 
             recordSize = keySize + valueSize + HEADER_SIZE;
@@ -127,9 +140,10 @@ class Record {
 
             short keySize = buffer.getShort(KEY_SIZE_OFFSET);
             int valueSize = buffer.getInt(VALUE_SIZE_OFFSET);
+            long sequenceNumber = buffer.getLong(SEQUENCE_NUMBER_OFFSET);
             byte flags = buffer.get(FLAGS_OFFSET);
 
-            return new Header(keySize, valueSize, flags);
+            return new Header(keySize, valueSize, sequenceNumber, flags);
         }
 
         public ByteBuffer serialize() {
@@ -138,6 +152,7 @@ class Record {
             ByteBuffer headerBuffer = ByteBuffer.wrap(header);
             headerBuffer.putShort(KEY_SIZE_OFFSET, keySize);
             headerBuffer.putInt(VALUE_SIZE_OFFSET, valueSize);
+            headerBuffer.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
             headerBuffer.put(FLAGS_OFFSET, flags);
 
             return headerBuffer;
@@ -170,6 +185,10 @@ class Record {
 
         public int getRecordSize() {
             return recordSize;
+        }
+
+        public long getSequenceNumber() {
+            return sequenceNumber;
         }
     }
 }

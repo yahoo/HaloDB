@@ -1,7 +1,6 @@
 package amannaly;
 
 import amannaly.cache.ByteArraySerializer;
-import amannaly.cache.RecordMetaDataSerializer;
 import amannaly.cache.SequenceNumberSerializer;
 import org.HdrHistogram.Histogram;
 import org.caffinitas.ohc.Eviction;
@@ -272,14 +271,17 @@ class HaloDBInternal {
 
         long start = System.currentTimeMillis();
 
+        // sequence number is needed only when we initially build the key cache
+        // therefore, to reduce key cache's memory footprint we keep sequence numbers
+        // in a separate cache which is dropped once key cache is constructed.
         OHCache<byte[], Long> sequenceNumberCache = OHCacheBuilder.<byte[], Long>newBuilder()
                 .keySerializer(new ByteArraySerializer())
                 .valueSerializer(new SequenceNumberSerializer())
-                .capacity(100l * 1024 * 1024 * 1024) // doesn't look like this is being used. probably needed for chunked.
+                .capacity(100l * 1024 * 1024 * 1024)
                 .segmentCount(1)
-                .hashTableSize(options.numberOfRecords)  // recordSize per segment.
+                .hashTableSize(options.numberOfRecords)
                 .eviction(Eviction.NONE)
-                .loadFactor(1)   // to make sure that we don't rehash.
+                .loadFactor(1)
                 .build();
 
         for (int fileId : fileIds) {

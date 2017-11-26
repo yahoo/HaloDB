@@ -158,59 +158,58 @@ public class HaloDBDeletionTest extends TestBase {
         }
     }
 
-    //TODO: enable after implementing sequence numbers.
-//    @Test
-//    public void testDeleteAndMerge() throws Exception {
-//        String directory = "/tmp/HaloDBDeletionTest/testDeleteAndMerge";
-//        HaloDBOptions options = new HaloDBOptions();
-//        options.mergeJobIntervalInSeconds = 1;
-//        options.maxFileSize = 10 * 1024;
-//        options.mergeThresholdFileNumber = 1;
-//        options.mergeThresholdPerFile = 0.10;
-//
-//        HaloDB db = testDB.getTestDB(directory, options);
-//
-//        int noOfRecords = 10_000;
-//        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
-//
-//        // delete records
-//        Random random = new Random();
-//        Set<Integer> deleted = new HashSet<>();
-//        List<byte[]> newRecords = new ArrayList<>();
-//        for (int i = 0; i < 1000; i++) {
-//            int index = random.nextInt(records.size());
-//            db.delete(records.get(index).getKey());
-//            deleted.add(index);
-//
-//            // also throw in some new records into to mix.
-//            // size is 40 so that we create keys distinct from
-//            // what we used before.
-//            byte[] key = TestUtils.generateRandomByteArray(40);
-//            db.put(key, TestUtils.generateRandomByteArray());
-//            newRecords.add(key);
-//        }
-//
-//        // update the new records to make sure the the files containing tombstones
-//        // will be compacted.
-//        for (byte[] key : newRecords) {
-//            db.put(key, TestUtils.generateRandomByteArray());
-//        }
-//
-//        TestUtils.waitForMergeToComplete(db);
-//
-//        db.close();
-//
-//        db = testDB.getTestDBWithoutDeletingFiles(directory, options);
-//
-//        for (int i = 0; i < records.size(); i++) {
-//            byte[] actual = db.get(records.get(i).getKey());
-//
-//            if (deleted.contains(i)) {
-//                Assert.assertNull(actual);
-//            }
-//            else {
-//                Assert.assertArrayEquals(records.get(i).getValue(), actual);
-//            }
-//        }
-//    }
+    @Test
+    public void testDeleteAndMerge() throws Exception {
+        String directory = "/tmp/HaloDBDeletionTest/testDeleteAndMerge";
+        HaloDBOptions options = new HaloDBOptions();
+        options.mergeJobIntervalInSeconds = 1;
+        options.maxFileSize = 10 * 1024;
+        options.mergeThresholdFileNumber = 1;
+        options.mergeThresholdPerFile = 0.10;
+
+        HaloDB db = testDB.getTestDB(directory, options);
+
+        int noOfRecords = 10_000;
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
+
+        // delete records
+        Random random = new Random();
+        Set<Integer> deleted = new HashSet<>();
+        List<byte[]> newRecords = new ArrayList<>();
+        for (int i = 0; i < 1000; i++) {
+            int index = random.nextInt(records.size());
+            db.delete(records.get(index).getKey());
+            deleted.add(index);
+
+            // also throw in some new records into to mix.
+            // size is 40 so that we create keys distinct from
+            // what we used before.
+            byte[] key = TestUtils.generateRandomByteArray(40);
+            db.put(key, TestUtils.generateRandomByteArray());
+            newRecords.add(key);
+        }
+
+        // update the new records to make sure the the files containing tombstones
+        // will be compacted.
+        for (byte[] key : newRecords) {
+            db.put(key, TestUtils.generateRandomByteArray());
+        }
+
+        TestUtils.waitForMergeToComplete(db);
+
+        db.close();
+
+        db = testDB.getTestDBWithoutDeletingFiles(directory, options);
+
+        for (int i = 0; i < records.size(); i++) {
+            byte[] actual = db.get(records.get(i).getKey());
+
+            if (deleted.contains(i)) {
+                Assert.assertNull(actual);
+            }
+            else {
+                Assert.assertArrayEquals(records.get(i).getValue(), actual);
+            }
+        }
+    }
 }

@@ -324,6 +324,16 @@ class HaloDBInternal {
                         sequenceNumberCache.put(key, sequenceNumber);
                     }
                 }
+                else if (existing == null && indexFileEntry.isTombStone()) {
+                    // tombstone entry and there is no record for the key in the key cache.
+                    // we don't need to update the key cache, but we might need to update
+                    // the sequence number in the sequence cache because a compaction job
+                    // might have moved an older version of the record to a newer file.
+
+                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
+                        sequenceNumberCache.put(key, sequenceNumber);
+                    }
+                }
             }
 
             indexFile.close();

@@ -16,6 +16,8 @@ import java.util.Set;
  */
 public class HaloDBIteratorTest {
 
+    //TODO: test with delete operation.
+
     @Test
     public void testPutAndGetDB() throws IOException {
         File directory = new File("/tmp/HaloDBIteratorTest/testPutAndGetDB");

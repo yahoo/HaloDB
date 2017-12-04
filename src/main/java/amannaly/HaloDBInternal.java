@@ -274,12 +274,13 @@ class HaloDBInternal {
         // sequence number is needed only when we initially build the key cache
         // therefore, to reduce key cache's memory footprint we keep sequence numbers
         // in a separate cache which is dropped once key cache is constructed.
+        int segmentCount = Runtime.getRuntime().availableProcessors() * 2;
         OHCache<byte[], Long> sequenceNumberCache = OHCacheBuilder.<byte[], Long>newBuilder()
                 .keySerializer(new ByteArraySerializer())
                 .valueSerializer(new SequenceNumberSerializer())
-                .capacity(100l * 1024 * 1024 * 1024)
-                .segmentCount(1)
-                .hashTableSize(options.numberOfRecords)
+                .capacity(Long.MAX_VALUE)
+                .segmentCount(segmentCount)
+                .hashTableSize(options.numberOfRecords/segmentCount)
                 .eviction(Eviction.NONE)
                 .loadFactor(1)
                 .build();

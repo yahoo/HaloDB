@@ -40,7 +40,7 @@ public class OffHeapCache implements KeyCache {
         OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
             .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
-            .capacity(100l * 1024 * 1024 * 1024)
+            .capacity(Long.MAX_VALUE)
             .segmentCount(noOfSegments)
             .hashTableSize(hashTableSize)  // recordSize per segment.
             .eviction(Eviction.NONE)

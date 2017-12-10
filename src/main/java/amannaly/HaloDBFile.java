@@ -157,6 +157,7 @@ class HaloDBFile {
 			filename = getDataFile(haloDBDirectory, fileId);
 			created = filename.createNewFile();
 			if (!created) {
+			    // another thread created a file with the same id, try another id.
 				fileId += 1;
 			}
 		}

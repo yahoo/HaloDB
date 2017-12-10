@@ -65,9 +65,7 @@ class HaloDBInternal {
         result.buildReadFileMap();
         result.buildKeyCache(options);
 
-        result.dbDirectory = directory;
         result.options = options;
-
         result.currentWriteFile = result.createHaloDBFile();
 
         result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
@@ -86,8 +84,6 @@ class HaloDBInternal {
     void close() throws IOException {
 
         compactionManager.stopThread();
-
-        // release?
         keyCache.close();
 
         for (HaloDBFile file : readFileMap.values()) {
@@ -117,6 +113,8 @@ class HaloDBInternal {
             return null;
         }
 
+        //TODO: there is a potential race condition here as the merge
+        // thread could have deleted the file.
         HaloDBFile readFile = readFileMap.get(metaData.fileId);
         if (readFile == null) {
             throw new IllegalArgumentException("no file for " + metaData.fileId);
@@ -264,6 +262,7 @@ class HaloDBInternal {
             .collect(Collectors.toList());
     }
 
+    //TODO: this probably needs to be moved to another location.
     private void buildKeyCache(HaloDBOptions options) throws IOException {
         List<Integer> fileIds = listIndexFiles();
 

@@ -1,8 +1,7 @@
 package amannaly.cache;
 
 import amannaly.RecordMetaDataForCache;
-
-import org.caffinitas.ohc.CacheSerializer;
+import amannaly.ohc.CacheSerializer;
 
 import java.nio.ByteBuffer;
 
@@ -27,6 +26,8 @@ public class RecordMetaDataSerializer implements CacheSerializer<RecordMetaDataF
     }
 
     public int serializedSize(RecordMetaDataForCache recordMetaData) {
-        return 4 + 8 + 4;
+        return SERIALIZED_SIZE;
     }
+
+    static final int SERIALIZED_SIZE = 4 + 8 + 8;
 }

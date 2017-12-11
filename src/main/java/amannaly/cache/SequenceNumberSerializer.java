@@ -1,6 +1,6 @@
 package amannaly.cache;
 
-import org.caffinitas.ohc.CacheSerializer;
+import amannaly.ohc.CacheSerializer;
 
 import java.nio.ByteBuffer;
 

@@ -1,10 +1,12 @@
 package amannaly.cache;
 
+import amannaly.KeyCache;
+import amannaly.RecordMetaDataForCache;
+import amannaly.Utils;
+import amannaly.ohc.Eviction;
+import amannaly.ohc.OHCache;
+import amannaly.ohc.OHCacheBuilder;
 import org.HdrHistogram.Histogram;
-import org.caffinitas.ohc.Eviction;
-import org.caffinitas.ohc.OHCache;
-import org.caffinitas.ohc.OHCacheBuilder;
-import org.caffinitas.ohc.OHCacheStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,10 +14,6 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
-
-import amannaly.KeyCache;
-import amannaly.RecordMetaDataForCache;
-import amannaly.Utils;
 
 /**
  * @author Arjun Mannaly
@@ -44,6 +42,7 @@ public class OffHeapCache implements KeyCache {
             .segmentCount(noOfSegments)
             .hashTableSize(hashTableSize)  // recordSize per segment.
             .eviction(Eviction.NONE)
+            .fixedValueSize(RecordMetaDataSerializer.SERIALIZED_SIZE)
             .loadFactor(1)   // to make sure that we don't rehash.
             .build();
 

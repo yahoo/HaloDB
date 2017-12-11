@@ -1,31 +1,24 @@
 package amannaly;
 
 import amannaly.cache.ByteArraySerializer;
+import amannaly.cache.OffHeapCache;
 import amannaly.cache.SequenceNumberSerializer;
+import amannaly.ohc.Eviction;
+import amannaly.ohc.OHCache;
+import amannaly.ohc.OHCacheBuilder;
 import org.HdrHistogram.Histogram;
-import org.caffinitas.ohc.Eviction;
-import org.caffinitas.ohc.OHCache;
-import org.caffinitas.ohc.OHCacheBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import amannaly.cache.OffHeapCache;
 
 /**
  * @author Arjun Mannaly
@@ -117,7 +110,8 @@ class HaloDBInternal {
         // thread could have deleted the file.
         HaloDBFile readFile = readFileMap.get(metaData.fileId);
         if (readFile == null) {
-            throw new IllegalArgumentException("no file for " + metaData.fileId);
+            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.fileId);
+            return get(key);
         }
         return readFile.read(metaData.offset, metaData.recordSize).getValue();
     }
@@ -282,6 +276,7 @@ class HaloDBInternal {
                 .hashTableSize(options.numberOfRecords/segmentCount)
                 .eviction(Eviction.NONE)
                 .loadFactor(1)
+                .fixedValueSize(8)
                 .build();
 
         for (int fileId : fileIds) {

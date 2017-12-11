@@ -64,7 +64,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals(actual, r.getValue());
+            Assert.assertArrayEquals("key -> " + Utils.bytesToLong(r.getKey()), actual, r.getValue());
         }
 
         db.close();

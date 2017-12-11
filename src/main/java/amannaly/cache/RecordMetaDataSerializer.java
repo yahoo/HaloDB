@@ -29,5 +29,5 @@ public class RecordMetaDataSerializer implements CacheSerializer<RecordMetaDataF
         return SERIALIZED_SIZE;
     }
 
-    static final int SERIALIZED_SIZE = 4 + 8 + 8;
+    static final int SERIALIZED_SIZE = 4 + 8 + 4;
 }

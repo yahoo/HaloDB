@@ -6,6 +6,7 @@ import amannaly.cache.SequenceNumberSerializer;
 import amannaly.ohc.Eviction;
 import amannaly.ohc.OHCache;
 import amannaly.ohc.OHCacheBuilder;
+import com.google.common.primitives.Ints;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -267,13 +268,14 @@ class HaloDBInternal {
         // sequence number is needed only when we initially build the key cache
         // therefore, to reduce key cache's memory footprint we keep sequence numbers
         // in a separate cache which is dropped once key cache is constructed.
-        int segmentCount = Runtime.getRuntime().availableProcessors() * 2;
+        int noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
+        int hashTableSize = Ints.checkedCast(Utils.roundUpToPowerOf2(options.numberOfRecords / noOfSegments));
         OHCache<byte[], Long> sequenceNumberCache = OHCacheBuilder.<byte[], Long>newBuilder()
                 .keySerializer(new ByteArraySerializer())
                 .valueSerializer(new SequenceNumberSerializer())
                 .capacity(Long.MAX_VALUE)
-                .segmentCount(segmentCount)
-                .hashTableSize(options.numberOfRecords/segmentCount)
+                .segmentCount(noOfSegments)
+                .hashTableSize(hashTableSize)
                 .eviction(Eviction.NONE)
                 .loadFactor(1)
                 .fixedValueSize(8)

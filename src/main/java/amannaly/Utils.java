@@ -28,4 +28,8 @@ public class Utils {
 
         return longValue;
     }
+
+    public static long roundUpToPowerOf2(long number) {
+        return (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
+    }
 }

@@ -6,6 +6,7 @@ import amannaly.Utils;
 import amannaly.ohc.Eviction;
 import amannaly.ohc.OHCache;
 import amannaly.ohc.OHCacheBuilder;
+import com.google.common.primitives.Ints;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +32,8 @@ public class OffHeapCache implements KeyCache {
 
     private OHCache<byte[], RecordMetaDataForCache> initializeCache(int numberOfKeys) {
 
-        int noOfSegments = Runtime.getRuntime().availableProcessors() * 2;
-        int hashTableSize = numberOfKeys / noOfSegments;
+        int noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
+        int hashTableSize = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
 
         long start = System.currentTimeMillis();
         OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()

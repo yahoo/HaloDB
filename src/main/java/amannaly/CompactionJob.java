@@ -111,7 +111,7 @@ class CompactionJob {
 
     private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
         return (metaData == null && entry.isTombStone()) ||
-                (metaData != null && metaData.fileId == idOfFileToMerge && metaData.offset == entry.getRecordOffset());
+                (metaData != null && metaData.getFileId() == idOfFileToMerge && metaData.getOffset() == entry.getRecordOffset());
     }
 
     private void copyFreshRecordsToMergedFile(int idOfFileToMerge) throws IOException {
@@ -152,7 +152,7 @@ class CompactionJob {
 
             RecordMetaDataForCache currentRecordMetaData = db.getKeyCache().get(key);
 
-            if (currentRecordMetaData != null && currentRecordMetaData.fileId == idOfFileToMerge && currentRecordMetaData.offset == fileToMergeOffset) {
+            if (currentRecordMetaData != null && currentRecordMetaData.getFileId() == idOfFileToMerge && currentRecordMetaData.getOffset() == fileToMergeOffset) {
                 //System.out.printf("Key -> %d, current file %d\n", BitCaskDB.bytesToLong(key.toByteArray()), currentRecordMetaData.fileId);
 
                 // fresh record copy to merged file.

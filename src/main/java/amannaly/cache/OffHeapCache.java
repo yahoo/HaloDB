@@ -99,7 +99,7 @@ public class OffHeapCache implements KeyCache {
         Set<Long> set = new TreeSet<>();
         ohCache.keyIterator().forEachRemaining(key -> set.add(Utils.bytesToLong(key)));
         set.forEach(key -> System.out
-            .printf("%d -> %d\n", key, ohCache.get(Utils.longToBytes(key)).fileId));
+            .printf("%d -> %d\n", key, ohCache.get(Utils.longToBytes(key)).getFileId()));
     }
 
     @Override

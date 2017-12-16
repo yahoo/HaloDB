@@ -11,9 +11,9 @@ import java.nio.ByteBuffer;
 public class RecordMetaDataSerializer implements CacheSerializer<RecordMetaDataForCache> {
 
     public void serialize(RecordMetaDataForCache recordMetaData, ByteBuffer byteBuffer) {
-        byteBuffer.putInt(recordMetaData.fileId);
-        byteBuffer.putLong(recordMetaData.offset);
-        byteBuffer.putInt(recordMetaData.recordSize);
+        byteBuffer.putInt(recordMetaData.getFileId());
+        byteBuffer.putLong(recordMetaData.getOffset());
+        byteBuffer.putInt(recordMetaData.getRecordSize());
         byteBuffer.flip();
     }
 

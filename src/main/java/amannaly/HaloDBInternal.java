@@ -109,12 +109,12 @@ class HaloDBInternal {
 
         //TODO: there is a potential race condition here as the merge
         // thread could have deleted the file.
-        HaloDBFile readFile = readFileMap.get(metaData.fileId);
+        HaloDBFile readFile = readFileMap.get(metaData.getFileId());
         if (readFile == null) {
-            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.fileId);
+            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.getFileId());
             return get(key);
         }
-        return readFile.read(metaData.offset, metaData.recordSize).getValue();
+        return readFile.read(metaData.getOffset(), metaData.getRecordSize()).getValue();
     }
 
     void delete(byte[] key) throws IOException {
@@ -156,14 +156,14 @@ class HaloDBInternal {
     private void updateStaleDataMap(byte[] key) {
         RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
-            int stale = recordMetaData.recordSize;
-            long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.fileId, stale, (oldValue, newValue) -> oldValue + newValue);
+            int stale = recordMetaData.getRecordSize();
+            long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.getFileId(), stale, (oldValue, newValue) -> oldValue + newValue);
 
-            HaloDBFile file = readFileMap.get(recordMetaData.fileId);
+            HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
 
             if (currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
-                filesToMerge.add(recordMetaData.fileId);
-                staleDataPerFileMap.remove(recordMetaData.fileId);
+                filesToMerge.add(recordMetaData.getFileId());
+                staleDataPerFileMap.remove(recordMetaData.getFileId());
             }
         }
     }
@@ -309,7 +309,7 @@ class HaloDBInternal {
                         keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
                         sequenceNumberCache.put(key, sequenceNumber);
                     }
-                    staleDataPerFileMap.merge(existing.fileId, existing.recordSize, (oldValue, newValue) -> oldValue + newValue);
+                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
                 }
                 else if (existing == null && !indexFileEntry.isTombStone()) {
                     // there is  no entry in the key cache and the current index file entry is not a tombstone.
@@ -388,9 +388,9 @@ class HaloDBInternal {
         return
             metaData != null
             &&
-            metaData.fileId == record.getRecordMetaData().fileId
+            metaData.getFileId() == record.getRecordMetaData().getFileId()
             &&
-            metaData.offset == record.getRecordMetaData().offset;
+            metaData.getOffset() == record.getRecordMetaData().getOffset();
 
     }
 

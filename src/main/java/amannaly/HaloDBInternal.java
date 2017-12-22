@@ -265,22 +265,6 @@ class HaloDBInternal {
 
         long start = System.currentTimeMillis();
 
-        // sequence number is needed only when we initially build the key cache
-        // therefore, to reduce key cache's memory footprint we keep sequence numbers
-        // in a separate cache which is dropped once key cache is constructed.
-        int noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
-        int hashTableSize = Ints.checkedCast(Utils.roundUpToPowerOf2(options.numberOfRecords / noOfSegments));
-        OHCache<byte[], Long> sequenceNumberCache = OHCacheBuilder.<byte[], Long>newBuilder()
-                .keySerializer(new ByteArraySerializer())
-                .valueSerializer(new SequenceNumberSerializer())
-                .capacity(Long.MAX_VALUE)
-                .segmentCount(noOfSegments)
-                .hashTableSize(hashTableSize)
-                .eviction(Eviction.NONE)
-                .loadFactor(1)
-                .fixedValueSize(8)
-                .build();
-
         for (int fileId : fileIds) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
             indexFile.open();
@@ -293,50 +277,53 @@ class HaloDBInternal {
                 int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
 
-                RecordMetaDataForCache existing = keyCache.get(key);
-                Long existingSequenceNumber = sequenceNumberCache.get(key);
+                //RecordMetaDataForCache existing = keyCache.get(key);
 
-                if (existing != null &&  existingSequenceNumber != null && sequenceNumber > existingSequenceNumber) {
-                    // an entry already exists in the key cache but its sequenceNumber is less than
-                    // the one in the current index file, therefore we need to replace the entry
-                    // in the key cache.
+                keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
 
-                    if (indexFileEntry.isTombStone()) {
-                        keyCache.remove(key);
-                        sequenceNumberCache.put(key, sequenceNumber);
-                    }
-                    else {
-                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
-                        sequenceNumberCache.put(key, sequenceNumber);
-                    }
-                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
-                }
-                else if (existing == null && !indexFileEntry.isTombStone()) {
-                    // there is  no entry in the key cache and the current index file entry is not a tombstone.
-                    // therefore, if sequence number of the index file entry is greater than the current one
-                    // in the sequenceNumber cache, we add the index file entry into the key cache.
 
-                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
-                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
-                        sequenceNumberCache.put(key, sequenceNumber);
-                    }
-                }
-                else if (existing == null && indexFileEntry.isTombStone()) {
-                    // tombstone entry and there is no record for the key in the key cache.
-                    // we don't need to update the key cache, but we might need to update
-                    // the sequence number in the sequence cache because a compaction job
-                    // might have moved an older version of the record to a newer file.
 
-                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
-                        sequenceNumberCache.put(key, sequenceNumber);
-                    }
-                }
+//                Long existingSequenceNumber = sequenceNumberCache.get(key);
+//
+//                if (existing != null &&  existingSequenceNumber != null && sequenceNumber > existingSequenceNumber) {
+//                    // an entry already exists in the key cache but its sequenceNumber is less than
+//                    // the one in the current index file, therefore we need to replace the entry
+//                    // in the key cache.
+//
+//                    if (indexFileEntry.isTombStone()) {
+//                        keyCache.remove(key);
+//                        sequenceNumberCache.put(key, sequenceNumber);
+//                    }
+//                    else {
+//                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
+//                        sequenceNumberCache.put(key, sequenceNumber);
+//                    }
+//                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
+//                }
+//                else if (existing == null && !indexFileEntry.isTombStone()) {
+//                    // there is  no entry in the key cache and the current index file entry is not a tombstone.
+//                    // therefore, if sequence number of the index file entry is greater than the current one
+//                    // in the sequenceNumber cache, we add the index file entry into the key cache.
+//
+//                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
+//                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
+//                        sequenceNumberCache.put(key, sequenceNumber);
+//                    }
+//                }
+//                else if (existing == null && indexFileEntry.isTombStone()) {
+//                    // tombstone entry and there is no record for the key in the key cache.
+//                    // we don't need to update the key cache, but we might need to update
+//                    // the sequence number in the sequence cache because a compaction job
+//                    // might have moved an older version of the record to a newer file.
+//
+//                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
+//                        sequenceNumberCache.put(key, sequenceNumber);
+//                    }
+//                }
             }
 
             indexFile.close();
         }
-
-        sequenceNumberCache.close();
 
         long time = (System.currentTimeMillis() - start)/1000;
 

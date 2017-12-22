@@ -95,8 +95,7 @@ class CompactionJob {
                 IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, indexFileEntry.getSequenceNumber(), indexFileEntry.getFlags());
                 mergedFile.getIndexFile().write(newEntry);
 
-                RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset,
-                                                                recordSize);
+                RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset, recordSize, indexFileEntry.getSequenceNumber());
 
                 if (!indexFileEntry.isTombStone()) {
                     //TODO: if stale record, add the stale file map to remove later.
@@ -161,7 +160,7 @@ class CompactionJob {
                 mergedFile.getIndexFile().write(indexFileEntry);
 
                 RecordMetaDataForCache
-                    newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset, recordSize);
+                    newMetaData = new RecordMetaDataForCache(mergedFile.fileId, mergedFileOffset, recordSize, indexFileEntry.getSequenceNumber());
 
                 db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
                 mergedFileOffset += recordSize;

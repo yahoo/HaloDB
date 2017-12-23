@@ -1,12 +1,6 @@
 package amannaly;
 
-import amannaly.cache.ByteArraySerializer;
 import amannaly.cache.OffHeapCache;
-import amannaly.cache.SequenceNumberSerializer;
-import amannaly.ohc.Eviction;
-import amannaly.ohc.OHCache;
-import amannaly.ohc.OHCacheBuilder;
-import com.google.common.primitives.Ints;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +27,8 @@ class HaloDBInternal {
     private File dbDirectory;
 
     private volatile HaloDBFile currentWriteFile;
+
+    private TombstoneFile tombstoneFile;
 
     private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
@@ -65,6 +61,8 @@ class HaloDBInternal {
         result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
         result.compactionManager.start();
 
+        result.tombstoneFile = TombstoneFile.create(directory, options);
+
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isMergeDisabled - {}", options.isMergeDisabled);
         logger.info("maxFileSize - {}", options.maxFileSize);
@@ -78,6 +76,8 @@ class HaloDBInternal {
     void close() throws IOException {
 
         compactionManager.stopThread();
+
+        //TODO: make this optional as it will take time.
         keyCache.close();
 
         for (HaloDBFile file : readFileMap.values()) {
@@ -88,6 +88,9 @@ class HaloDBInternal {
 
         if (currentWriteFile != null) {
             currentWriteFile.close();
+        }
+        if (tombstoneFile != null) {
+            tombstoneFile.close();
         }
     }
 
@@ -118,18 +121,12 @@ class HaloDBInternal {
     }
 
     void delete(byte[] key) throws IOException {
-        if (!keyCache.containsKey(key)) {
-            return;
+        if (keyCache.remove(key)) {
+            TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber());
+            rollOverCurrentTombstoneFile(entry);
+            tombstoneFile.write(entry);
+            updateStaleDataMap(key);
         }
-
-        Record record = new Record(key, Record.TOMBSTONE_VALUE);
-        record.markAsTombStone();
-        record.setSequenceNumber(getNextSequenceNumber());
-        writeRecordToFile(record);
-
-        updateStaleDataMap(key);
-
-        keyCache.remove(key);
     }
 
     long size() {
@@ -150,6 +147,18 @@ class HaloDBInternal {
             }
 
             currentWriteFile = createHaloDBFile();
+        }
+    }
+
+    private void rollOverCurrentTombstoneFile(TombstoneEntry entry) throws IOException {
+        int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
+
+        if (tombstoneFile == null ||  tombstoneFile.getWriteOffset() + size > options.maxFileSize) {
+            if (tombstoneFile != null) {
+                tombstoneFile.close();
+            }
+
+            tombstoneFile = TombstoneFile.create(dbDirectory, options);
         }
     }
 
@@ -200,7 +209,7 @@ class HaloDBInternal {
     }
 
     HaloDBFile createHaloDBFile() throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory, generateFileId(), options);
+        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options);
         readFileMap.put(file.fileId, file);
         return file;
     }
@@ -209,7 +218,7 @@ class HaloDBInternal {
         File[] files = dbDirectory.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
-                return DATA_FILE_PATTERN.matcher(file.getName()).matches();
+                return Constants.DATA_FILE_PATTERN.matcher(file.getName()).matches();
             }
         });
 
@@ -227,19 +236,16 @@ class HaloDBInternal {
 
     //TODO: probably don't expose this?
     //TODO: current we need this for unit testing.
-    final  static Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+).data");
     Set<Integer> listDataFileIds() {
         return new HashSet<>(readFileMap.keySet());
     }
 
-
-    static final Pattern INDEX_FILE_PATTERN = Pattern.compile("([0-9]+).index");
     private List<Integer> listIndexFiles() {
 
         File[] files = dbDirectory.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
-                return INDEX_FILE_PATTERN.matcher(file.getName()).matches();
+                return Constants.INDEX_FILE_PATTERN.matcher(file.getName()).matches();
             }
         });
 
@@ -248,7 +254,7 @@ class HaloDBInternal {
         return
         Arrays.stream(files)
             .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
-            .map(file -> INDEX_FILE_PATTERN.matcher(file.getName()))
+            .map(file -> Constants.INDEX_FILE_PATTERN.matcher(file.getName()))
             .map(matcher -> {
                 matcher.find();
                 return matcher.group(1);
@@ -257,72 +263,78 @@ class HaloDBInternal {
             .collect(Collectors.toList());
     }
 
+    private File[] listTombstoneFiles() {
+        File[] files = dbDirectory.listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                return Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches();
+            }
+        });
+
+        return files;
+    }
+
+
     //TODO: this probably needs to be moved to another location.
     private void buildKeyCache(HaloDBOptions options) throws IOException {
-        List<Integer> fileIds = listIndexFiles();
+        List<Integer> indexFiles = listIndexFiles();
 
-        logger.info("About to scan {} key files to construct cache\n", fileIds.size());
+        logger.info("About to scan {} index files to construct cache ...", indexFiles.size());
 
         long start = System.currentTimeMillis();
 
-        for (int fileId : fileIds) {
+        for (int fileId : indexFiles) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
+            int count = 0, inserted = 0;
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
                 byte[] key = indexFileEntry.getKey();
                 long recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
+                count++;
 
-                //RecordMetaDataForCache existing = keyCache.get(key);
+                RecordMetaDataForCache existing = keyCache.get(key);
 
-                keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
-
-
-
-//                Long existingSequenceNumber = sequenceNumberCache.get(key);
-//
-//                if (existing != null &&  existingSequenceNumber != null && sequenceNumber > existingSequenceNumber) {
-//                    // an entry already exists in the key cache but its sequenceNumber is less than
-//                    // the one in the current index file, therefore we need to replace the entry
-//                    // in the key cache.
-//
-//                    if (indexFileEntry.isTombStone()) {
-//                        keyCache.remove(key);
-//                        sequenceNumberCache.put(key, sequenceNumber);
-//                    }
-//                    else {
-//                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
-//                        sequenceNumberCache.put(key, sequenceNumber);
-//                    }
-//                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
-//                }
-//                else if (existing == null && !indexFileEntry.isTombStone()) {
-//                    // there is  no entry in the key cache and the current index file entry is not a tombstone.
-//                    // therefore, if sequence number of the index file entry is greater than the current one
-//                    // in the sequenceNumber cache, we add the index file entry into the key cache.
-//
-//                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
-//                        keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize));
-//                        sequenceNumberCache.put(key, sequenceNumber);
-//                    }
-//                }
-//                else if (existing == null && indexFileEntry.isTombStone()) {
-//                    // tombstone entry and there is no record for the key in the key cache.
-//                    // we don't need to update the key cache, but we might need to update
-//                    // the sequence number in the sequence cache because a compaction job
-//                    // might have moved an older version of the record to a newer file.
-//
-//                    if (existingSequenceNumber == null || sequenceNumber > existingSequenceNumber) {
-//                        sequenceNumberCache.put(key, sequenceNumber);
-//                    }
-//                }
+                if (existing == null) {
+                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
+                    inserted++;
+                }
+                else if (existing.getSequenceNumber() < sequenceNumber) {
+                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
+                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
+                    inserted++;
+                }
             }
-
+            logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);
             indexFile.close();
+        }
+
+        File[] tombStoneFiles = listTombstoneFiles();
+        logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
+        for (File file : tombStoneFiles) {
+            TombstoneFile tombstoneFile = new TombstoneFile(file, options);
+            tombstoneFile.open();
+            TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
+
+            int count = 0, deleted = 0;
+            while (iterator.hasNext()) {
+                TombstoneEntry entry = iterator.next();
+                byte[] key = entry.getKey();
+                long sequenceNumber = entry.getSequenceNumber();
+                count++;
+
+                RecordMetaDataForCache existing = keyCache.get(key);
+                if (existing != null && existing.getSequenceNumber() < sequenceNumber) {
+                    keyCache.remove(key);
+                    deleted++;
+                }
+            }
+            logger.debug("Completed scanning tombstone file {}. Found {} tombstones, deleted {} records", file.getName(), count, deleted);
+            tombstoneFile.close();
         }
 
         long time = (System.currentTimeMillis() - start)/1000;
@@ -381,10 +393,7 @@ class HaloDBInternal {
 
     }
 
-    // File id is the timestamp.
-    private int generateFileId() {
-        return (int) (System.currentTimeMillis() / 1000L);
-    }
+
 
     String stats() {
         return keyCache.stats().toString();

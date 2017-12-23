@@ -103,7 +103,7 @@ class Record {
 
     //TODO: override hash code.
 
-
+    //TODO: remove flags if not required.
     public static class Header {
 
 

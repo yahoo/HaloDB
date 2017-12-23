@@ -150,22 +150,16 @@ class HaloDBFile {
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
-		boolean created = false;
-
-		File filename = null;
-		while (!created) {
-			filename = getDataFile(haloDBDirectory, fileId);
-			created = filename.createNewFile();
-			if (!created) {
-			    // another thread created a file with the same id, try another id.
-				fileId += 1;
-			}
-		}
+		File file = getDataFile(haloDBDirectory, fileId);
+		while (!file.createNewFile()) {
+            // file already exists try another one.
+		    fileId++;
+            file = getDataFile(haloDBDirectory, fileId);
+        }
 
 		//TODO: do we need a separate read and write channel.
-		RandomAccessFile file = new RandomAccessFile(filename, "rw");
-		FileChannel wch = file.getChannel();
-		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
+		FileChannel wch = new RandomAccessFile(file, "rw").getChannel();
+		FileChannel rch = new RandomAccessFile(file, "r").getChannel();
 
 		//TODO: setting the length might improve performance.
 		//file.setLength(max_);
@@ -173,7 +167,7 @@ class HaloDBFile {
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, indexFile, wch, rch, options);
+		return new HaloDBFile(fileId, file, indexFile, wch, rch, options);
 	}
 
 	HaloDBFileIterator newIterator() throws IOException {
@@ -208,7 +202,7 @@ class HaloDBFile {
 	}
 
 	static int getFileTimeStamp(File file) {
-		Matcher matcher = HaloDBInternal.DATA_FILE_PATTERN.matcher(file.getName());
+		Matcher matcher = Constants.DATA_FILE_PATTERN.matcher(file.getName());
 		matcher.find();
 		String s = matcher.group(1);
 		return Integer.parseInt(s);

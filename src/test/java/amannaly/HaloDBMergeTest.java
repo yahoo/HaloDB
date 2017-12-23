@@ -42,7 +42,7 @@ public class HaloDBMergeTest {
         Thread.sleep(10000);
 
         Map<Long, List<Path>> map = Files.list(directory.toPath())
-            .filter(path -> HaloDBInternal.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
+            .filter(path -> Constants.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
             .collect(Collectors.groupingBy(path -> path.toFile().length()));
 
         // 4 data files of size 10K.
@@ -53,7 +53,7 @@ public class HaloDBMergeTest {
 
         int sizeOfIndexEntry = IndexFileEntry.INDEX_FILE_HEADER_SIZE + 8;
         Map<Long, List<Path>> indexFileSizemap = Files.list(directory.toPath())
-            .filter(path -> HaloDBInternal.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
+            .filter(path -> Constants.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
             .collect(Collectors.groupingBy(path -> path.toFile().length()));
 
         // 4 index files of size 220 bytes.

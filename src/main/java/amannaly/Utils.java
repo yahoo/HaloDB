@@ -32,4 +32,9 @@ public class Utils {
     public static long roundUpToPowerOf2(long number) {
         return (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
     }
+
+    // File id is the timestamp.
+    static int generateFileId() {
+        return (int) (System.currentTimeMillis() / 1000L);
+    }
 }

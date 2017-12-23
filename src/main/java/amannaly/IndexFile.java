@@ -23,6 +23,7 @@ class IndexFile {
 
     private long unFlushedData = 0;
 
+    static final String INDEX_FILE_NAME = ".index";
     private static final String nullMessage = "Index file entry cannot be null";
 
     IndexFile(int fileId, File dbDirectory, HaloDBOptions options) {
@@ -80,7 +81,7 @@ class IndexFile {
     }
 
     private File getIndexFile() {
-        return Paths.get(dbDirectory.getPath(), fileId + ".index").toFile();
+        return Paths.get(dbDirectory.getPath(), fileId + INDEX_FILE_NAME).toFile();
     }
 
     public class IndexFileIterator implements Iterator<IndexFileEntry> {

@@ -22,6 +22,7 @@ class TombstoneFile {
     private long unFlushedData = 0;
     private long writeOffset = 0;
 
+    static final String TOMBSTONE_FILE_NAME = ".tombstone";
     private static final String nullMessage = "Tombstone entry cannot be null";
 
     static TombstoneFile create(File dbDirectory, HaloDBOptions options)  throws IOException {
@@ -89,7 +90,7 @@ class TombstoneFile {
     }
 
     private static File getTombstoneFile(File dbDirectory, int fileId) {
-        return Paths.get(dbDirectory.getPath(), fileId + ".tombstone").toFile();
+        return Paths.get(dbDirectory.getPath(), fileId + TOMBSTONE_FILE_NAME).toFile();
     }
 
     class TombstoneFileIterator implements Iterator<TombstoneEntry> {

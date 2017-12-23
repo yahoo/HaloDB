@@ -33,7 +33,9 @@ class HaloDBFile {
 
 	private long unFlushedData = 0;
 
-	private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileChannel writeChannel,
+    static final String DATA_FILE_NAME = ".data";
+
+    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileChannel writeChannel,
 					   FileChannel readChannel, HaloDBOptions options) throws IOException {
 		this.fileId = fileId;
 		this.backingFile = backingFile;
@@ -198,7 +200,7 @@ class HaloDBFile {
 	}
 
 	private static File getDataFile(File haloDBDirectory, int fileId) {
-		return Paths.get(haloDBDirectory.getPath(), fileId + ".data").toFile();
+        return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
 	}
 
 	static int getFileTimeStamp(File file) {

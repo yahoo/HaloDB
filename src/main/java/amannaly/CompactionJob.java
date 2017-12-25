@@ -46,22 +46,13 @@ class CompactionJob {
             }
         }
 
-        try {
-            mergedFile.closeForWriting();
-        } catch (IOException e) {
-            logger.error("Error while closing merged file " + mergedFile.fileId, e);
-        }
-
         long time = (System.currentTimeMillis()-start)/1000;
         logger.info("Completed merge run in {} seconds for file {}", time, mergedFile.fileId);
     }
 
     // TODO: group and move adjacent fresh records together for performance.
     private void copyFreshRecordsToMergedFileUsingIndexFile(int idOfFileToMerge) throws IOException {
-        //TODO: can I reuse read channel in the HaloDBFile, do I need to open another read channel
-        //TODO: which performs better?
-        //TODO: during transfer may be we can club together contiguous records?
-        FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getReadChannel();
+        FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getChannel();
 
         IndexFile.IndexFileIterator iterator = db.getHaloDBFile(idOfFileToMerge).getIndexFile().newIterator();
 
@@ -77,7 +68,7 @@ class CompactionJob {
                 compactionRateLimiter.acquire(recordSize);
 
                 // fresh record copy to merged file.
-                long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getWriteChannel());
+                long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getChannel());
                 assert transferred == recordSize;
 
                 //TODO: for testing. remove.
@@ -88,7 +79,7 @@ class CompactionJob {
                 unFlushedData += transferred;
 
                 if (db.options.flushDataSizeBytes != -1 && unFlushedData > db.options.flushDataSizeBytes) {
-                    mergedFile.getWriteChannel().force(false);
+                    mergedFile.getChannel().force(false);
                     unFlushedData = 0;
                 }
 
@@ -114,11 +105,7 @@ class CompactionJob {
     }
 
     private void copyFreshRecordsToMergedFile(int idOfFileToMerge) throws IOException {
-        //System.out.printf("Merging %s\n", idOfFileToMerge);
-
-        //TODO: can I reuse read channel in the BitcaskFile, do I need to open another read channel
-        //TODO: which performs better.
-        FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getReadChannel();
+        FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getChannel();
 
         long fileToMergeSize = readFrom.size();
         long fileToMergeOffset = 0;
@@ -155,7 +142,7 @@ class CompactionJob {
                 //System.out.printf("Key -> %d, current file %d\n", BitCaskDB.bytesToLong(key.toByteArray()), currentRecordMetaData.fileId);
 
                 // fresh record copy to merged file.
-                readFrom.transferTo(fileToMergeOffset, recordSize, mergedFile.getWriteChannel());
+                readFrom.transferTo(fileToMergeOffset, recordSize, mergedFile.getChannel());
                 IndexFileEntry indexFileEntry = new IndexFileEntry(key, recordSize, mergedFileOffset, sequenceNumber, flag);
                 mergedFile.getIndexFile().write(indexFileEntry);
 

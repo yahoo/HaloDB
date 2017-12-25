@@ -16,8 +16,7 @@ import static amannaly.Record.Header.HEADER_SIZE;
  */
 class HaloDBFile {
 
-	private FileChannel writeChannel;
-	private FileChannel readChannel;
+	private FileChannel channel;
 
 	private long writeOffset;
 
@@ -35,14 +34,13 @@ class HaloDBFile {
 
     static final String DATA_FILE_NAME = ".data";
 
-    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileChannel writeChannel,
-					   FileChannel readChannel, HaloDBOptions options) throws IOException {
+    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile,
+                       FileChannel channel, HaloDBOptions options) throws IOException {
 		this.fileId = fileId;
 		this.backingFile = backingFile;
 		this.indexFile = indexFile;
-		this.writeChannel = writeChannel;
-		this.readChannel = readChannel;
-		this.writeOffset = readChannel.size();
+		this.channel = channel;
+		this.writeOffset = channel.size();
 		this.options = options;
 	}
 	
@@ -58,7 +56,7 @@ class HaloDBFile {
 		long currentPosition = position;
 		int bytesRead;
 		do {
-			bytesRead = readChannel.read(destinationBuffer, currentPosition);
+			bytesRead = channel.read(destinationBuffer, currentPosition);
 			currentPosition += bytesRead;
 		} while (bytesRead != -1 && destinationBuffer.hasRemaining());
 
@@ -88,7 +86,7 @@ class HaloDBFile {
 	RecordMetaDataForCache writeRecord(Record record) throws IOException {
 
 		long start = System.nanoTime();
-		writeToChannel(record.serialize(), writeChannel);
+		writeToChannel(record.serialize(), channel);
 
 		int recordSize = record.getRecordSize();
 		long recordOffset = writeOffset;
@@ -127,16 +125,12 @@ class HaloDBFile {
 		return backingFile.length();
 	}
 
-	FileChannel getWriteChannel() {
-		return writeChannel;
-	}
-
 	IndexFile getIndexFile() {
 		return indexFile;
 	}
 
-	FileChannel getReadChannel() {
-		return readChannel;
+	FileChannel getChannel() {
+		return channel;
 	}
 
 	static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
@@ -148,7 +142,7 @@ class HaloDBFile {
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, indexFile, null, rch, options);
+		return new HaloDBFile(fileId, filename, indexFile, rch, options);
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
@@ -159,9 +153,7 @@ class HaloDBFile {
             file = getDataFile(haloDBDirectory, fileId);
         }
 
-		//TODO: do we need a separate read and write channel.
-		FileChannel wch = new RandomAccessFile(file, "rw").getChannel();
-		FileChannel rch = new RandomAccessFile(file, "r").getChannel();
+		FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
 
 		//TODO: setting the length might improve performance.
 		//file.setLength(max_);
@@ -169,28 +161,20 @@ class HaloDBFile {
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, file, indexFile, wch, rch, options);
+		return new HaloDBFile(fileId, file, indexFile, channel, options);
 	}
 
 	HaloDBFileIterator newIterator() throws IOException {
 		return new HaloDBFileIterator();
 	}
 
-	synchronized void closeForWriting() throws IOException {
-		if (writeChannel != null) {
-			writeChannel.close();
-			writeChannel = null;
+    void close() throws IOException {
+		if (channel != null) {
+			channel.close();
 		}
 	}
 
-	public synchronized void close() throws IOException {
-		closeForWriting();
-		if (readChannel != null) {
-			readChannel.close();
-		}
-	}
-
-	synchronized void delete() throws IOException {
+    void delete() throws IOException {
 		close();
 		if (backingFile != null)
 			backingFile.delete();
@@ -219,7 +203,7 @@ class HaloDBFile {
 		private long currentOffset = 0;
 
 		HaloDBFileIterator() throws IOException {
-			this.endOffset = readChannel.size();
+			this.endOffset = channel.size();
 		}
 
 		@Override

@@ -142,10 +142,6 @@ class HaloDBInternal {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
-            if (currentWriteFile != null) {
-                currentWriteFile.closeForWriting();
-            }
-
             currentWriteFile = createHaloDBFile();
         }
     }

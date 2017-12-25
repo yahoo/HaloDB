@@ -18,6 +18,8 @@ class CompactionManager extends Thread {
 
     private final int intervalBetweenRunsInSeconds;
 
+    //TODO; used scheduled thread pool executor.
+
     CompactionManager(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
         super("CompactionManager");
         this.dbInternal = dbInternal;

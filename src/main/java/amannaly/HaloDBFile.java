@@ -1,5 +1,7 @@
 package amannaly;
 
+import com.google.common.primitives.Ints;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -18,7 +20,7 @@ class HaloDBFile {
 
 	private FileChannel channel;
 
-	private long writeOffset;
+	private int writeOffset;
 
 	long getWriteOffset() {
 		return writeOffset;
@@ -40,11 +42,11 @@ class HaloDBFile {
 		this.backingFile = backingFile;
 		this.indexFile = indexFile;
 		this.channel = channel;
-		this.writeOffset = channel.size();
+		this.writeOffset = Ints.checkedCast(channel.size());
 		this.options = options;
 	}
 	
-	Record read(long offset, int length) throws IOException {
+	Record read(int offset, int length) throws IOException {
 		Record record = readRecord(offset);
 		assert length == record.getRecordSize();
 
@@ -63,7 +65,7 @@ class HaloDBFile {
 		return (int)(currentPosition - position);
 	}
 
-	Record readRecord(long offset) throws IOException {
+	private Record readRecord(int offset) throws IOException {
 		long tempOffset = offset;
 
 		// read the header from disk.
@@ -89,7 +91,7 @@ class HaloDBFile {
 		writeToChannel(record.serialize(), channel);
 
 		int recordSize = record.getRecordSize();
-		long recordOffset = writeOffset;
+		int recordOffset = writeOffset;
 		writeOffset += recordSize;
 
 		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), record.getFlags());
@@ -200,7 +202,7 @@ class HaloDBFile {
 	public class HaloDBFileIterator implements Iterator<Record> {
 
 		private final long endOffset;
-		private long currentOffset = 0;
+		private int currentOffset = 0;
 
 		HaloDBFileIterator() throws IOException {
 			this.endOffset = channel.size();

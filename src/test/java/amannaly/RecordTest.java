@@ -13,7 +13,7 @@ public class RecordTest {
     @Test
     public void testSerializeHeader() {
 
-        short keySize = 8;
+        byte keySize = 8;
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
         byte flag = 0;
@@ -21,7 +21,7 @@ public class RecordTest {
         Record.Header header = new Record.Header(keySize, valueSize, sequenceNumber, flag);
         ByteBuffer serialized = header.serialize();
 
-        Assert.assertEquals(keySize, serialized.getShort(Record.Header.KEY_SIZE_OFFSET));
+        Assert.assertEquals(keySize, serialized.get(Record.Header.KEY_SIZE_OFFSET));
         Assert.assertEquals(valueSize, serialized.getInt(Record.Header.VALUE_SIZE_OFFSET));
         Assert.assertEquals(sequenceNumber, serialized.getLong(Record.Header.SEQUENCE_NUMBER_OFFSET));
         Assert.assertEquals(flag, serialized.get(Record.Header.FLAGS_OFFSET));
@@ -30,13 +30,13 @@ public class RecordTest {
     @Test
     public void testDeserialize() {
 
-        short keySize = 8;
+        byte keySize = 8;
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
         byte flag = 0;
 
         ByteBuffer buffer = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
-        buffer.putShort(keySize);
+        buffer.put(keySize);
         buffer.putInt(valueSize);
         buffer.putLong(sequenceNumber);
         buffer.put(flag);
@@ -71,7 +71,7 @@ public class RecordTest {
 
         ByteBuffer[] buffers = record.serialize();
 
-        Record.Header header = new Record.Header((short)key.length, value.length, sequenceNumber, (byte)0);
+        Record.Header header = new Record.Header((byte)key.length, value.length, sequenceNumber, (byte)0);
         ByteBuffer headerBuf = header.serialize();
 
         Assert.assertEquals(headerBuf, buffers[0]);

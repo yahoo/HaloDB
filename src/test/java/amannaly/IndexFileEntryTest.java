@@ -14,8 +14,8 @@ public class IndexFileEntryTest {
     public void serializeIndexFileEntry() {
         byte[] key = TestUtils.generateRandomByteArray(8);
         int recordSize = 1024;
-        long recordOffset = 10240L;
-        short keySize = (short) key.length;
+        int recordOffset = 10240;
+        byte keySize = (byte) key.length;
         long sequenceNumber = 100;
         byte flags = 0;
 
@@ -23,9 +23,9 @@ public class IndexFileEntryTest {
         ByteBuffer[] buffers = entry.serialize();
 
         ByteBuffer header = ByteBuffer.allocate(IndexFileEntry.INDEX_FILE_HEADER_SIZE);
-        header.putShort(keySize);
+        header.put(keySize);
         header.putInt(recordSize);
-        header.putLong(recordOffset);
+        header.putInt(recordOffset);
         header.putLong(sequenceNumber);
         header.put(flags);
         header.flip();

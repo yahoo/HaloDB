@@ -1,6 +1,5 @@
 package amannaly;
 
-import amannaly.cache.OffHeapCache;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +11,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -110,13 +108,12 @@ class HaloDBInternal {
             return null;
         }
 
-        //TODO: there is a potential race condition here as the merge
-        // thread could have deleted the file.
         HaloDBFile readFile = readFileMap.get(metaData.getFileId());
         if (readFile == null) {
             logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.getFileId());
             return get(key);
         }
+        //TODO: there is a race condition. what if the file is being deleted or was deleted.
         return readFile.read(metaData.getOffset(), metaData.getRecordSize()).getValue();
     }
 
@@ -288,7 +285,7 @@ class HaloDBInternal {
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
                 byte[] key = indexFileEntry.getKey();
-                long recordOffset = indexFileEntry.getRecordOffset();
+                int recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
                 count++;

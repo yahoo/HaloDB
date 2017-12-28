@@ -1,8 +1,5 @@
-package amannaly.cache;
+package amannaly;
 
-import amannaly.KeyCache;
-import amannaly.RecordMetaDataForCache;
-import amannaly.Utils;
 import amannaly.ohc.Eviction;
 import amannaly.ohc.OHCache;
 import amannaly.ohc.OHCacheBuilder;
@@ -19,14 +16,14 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Arjun Mannaly
  */
-public class OffHeapCache implements KeyCache {
+class OffHeapCache implements KeyCache {
     private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 
     private static final Histogram putLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
     private final OHCache<byte[], RecordMetaDataForCache> ohCache;
 
-    public OffHeapCache(int numberOfKeys) {
+    OffHeapCache(int numberOfKeys) {
         this.ohCache = initializeCache(numberOfKeys);
     }
 
@@ -43,7 +40,7 @@ public class OffHeapCache implements KeyCache {
             .segmentCount(noOfSegments)
             .hashTableSize(hashTableSize)  // recordSize per segment.
             .eviction(Eviction.NONE)
-            .fixedValueSize(RecordMetaDataSerializer.SERIALIZED_SIZE)
+            .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
             .loadFactor(1)   // to make sure that we don't rehash.
             .build();
 

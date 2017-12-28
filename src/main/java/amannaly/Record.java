@@ -10,17 +10,17 @@ class Record {
 
     private final byte[] key, value;
 
-    public static final byte[] TOMBSTONE_VALUE = new byte[0];
+    static final byte[] TOMBSTONE_VALUE = new byte[0];
 
     private RecordMetaDataForCache recordMetaData;
 
     private Header header;
 
-    public Record(byte[] key, byte[] value) {
+    Record(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
 
-        header = new Header((short)key.length, value.length, -1, (byte)0);
+        header = new Header((byte)key.length, value.length, -1, (byte)0);
     }
 
     ByteBuffer[] serialize() {
@@ -39,36 +39,36 @@ class Record {
         return new Record(key, value);
     }
 
-    public byte[] getKey() {
+    byte[] getKey() {
         return key;
     }
 
-    public byte[] getValue() {
+    byte[] getValue() {
         return value;
     }
 
-    public RecordMetaDataForCache getRecordMetaData() {
+    RecordMetaDataForCache getRecordMetaData() {
         return recordMetaData;
     }
 
-    public void setRecordMetaData(RecordMetaDataForCache recordMetaData) {
+    void setRecordMetaData(RecordMetaDataForCache recordMetaData) {
         this.recordMetaData = recordMetaData;
     }
 
-    public int getRecordSize() {
+    int getRecordSize() {
         return header.getRecordSize();
     }
 
-    public byte getFlags() {
+    byte getFlags() {
         return header.getFlags();
     }
 
     // tombstones will have the lsb of flags set to 1.
-    public void markAsTombStone() {
+    void markAsTombStone() {
         header.markAsTombStone();
     }
 
-    public boolean isTombStone() {
+    boolean isTombStone() {
         return header.isTombStone();
     }
 
@@ -104,30 +104,30 @@ class Record {
     //TODO: override hash code.
 
     //TODO: remove flags if not required.
-    public static class Header {
+    static class Header {
 
 
         /**
-         * key size         - 2 bytes.
+         * key size         - 1 bytes.
          * value size       - 4 bytes.
          * sequence number  - 8 bytes.
          * flags            - 1 byte.
          */
         static final int KEY_SIZE_OFFSET = 0;
-        static final int VALUE_SIZE_OFFSET = 2;
-        static final int SEQUENCE_NUMBER_OFFSET = 6;
-        static final int FLAGS_OFFSET = 14;
+        static final int VALUE_SIZE_OFFSET = 1;
+        static final int SEQUENCE_NUMBER_OFFSET = 5;
+        static final int FLAGS_OFFSET = 13;
 
-        public static final int HEADER_SIZE = 15;
+        static final int HEADER_SIZE = 14;
 
-        private short keySize;
+        private byte keySize;
         private int valueSize;
         private long sequenceNumber;
         private byte flags;
 
         private int recordSize;
 
-        public Header(short keySize, int valueSize, long sequenceNumber, byte flags) {
+        Header(byte keySize, int valueSize, long sequenceNumber, byte flags) {
             this.keySize = keySize;
             this.valueSize = valueSize;
             this.sequenceNumber = sequenceNumber;
@@ -136,9 +136,9 @@ class Record {
             recordSize = keySize + valueSize + HEADER_SIZE;
         }
 
-        public static Header deserialize(ByteBuffer buffer) {
+        static Header deserialize(ByteBuffer buffer) {
 
-            short keySize = buffer.getShort(KEY_SIZE_OFFSET);
+            byte keySize = buffer.get(KEY_SIZE_OFFSET);
             int valueSize = buffer.getInt(VALUE_SIZE_OFFSET);
             long sequenceNumber = buffer.getLong(SEQUENCE_NUMBER_OFFSET);
             byte flags = buffer.get(FLAGS_OFFSET);
@@ -146,11 +146,11 @@ class Record {
             return new Header(keySize, valueSize, sequenceNumber, flags);
         }
 
-        public ByteBuffer serialize() {
+        ByteBuffer serialize() {
             byte[] header = new byte[HEADER_SIZE];
 
             ByteBuffer headerBuffer = ByteBuffer.wrap(header);
-            headerBuffer.putShort(KEY_SIZE_OFFSET, keySize);
+            headerBuffer.put(KEY_SIZE_OFFSET, keySize);
             headerBuffer.putInt(VALUE_SIZE_OFFSET, valueSize);
             headerBuffer.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
             headerBuffer.put(FLAGS_OFFSET, flags);
@@ -159,7 +159,7 @@ class Record {
         }
 
         // tombstones will have the lsb of flags set to 1.
-        public void markAsTombStone() {
+        void markAsTombStone() {
             flags = (byte)(flags | 1);
         }
 
@@ -167,27 +167,27 @@ class Record {
          * tombstones will have the lsb of flags set to 1
          * and no value.
          */
-        public boolean isTombStone() {
+        boolean isTombStone() {
             return (flags & 1) == 1 && valueSize == 0;
         }
 
-        public short getKeySize() {
+        byte getKeySize() {
             return keySize;
         }
 
-        public int getValueSize() {
+        int getValueSize() {
             return valueSize;
         }
 
-        public byte getFlags() {
+        byte getFlags() {
             return flags;
         }
 
-        public int getRecordSize() {
+        int getRecordSize() {
             return recordSize;
         }
 
-        public long getSequenceNumber() {
+        long getSequenceNumber() {
             return sequenceNumber;
         }
     }

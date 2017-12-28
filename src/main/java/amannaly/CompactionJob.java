@@ -22,7 +22,7 @@ class CompactionJob {
     // TODO: use 35 MB for tests.
     private final RateLimiter compactionRateLimiter;
 
-    private long mergedFileOffset = 0;
+    private int mergedFileOffset = 0;
 
     private long unFlushedData = 0;
 

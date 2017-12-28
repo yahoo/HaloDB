@@ -8,45 +8,45 @@ import java.nio.ByteBuffer;
 class IndexFileEntry {
 
     /**
-     * Key size         - 2 bytes.
+     * Key size         - 1 bytes.
      * record size      - 4 bytes.
-     * record offset    - 8 bytes.
+     * record offset    - 4 bytes.
      * sequence number  - 8 bytes
      * flags            - 1 byte.
      */
-    public final static int INDEX_FILE_HEADER_SIZE = 23;
+    final static int INDEX_FILE_HEADER_SIZE = 18;
 
-    public static final int KEY_SIZE_OFFSET = 0;
-    public static final int RECORD_SIZE_OFFSET = 2;
-    public static final int RECORD_OFFSET = 6;
-    public static final int SEQUENCE_NUMBER_OFFSET = 14;
-    public static final int FLAG_OFFSET = 22;
+    static final int KEY_SIZE_OFFSET = 0;
+    static final int RECORD_SIZE_OFFSET = 1;
+    static final int RECORD_OFFSET = 5;
+    static final int SEQUENCE_NUMBER_OFFSET = 9;
+    static final int FLAG_OFFSET = 17;
 
 
     private final byte[] key;
     private final int recordSize;
-    private final long recordOffset;
-    private final short keySize;
+    private final int recordOffset;
+    private final byte keySize;
     private final long sequenceNumber;
     private final byte flags;
 
-    IndexFileEntry(byte[] key, int recordSize, long recordOffset, long sequenceNumber, byte flags) {
+    IndexFileEntry(byte[] key, int recordSize, int recordOffset, long sequenceNumber, byte flags) {
         this.key = key;
         this.recordSize = recordSize;
         this.recordOffset = recordOffset;
         this.flags = flags;
         this.sequenceNumber = sequenceNumber;
 
-        this.keySize = (short)key.length;
+        this.keySize = (byte)key.length;
     }
 
     ByteBuffer[] serialize() {
         byte[] header = new byte[INDEX_FILE_HEADER_SIZE];
         ByteBuffer h = ByteBuffer.wrap(header);
 
-        h.putShort(KEY_SIZE_OFFSET, keySize);
+        h.put(KEY_SIZE_OFFSET, keySize);
         h.putInt(RECORD_SIZE_OFFSET, recordSize);
-        h.putLong(RECORD_OFFSET, recordOffset);
+        h.putInt(RECORD_OFFSET, recordOffset);
         h.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
         h.put(FLAG_OFFSET, flags);
 
@@ -54,9 +54,9 @@ class IndexFileEntry {
     }
 
     static IndexFileEntry deserialize(ByteBuffer buffer) {
-        short keySize = buffer.getShort();
+        byte keySize = buffer.get();
         int recordSize = buffer.getInt();
-        long offset = buffer.getLong();
+        int offset = buffer.getInt();
         long sequenceNumber = buffer.getLong();
         byte flag = buffer.get();
 
@@ -66,15 +66,15 @@ class IndexFileEntry {
         return new IndexFileEntry(key, recordSize, offset, sequenceNumber, flag);
     }
 
-    public byte[] getKey() {
+    byte[] getKey() {
         return key;
     }
 
-    public int getRecordSize() {
+    int getRecordSize() {
         return recordSize;
     }
 
-    long getRecordOffset() {
+    int getRecordOffset() {
         return recordOffset;
     }
 
@@ -89,7 +89,7 @@ class IndexFileEntry {
         return (flags & 1) == 1;
     }
 
-    public long getSequenceNumber() {
+    long getSequenceNumber() {
         return sequenceNumber;
     }
 }

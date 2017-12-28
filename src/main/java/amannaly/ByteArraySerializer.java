@@ -1,4 +1,4 @@
-package amannaly.cache;
+package amannaly;
 
 import amannaly.ohc.CacheSerializer;
 

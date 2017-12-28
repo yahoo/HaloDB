@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +36,40 @@ public class HaloDBTest {
             try {
                 byte[] value = db.get(record.getKey());
                 Assert.assertArrayEquals(record.getValue(), value);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        db.close();
+    }
+
+    @Test
+    public void testPutAndGetDBWithByteBuffer() throws IOException {
+        File directory = new File("/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer");
+        TestUtils.deleteDirectory(directory);
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.isMergeDisabled = true;
+
+        HaloDB db = HaloDB.open(directory, options);
+
+        int noOfRecords = 10_000;
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
+
+        List<Record> actual = new ArrayList<>();
+        db.newIterator().forEachRemaining(actual::add);
+
+        Assert.assertTrue(actual.containsAll(records) && records.containsAll(actual));
+
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        records.forEach(record -> {
+            try {
+                int read = db.get(record.getKey(), buffer);
+                byte[] array = new byte[buffer.remaining()];
+                buffer.get(array);
+                Assert.assertArrayEquals(record.getValue(), array);
+                Assert.assertEquals(record.getValue().length, read);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

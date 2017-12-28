@@ -4,6 +4,7 @@ import org.HdrHistogram.Histogram;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -30,6 +31,10 @@ public class HaloDB {
 
 	public byte[] get(byte[] key) throws IOException {
 		return dbInternal.get(key);
+	}
+
+	public int get(byte[] key, ByteBuffer destination) throws IOException {
+		return dbInternal.get(key, destination);
 	}
 
 	public void put(byte[] key, byte[] value) throws IOException {

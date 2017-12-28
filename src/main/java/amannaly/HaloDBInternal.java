@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -119,6 +120,25 @@ class HaloDBInternal {
         }
         //TODO: there is a race condition. what if the file is being deleted or was deleted.
         return readFile.readFromFile(metaData.getValueOffset(), metaData.getValueSize());
+    }
+
+    int get(byte[] key, ByteBuffer buffer) throws IOException {
+        RecordMetaDataForCache metaData = keyCache.get(key);
+        if (metaData == null) {
+            return 0;
+        }
+
+        HaloDBFile readFile = readFileMap.get(metaData.getFileId());
+        if (readFile == null) {
+            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.getFileId());
+            return get(key, buffer);
+        }
+
+        buffer.clear();
+        buffer.limit(metaData.getValueSize());
+        int read = readFile.readFromFile(metaData.getValueOffset(), buffer);
+        buffer.flip();
+        return read;
     }
 
     void delete(byte[] key) throws IOException {

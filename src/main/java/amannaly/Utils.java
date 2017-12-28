@@ -37,4 +37,8 @@ public class Utils {
     static int generateFileId() {
         return (int) (System.currentTimeMillis() / 1000L);
     }
+
+    static int getValueOffset(int recordOffset, byte[] key) {
+        return recordOffset + Record.Header.HEADER_SIZE + key.length;
+    }
 }

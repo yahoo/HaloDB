@@ -46,14 +46,16 @@ class HaloDBFile {
 		this.options = options;
 	}
 	
-	Record read(int offset, int length) throws IOException {
-		Record record = readRecord(offset);
-		assert length == record.getRecordSize();
+	byte[] readFromFile(int offset, int length) throws IOException {
+        byte[] value = new byte[length];
+        ByteBuffer valueBuf = ByteBuffer.wrap(value);
+        int read = readFromFile(offset, valueBuf);
+        assert read == length;
 
-		return record;
+        return value;
 	}
 
-	private int readFromFile(long position, ByteBuffer destinationBuffer) throws IOException {
+    int readFromFile(long position, ByteBuffer destinationBuffer) throws IOException {
 
 		long currentPosition = position;
 		int bytesRead;
@@ -81,7 +83,8 @@ class HaloDBFile {
 		readFromFile(tempOffset, recordBuf);
 
 		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
-		record.setRecordMetaData(new RecordMetaDataForCache(fileId, offset, header.getRecordSize(), header.getSequenceNumber()));
+		int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
+		record.setRecordMetaData(new RecordMetaDataForCache(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
 		return record;
 	}
 
@@ -99,7 +102,8 @@ class HaloDBFile {
 
 		HaloDB.recordWriteLatency(System.nanoTime() - start);
 
-		return new RecordMetaDataForCache(fileId, recordOffset, recordSize, record.getSequenceNumber());
+		int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
+		return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
 	}
 	
 	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {

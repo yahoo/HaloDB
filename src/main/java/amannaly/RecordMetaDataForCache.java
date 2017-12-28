@@ -9,23 +9,23 @@ import java.nio.ByteBuffer;
 class RecordMetaDataForCache {
 
 	private final int fileId;
-	private final int offset;
-	private final int recordSize;
+	private final int valueOffset;
+	private final int valueSize;
 	private final long sequenceNumber;
 
     static final int SERIALIZED_SIZE = 4 + 4 + 4 + 8;
 
-    RecordMetaDataForCache(int fileId, int offset, int recordSize, long sequenceNumber) {
+    RecordMetaDataForCache(int fileId, int valueOffset, int valueSize, long sequenceNumber) {
 		this.fileId = fileId;
-		this.offset = offset;
-		this.recordSize = recordSize;
+		this.valueOffset = valueOffset;
+		this.valueSize = valueSize;
 		this.sequenceNumber = sequenceNumber;
 	}
 
     void serialize(ByteBuffer byteBuffer) {
         byteBuffer.putInt(getFileId());
-        byteBuffer.putInt(getOffset());
-        byteBuffer.putInt(getRecordSize());
+        byteBuffer.putInt(getValueOffset());
+        byteBuffer.putInt(getValueSize());
         byteBuffer.putLong(getSequenceNumber());
         byteBuffer.flip();
     }
@@ -39,19 +39,19 @@ class RecordMetaDataForCache {
         return new RecordMetaDataForCache(fileId, offset, size, sequenceNumber);
     }
 
-    public int getFileId() {
+    int getFileId() {
         return fileId;
     }
 
-    public int getOffset() {
-        return offset;
+    int getValueOffset() {
+        return valueOffset;
     }
 
-    public int getRecordSize() {
-        return recordSize;
+    int getValueSize() {
+        return valueSize;
     }
 
-    public long getSequenceNumber() {
+    long getSequenceNumber() {
         return sequenceNumber;
     }
 

@@ -93,6 +93,10 @@ class HaloDBInternal {
     }
 
     void put(byte[] key, byte[] value) throws IOException {
+        if (key.length > Byte.MAX_VALUE) {
+            throw new IllegalArgumentException("key length cannot exceed " + Byte.MAX_VALUE);
+        }
+
         Record record = new Record(key, value);
         record.setSequenceNumber(getNextSequenceNumber());
         RecordMetaDataForCache entry = writeRecordToFile(record);
@@ -114,7 +118,7 @@ class HaloDBInternal {
             return get(key);
         }
         //TODO: there is a race condition. what if the file is being deleted or was deleted.
-        return readFile.read(metaData.getOffset(), metaData.getRecordSize()).getValue();
+        return readFile.readFromFile(metaData.getValueOffset(), metaData.getValueSize());
     }
 
     void delete(byte[] key) throws IOException {
@@ -158,7 +162,7 @@ class HaloDBInternal {
     private void updateStaleDataMap(byte[] key) {
         RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
-            int stale = recordMetaData.getRecordSize();
+            int stale = recordMetaData.getValueSize() + key.length + Record.Header.HEADER_SIZE;
             long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.getFileId(), stale, (oldValue, newValue) -> oldValue + newValue);
 
             HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
@@ -288,17 +292,20 @@ class HaloDBInternal {
                 int recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
+                int valueOffset = Utils.getValueOffset(recordOffset, key);
+                int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
 
                 RecordMetaDataForCache existing = keyCache.get(key);
 
                 if (existing == null) {
-                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
+                    keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
                     inserted++;
                 }
                 else if (existing.getSequenceNumber() < sequenceNumber) {
-                    keyCache.put(key, new RecordMetaDataForCache(fileId, recordOffset, recordSize, sequenceNumber));
-                    staleDataPerFileMap.merge(existing.getFileId(), existing.getRecordSize(), (oldValue, newValue) -> oldValue + newValue);
+                    keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
+                    int staleDataSize = existing.getValueSize() + key.length + Record.Header.HEADER_SIZE;
+                    staleDataPerFileMap.merge(existing.getFileId(), staleDataSize, (oldValue, newValue) -> oldValue + newValue);
                     inserted++;
                 }
             }
@@ -382,7 +389,7 @@ class HaloDBInternal {
             &&
             metaData.getFileId() == record.getRecordMetaData().getFileId()
             &&
-            metaData.getOffset() == record.getRecordMetaData().getOffset();
+            metaData.getValueOffset() == record.getRecordMetaData().getValueOffset();
 
     }
 

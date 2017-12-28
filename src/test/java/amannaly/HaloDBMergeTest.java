@@ -39,6 +39,8 @@ public class HaloDBMergeTest {
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
         // wait for the merge jobs to complete.
+        //TODO: use TestUtils.waitForMergeToComplete
+        // after we implement compaction with one file.
         Thread.sleep(10000);
 
         Map<Long, List<Path>> map = Files.list(directory.toPath())
@@ -64,7 +66,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals("key -> " + Utils.bytesToLong(r.getKey()), actual, r.getValue());
+            Assert.assertArrayEquals("key -> " + Utils.bytesToLong(r.getKey()), r.getValue(), actual);
         }
 
         db.close();

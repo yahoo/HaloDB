@@ -174,7 +174,7 @@ public class OHCacheBuilder<K, V>
     private boolean timeouts;
     private int timeoutsSlots;
     private int timeoutsPrecision;
-    private Eviction eviction = Eviction.LRU;
+    private Eviction eviction = Eviction.NONE;
     private int frequencySketchSize;
     private double edenSize = 0.2d;
 
@@ -521,12 +521,6 @@ public class OHCacheBuilder<K, V>
     public Eviction getEviction()
     {
         return eviction;
-    }
-
-    public OHCacheBuilder<K, V> eviction(Eviction eviction)
-    {
-        this.eviction = eviction;
-        return this;
     }
 
     public int getFrequencySketchSize()

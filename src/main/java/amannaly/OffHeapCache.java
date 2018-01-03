@@ -39,7 +39,6 @@ class OffHeapCache implements KeyCache {
             .capacity(Long.MAX_VALUE)
             .segmentCount(noOfSegments)
             .hashTableSize(hashTableSize)  // recordSize per segment.
-            .eviction(Eviction.NONE)
             .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
             .loadFactor(1)   // to make sure that we don't rehash.
             .build();

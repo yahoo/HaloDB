@@ -1,7 +1,7 @@
 package amannaly;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals("key -> " + Utils.bytesToLong(r.getKey()), r.getValue(), actual);
+            Assert.assertEquals(r.getValue(), actual);
         }
 
         db.close();
@@ -101,7 +101,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals(actual, r.getValue());
+            Assert.assertEquals(actual, r.getValue());
         }
 
         db.close();
@@ -130,7 +130,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals(actual, r.getValue());
+            Assert.assertEquals(actual, r.getValue());
         }
 
         db.close();
@@ -159,7 +159,7 @@ public class HaloDBMergeTest {
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
-            Assert.assertArrayEquals(actual, r.getValue());
+            Assert.assertEquals(actual, r.getValue());
         }
 
         db.close();

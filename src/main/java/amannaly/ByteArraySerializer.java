@@ -16,7 +16,10 @@ public class ByteArraySerializer implements CacheSerializer<byte[]> {
 
     @Override
     public byte[] deserialize(ByteBuffer buf) {
-        return buf.array();
+        // Cannot use buf.array() as buf is read-only for get() operations.
+        byte[] array = new byte[buf.remaining()];
+        buf.get(array);
+        return array;
     }
 
     @Override

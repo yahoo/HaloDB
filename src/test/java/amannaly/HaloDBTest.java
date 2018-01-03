@@ -1,7 +1,7 @@
 package amannaly;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,7 +35,7 @@ public class HaloDBTest {
         records.forEach(record -> {
             try {
                 byte[] value = db.get(record.getKey());
-                Assert.assertArrayEquals(record.getValue(), value);
+                Assert.assertEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -68,7 +68,7 @@ public class HaloDBTest {
                 int read = db.get(record.getKey(), buffer);
                 byte[] array = new byte[buffer.remaining()];
                 buffer.get(array);
-                Assert.assertArrayEquals(record.getValue(), array);
+                Assert.assertEquals(record.getValue(), array);
                 Assert.assertEquals(record.getValue().length, read);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -102,7 +102,7 @@ public class HaloDBTest {
         updated.forEach(record -> {
             try {
                 byte[] value = db.get(record.getKey());
-                Assert.assertArrayEquals(record.getValue(), value);
+                Assert.assertEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -154,7 +154,7 @@ public class HaloDBTest {
         records.forEach(record -> {
             try {
                 byte[] value = openAgainDB.get(record.getKey());
-                Assert.assertArrayEquals(record.getValue(), value);
+                Assert.assertEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -198,7 +198,7 @@ public class HaloDBTest {
 
         Assert.assertTrue(actual.size() == 1);
 
-        Assert.assertArrayEquals(openAgainDB.get(key), value);
+        Assert.assertEquals(openAgainDB.get(key), value);
         openAgainDB.close();
     }
 
@@ -320,7 +320,7 @@ public class HaloDBTest {
 
         deleteAndInsert.forEach(r -> {
             try {
-                Assert.assertArrayEquals(r.getValue(), db.get(r.getKey()));
+                Assert.assertEquals(r.getValue(), db.get(r.getKey()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -371,7 +371,7 @@ public class HaloDBTest {
 
         deleteAndInsert.forEach(r -> {
             try {
-                Assert.assertArrayEquals(r.getValue(), db.get(r.getKey()));
+                Assert.assertEquals(r.getValue(), db.get(r.getKey()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -1,7 +1,7 @@
 package amannaly;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.*;
@@ -17,7 +17,7 @@ public class HaloDBDeletionTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = testDB.getTestDB(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -36,7 +36,7 @@ public class HaloDBDeletionTest extends TestBase {
                 Assert.assertNull(actual);
             }
             else {
-                Assert.assertArrayEquals(records.get(i).getValue(), actual);
+                Assert.assertEquals(records.get(i).getValue(), actual);
             }
         }
     }
@@ -47,7 +47,7 @@ public class HaloDBDeletionTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = testDB.getTestDB(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -75,7 +75,7 @@ public class HaloDBDeletionTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = testDB.getTestDB(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 100;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -94,7 +94,7 @@ public class HaloDBDeletionTest extends TestBase {
                 Assert.assertNull(actual);
             }
             else {
-                Assert.assertArrayEquals(records.get(i).getValue(), actual);
+                Assert.assertEquals(records.get(i).getValue(), actual);
             }
         }
 
@@ -111,7 +111,7 @@ public class HaloDBDeletionTest extends TestBase {
         records.forEach(record -> {
             try {
                 byte[] value = db.get(record.getKey());
-                Assert.assertArrayEquals(record.getValue(), value);
+                Assert.assertEquals(record.getValue(), value);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -130,7 +130,7 @@ public class HaloDBDeletionTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = testDB.getTestDB(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -144,7 +144,7 @@ public class HaloDBDeletionTest extends TestBase {
 
         db.close();
 
-        db = testDB.getTestDBWithoutDeletingFiles(directory, options);
+        db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (int i = 0; i < records.size(); i++) {
             byte[] actual = db.get(records.get(i).getKey());
@@ -153,7 +153,7 @@ public class HaloDBDeletionTest extends TestBase {
                 Assert.assertNull(actual);
             }
             else {
-                Assert.assertArrayEquals(records.get(i).getValue(), actual);
+                Assert.assertEquals(records.get(i).getValue(), actual);
             }
         }
     }
@@ -167,7 +167,7 @@ public class HaloDBDeletionTest extends TestBase {
         options.mergeThresholdFileNumber = 1;
         options.mergeThresholdPerFile = 0.10;
 
-        HaloDB db = testDB.getTestDB(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -199,7 +199,7 @@ public class HaloDBDeletionTest extends TestBase {
 
         db.close();
 
-        db = testDB.getTestDBWithoutDeletingFiles(directory, options);
+        db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (int i = 0; i < records.size(); i++) {
             byte[] actual = db.get(records.get(i).getKey());
@@ -208,7 +208,7 @@ public class HaloDBDeletionTest extends TestBase {
                 Assert.assertNull(actual);
             }
             else {
-                Assert.assertArrayEquals(records.get(i).getValue(), actual);
+                Assert.assertEquals(records.get(i).getValue(), actual);
             }
         }
     }

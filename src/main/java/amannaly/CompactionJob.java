@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Set;
 
@@ -23,7 +22,6 @@ class CompactionJob {
     private final RateLimiter compactionRateLimiter;
 
     private int mergedFileOffset = 0;
-
     private long unFlushedData = 0;
 
     CompactionJob(Set<Integer> fileIdsToMerge, HaloDBFile mergedFile, HaloDBInternal db) {
@@ -34,24 +32,23 @@ class CompactionJob {
     }
 
     void run() {
-
         long start = System.currentTimeMillis();
-        logger.info("About to start a merge run. Merging {} to {}", fileIdsToMerge, mergedFile.fileId);
+        logger.debug("About to start a merge run. Merging {} to {}", fileIdsToMerge, mergedFile.fileId);
 
         for (int fileId : fileIdsToMerge) {
             try {
-                copyFreshRecordsToMergedFileUsingIndexFile(fileId);
+                copyFreshRecordsToMergedFile(fileId);
             } catch (Exception e) {
                 logger.error("Error while compacting " + fileId, e);
             }
         }
 
         long time = (System.currentTimeMillis()-start)/1000;
-        logger.info("Completed merge run in {} seconds for file {}", time, mergedFile.fileId);
+        logger.debug("Completed merge run in {} seconds for file {}", time, mergedFile.fileId);
     }
 
     // TODO: group and move adjacent fresh records together for performance.
-    private void copyFreshRecordsToMergedFileUsingIndexFile(int idOfFileToMerge) throws IOException {
+    private void copyFreshRecordsToMergedFile(int idOfFileToMerge) throws IOException {
         FileChannel readFrom =  db.getHaloDBFile(idOfFileToMerge).getChannel();
 
         IndexFile.IndexFileIterator iterator = db.getHaloDBFile(idOfFileToMerge).getIndexFile().newIterator();
@@ -67,7 +64,7 @@ class CompactionJob {
             if (isRecordFresh(indexFileEntry, currentRecordMetaData, idOfFileToMerge)) {
                 compactionRateLimiter.acquire(recordSize);
 
-                // fresh record copy to merged file.
+                // fresh record, copy to merged file.
                 long transferred = readFrom.transferTo(recordOffset, recordSize, mergedFile.getChannel());
                 assert transferred == recordSize;
 
@@ -77,8 +74,8 @@ class CompactionJob {
                 }
 
                 unFlushedData += transferred;
-
                 if (db.options.flushDataSizeBytes != -1 && unFlushedData > db.options.flushDataSizeBytes) {
+                    //TODO: since metadata is not flushed file corruption can happen when process crashes.
                     mergedFile.getChannel().force(false);
                     unFlushedData = 0;
                 }
@@ -89,11 +86,12 @@ class CompactionJob {
                 int valueOffset = Utils.getValueOffset(mergedFileOffset, key);
                 RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(mergedFile.fileId, valueOffset, currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber());
 
-                if (!indexFileEntry.isTombStone()) {
-                    //TODO: if stale record, add the stale file map to remove later.
-                    db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
+                boolean updated = db.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
+                if (!updated) {
+                    // write thread wrote a new version while this version was being compacted.
+                    // therefore, this version is stale.
+                    //TODO: update stale data per file map.
                 }
-
                 mergedFileOffset += recordSize;
             }
         }
@@ -101,10 +99,8 @@ class CompactionJob {
     }
 
     private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
-        return (metaData == null && entry.isTombStone()) ||
-                (metaData != null
-                        && metaData.getFileId() == idOfFileToMerge
-                        && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey())
-                );
+        return metaData != null
+                && metaData.getFileId() == idOfFileToMerge
+                && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey());
     }
 }

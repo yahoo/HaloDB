@@ -19,7 +19,6 @@ class CompactionManager extends Thread {
     private final int intervalBetweenRunsInSeconds;
 
     //TODO; used scheduled thread pool executor.
-
     CompactionManager(HaloDBInternal dbInternal, int intervalBetweenRunsInSeconds) {
         super("CompactionManager");
         this.dbInternal = dbInternal;
@@ -34,7 +33,6 @@ class CompactionManager extends Thread {
     @Override
     public void run() {
         while (isRunning && !dbInternal.options.isMergeDisabled) {
-
             long nextRun = System.currentTimeMillis() + intervalBetweenRunsInSeconds * 1000;
 
             if (dbInternal.areThereEnoughFilesToMerge()) {
@@ -44,7 +42,7 @@ class CompactionManager extends Thread {
                     try {
                         mergedFile = dbInternal.createHaloDBFile();
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        logger.error("Error while creating merged file", e);
                         isRunning = false;
                         break;
                     }
@@ -59,7 +57,7 @@ class CompactionManager extends Thread {
             try {
                 Thread.sleep(msToSleep);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.error("Compaction thread interrupted", e);
             }
         }
     }

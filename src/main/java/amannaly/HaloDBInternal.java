@@ -18,10 +18,7 @@ import java.util.stream.Collectors;
  * @author Arjun Mannaly
  */
 class HaloDBInternal {
-
     private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
-
-    private static final Histogram writeLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
 
     private File dbDirectory;
 
@@ -47,7 +44,6 @@ class HaloDBInternal {
         HaloDBInternal result = new HaloDBInternal();
 
         FileUtils.createDirectory(directory);
-
         result.dbDirectory = directory;
 
         result.keyCache = new OffHeapCache(options.numberOfRecords);
@@ -73,7 +69,6 @@ class HaloDBInternal {
     }
 
     void close() throws IOException {
-
         compactionManager.stopThread();
 
         //TODO: make this optional as it will take time.
@@ -101,9 +96,7 @@ class HaloDBInternal {
         Record record = new Record(key, value);
         record.setSequenceNumber(getNextSequenceNumber());
         RecordMetaDataForCache entry = writeRecordToFile(record);
-
         updateStaleDataMap(key);
-
         keyCache.put(key, entry);
     }
 
@@ -115,10 +108,10 @@ class HaloDBInternal {
 
         HaloDBFile readFile = readFileMap.get(metaData.getFileId());
         if (readFile == null) {
-            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.getFileId());
+            logger.debug("File {} not present. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
             return get(key);
         }
-        //TODO: there is a race condition. what if the file is being deleted or was deleted.
+        //TODO: there is a race condition. the file could be deleted by compaciton thread.
         return readFile.readFromFile(metaData.getValueOffset(), metaData.getValueSize());
     }
 
@@ -196,8 +189,7 @@ class HaloDBInternal {
 
     boolean areThereEnoughFilesToMerge() {
         //TODO: size() is not a constant time operation.
-        //TODO: probably okay since number of files are usually
-        //TODO: not too many.
+        //TODO: probably okay since number of files are usually not too many.
         return filesToMerge.size() >= options.mergeThresholdFileNumber;
     }
 
@@ -205,11 +197,10 @@ class HaloDBInternal {
         Set<Integer> fileIds = new HashSet<>();
         Iterator<Integer> it = filesToMerge.iterator();
 
-        //TODO: there was a bug where currentWriteFile was being compacted.
-        //TODO: need to write a unit test for this.
         while (fileIds.size() < options.mergeThresholdFileNumber && it.hasNext()) {
             Integer next = it.next();
             if (currentWriteFile.fileId != next)
+                // currentWriteFile should never be compacted.
                 fileIds.add(next);
         }
 
@@ -219,7 +210,6 @@ class HaloDBInternal {
     void submitMergedFiles(Set<Integer> mergedFiles) {
         filesToMerge.removeAll(mergedFiles);
     }
-
 
     KeyCache getKeyCache() {
         return keyCache;
@@ -251,14 +241,7 @@ class HaloDBInternal {
         getHaloDBDataFilesForReading().forEach(f -> readFileMap.put(f.fileId, f));
     }
 
-    //TODO: probably don't expose this?
-    //TODO: current we need this for unit testing.
-    Set<Integer> listDataFileIds() {
-        return new HashSet<>(readFileMap.keySet());
-    }
-
     private List<Integer> listIndexFiles() {
-
         File[] files = dbDirectory.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
@@ -291,8 +274,6 @@ class HaloDBInternal {
         return files;
     }
 
-
-    //TODO: this probably needs to be moved to another location.
     private void buildKeyCache(HaloDBOptions options) throws IOException {
         List<Integer> indexFiles = listIndexFiles();
 
@@ -377,6 +358,12 @@ class HaloDBInternal {
         staleDataPerFileMap.remove(fileId);
     }
 
+    //TODO: probably don't expose this?
+    //TODO: current we need this for unit testing.
+    Set<Integer> listDataFileIds() {
+        return new HashSet<>(readFileMap.keySet());
+    }
+
     public void printStaleFileStatus() {
         System.out.println("********************************");
         staleDataPerFileMap.forEach((key, value) -> {
@@ -385,23 +372,8 @@ class HaloDBInternal {
         System.out.println("********************************\n\n");
     }
 
-    public static void recordWriteLatency(long time) {
-        writeLatencyHistogram.recordValue(time);
-    }
-
-    public static void printWriteLatencies() {
-        System.out.printf("Write latency mean %f\n", writeLatencyHistogram.getMean());
-        System.out.printf("Write latency max %d\n", writeLatencyHistogram.getMaxValue());
-        System.out.printf("Write latency 99 %d\n", writeLatencyHistogram.getValueAtPercentile(99.0));
-        System.out.printf("Write latency total count %d\n", writeLatencyHistogram.getTotalCount());
-
-    }
-
-    public void printKeyCachePutLatencies() {
-        keyCache.printPutLatency();
-    }
-
-    public boolean isRecordFresh(Record record) {
+    //TODO: merge this with the one in CompactionJob.
+    boolean isRecordFresh(Record record) {
         RecordMetaDataForCache metaData = keyCache.get(record.getKey());
 
         return
@@ -410,10 +382,7 @@ class HaloDBInternal {
             metaData.getFileId() == record.getRecordMetaData().getFileId()
             &&
             metaData.getValueOffset() == record.getRecordMetaData().getValueOffset();
-
     }
-
-
 
     String stats() {
         return keyCache.stats().toString();

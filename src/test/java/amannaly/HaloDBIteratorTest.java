@@ -14,20 +14,19 @@ import java.util.Set;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBIteratorTest {
+public class HaloDBIteratorTest extends TestBase {
 
     //TODO: test with delete operation.
 
     @Test
     public void testPutAndGetDB() throws IOException {
-        File directory = new File("/tmp/HaloDBIteratorTest/testPutAndGetDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBIteratorTest/testPutAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -40,14 +39,13 @@ public class HaloDBIteratorTest {
 
     @Test
     public void testPutUpdateAndGetDB() throws IOException {
-        File directory = new File("/tmp/HaloDBIteratorTest/testPutUpdateAndGetDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBIteratorTest/testPutUpdateAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -58,14 +56,11 @@ public class HaloDBIteratorTest {
         db.newIterator().forEachRemaining(actual::add);
 
         Assert.assertTrue(actual.containsAll(updated) && updated.containsAll(actual));
-
-        db.close();
     }
 
     @Test
     public void testPutUpdateMergeAndGetDB() throws IOException, InterruptedException {
-        File directory = new File("/tmp/HaloDBIteratorTest/testPutUpdateMergeAndGetDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBIteratorTest/testPutUpdateMergeAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = false;
@@ -74,7 +69,7 @@ public class HaloDBIteratorTest {
         options.mergeThresholdFileNumber = 2;
         options.mergeThresholdPerFile = 0.50;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -88,7 +83,5 @@ public class HaloDBIteratorTest {
         db.newIterator().forEachRemaining(actual::add);
 
         Assert.assertTrue(actual.containsAll(updated) && updated.containsAll(actual));
-
-        db.close();
     }
 }

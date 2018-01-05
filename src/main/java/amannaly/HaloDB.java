@@ -1,29 +1,19 @@
 package amannaly;
 
-import org.HdrHistogram.Histogram;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 
 /**
  * @author Arjun Mannaly
  */
 public class HaloDB {
 
-	private static final Histogram writeLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
-
 	private HaloDBInternal dbInternal;
 
 	//TODO: accept a string instead of File.
 	public static HaloDB open(File dirname, HaloDBOptions opts) throws IOException {
-
 		HaloDB db = new HaloDB();
 		db.dbInternal = HaloDBInternal.open(dirname, opts);
 		return db;
@@ -53,39 +43,14 @@ public class HaloDB {
 		return dbInternal.size();
 	}
 
-	//TODO: probably don't expose this?
-	//TODO: current we need this for unit testing.
-	public Set<Integer> listDataFileIds() {
-		return dbInternal.listDataFileIds();
-	}
-
-	//TODO: exposing this doesn't look good, any way around this?
-	// Used for unit tests.
-	HaloDBInternal getDbInternal() {
-		return dbInternal;
-	}
-
 	public String stats() {
 		return dbInternal.stats();
-	}
-
-	public static void recordWriteLatency(long time) {
-		//writeLatencyHistogram.recordValue(time);
-	}
-
-	public static void printWriteLatencies() {
-		System.out.printf("Write latency mean %f\n", writeLatencyHistogram.getMean());
-		System.out.printf("Write latency max %d\n", writeLatencyHistogram.getMaxValue());
-		System.out.printf("Write latency 99 %d\n", writeLatencyHistogram.getValueAtPercentile(99.0));
-		System.out.printf("Write latency total count %d\n", writeLatencyHistogram.getTotalCount());
-
 	}
 
 	public HaloDBIterator newIterator() throws IOException {
 		return new HaloDBIterator();
 	}
 
-	//TODO: move logic to check if a file is fresh/stale to file iterator.
 	public class HaloDBIterator implements Iterator<Record> {
 
 		private Iterator<Integer> outer;
@@ -131,7 +96,6 @@ public class HaloDB {
 					e.printStackTrace();
 				}
 			}
-
 			return false;
 		}
 
@@ -142,7 +106,6 @@ public class HaloDB {
 				next = null;
 				return record;
 			}
-
 			throw new NoSuchElementException();
 		}
 	}
@@ -150,4 +113,16 @@ public class HaloDB {
 	public boolean isMergeComplete() {
 		return dbInternal.isMergeComplete();
 	}
+
+    //TODO: probably don't expose this?
+    //TODO: current we need this for unit testing.
+    Set<Integer> listDataFileIds() {
+        return dbInternal.listDataFileIds();
+    }
+
+    //TODO: exposing this doesn't look good, any way around this?
+    // Used for unit tests.
+    HaloDBInternal getDbInternal() {
+        return dbInternal;
+    }
 }

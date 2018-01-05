@@ -12,17 +12,16 @@ import java.util.List;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBTest {
+public class HaloDBTest extends TestBase {
 
     @Test
     public void testPutAndGetDB() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testPutAndGetDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testPutAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -40,19 +39,16 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        db.close();
     }
 
     @Test
     public void testPutAndGetDBWithByteBuffer() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -74,20 +70,17 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        db.close();
     }
 
     @Test
     public void testPutUpdateAndGetDB() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testPutUpdateAndGetDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testPutUpdateAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -107,21 +100,18 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        db.close();
     }
 
     @Test
     public void testCreateCloseAndOpenDB() throws IOException {
 
-        File directory = new File("/tmp/HaloDBTest/testCreateCloseAndOpenDB");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testCreateCloseAndOpenDB";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -144,7 +134,7 @@ public class HaloDBTest {
         db.close();
 
         // open and read contents again.
-        HaloDB openAgainDB = HaloDB.open(directory, options);
+        HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -159,15 +149,12 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        openAgainDB.close();
     }
 
     @Test
     public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws IOException {
 
-        File directory = new File("/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
@@ -175,7 +162,7 @@ public class HaloDBTest {
         // sized to ensure that there will be two files.
         options.maxFileSize = 1500;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         byte[] key = TestUtils.generateRandomByteArray(7);
         byte[] value = null;
@@ -191,7 +178,7 @@ public class HaloDBTest {
         db.close();
 
         // open and read contents again.
-        HaloDB openAgainDB = HaloDB.open(directory, options);
+        HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -199,19 +186,17 @@ public class HaloDBTest {
         Assert.assertTrue(actual.size() == 1);
 
         Assert.assertEquals(openAgainDB.get(key), value);
-        openAgainDB.close();
     }
 
     @Test
     public void testToCheckDelete() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testToCheckDelete");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testToCheckDelete";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -235,20 +220,17 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        db.close();
     }
 
     @Test
     public void testDeleteCloseAndOpen() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testDeleteCloseAndOpen");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testDeleteCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -262,7 +244,7 @@ public class HaloDBTest {
 
         db.close();
 
-        HaloDB openAgainDB = HaloDB.open(directory, options);
+        HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);
@@ -276,20 +258,17 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        openAgainDB.close();
     }
 
     @Test
     public void testDeleteAndInsert() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testDeleteAndInsert");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testDeleteAndInsert";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -325,20 +304,17 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        db.close();
     }
 
     @Test
     public void testDeleteInsertCloseAndOpen() throws IOException {
-        File directory = new File("/tmp/HaloDBTest/testDeleteInsertCloseAndOpen");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTest/testDeleteInsertCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = true;
         options.maxFileSize = 10*1024;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -362,7 +338,7 @@ public class HaloDBTest {
         });
 
 
-        HaloDB openAgainDB = HaloDB.open(directory, options);
+        HaloDB openAgainDB = HaloDB.open(new File(directory), options);
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);
@@ -376,7 +352,5 @@ public class HaloDBTest {
                 throw new RuntimeException(e);
             }
         });
-
-        openAgainDB.close();
     }
 }

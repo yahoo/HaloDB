@@ -11,14 +11,11 @@ import java.util.Set;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBFileMergeTest {
-
-    //TODO: use set up and tear down methods for creating DBs.
+public class HaloDBFileMergeTest extends TestBase {
 
     @Test
     public void testMerge() throws Exception {
-        File directory = new File("/tmp/BitCaskFileMergeTest/testMerge");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBFileMergeTest/testMerge";
 
         int recordSize = 1024;
         int recordNumber = 20;
@@ -29,7 +26,7 @@ public class HaloDBFileMergeTest {
         options.mergeThresholdFileNumber = 2;
         options.isMergeDisabled = true;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         byte[] data = new byte[recordSize - Record.Header.HEADER_SIZE - 8 - 8];
         for (int i = 0; i < data.length; i++) {
@@ -63,7 +60,7 @@ public class HaloDBFileMergeTest {
             db.put(r.getKey(), r.getValue());
         }
 
-        HaloDBFile mergedFile = HaloDBFile.create(directory, 1000, options);
+        HaloDBFile mergedFile = HaloDBFile.create(new File(directory), 1000, options);
         CompactionJob compactionJob = new CompactionJob(fileIdsToMerge, mergedFile, db.getDbInternal());
         compactionJob.run();
 
@@ -76,9 +73,5 @@ public class HaloDBFileMergeTest {
         }
 
         Assert.assertTrue(mergedRecords.containsAll(freshRecords) && freshRecords.containsAll(mergedRecords));
-
-        db.close();
-        TestUtils.deleteDirectory(directory);
-
     }
 }

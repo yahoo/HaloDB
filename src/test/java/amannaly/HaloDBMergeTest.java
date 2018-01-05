@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBMergeTest {
+public class HaloDBMergeTest extends TestBase {
 
     private final int recordSize = 1024;
     private final int numberOfFiles = 8;
@@ -23,8 +24,7 @@ public class HaloDBMergeTest {
 
     @Test
     public void testMerge() throws Exception {
-        File directory = new File("/tmp/HaloDBTestWithMerge/testMerge");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTestWithMerge/testMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
@@ -34,7 +34,7 @@ public class HaloDBMergeTest {
         options.mergeJobIntervalInSeconds = 2;
         options.flushDataSizeBytes = 2048;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db =  getTestDB(directory, options);
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
@@ -43,7 +43,7 @@ public class HaloDBMergeTest {
         // after we implement compaction with one file.
         Thread.sleep(10000);
 
-        Map<Long, List<Path>> map = Files.list(directory.toPath())
+        Map<Long, List<Path>> map = Files.list(Paths.get(directory))
             .filter(path -> Constants.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
             .collect(Collectors.groupingBy(path -> path.toFile().length()));
 
@@ -54,7 +54,7 @@ public class HaloDBMergeTest {
         Assert.assertEquals(map.get(20 * 1024l).size(), 2);
 
         int sizeOfIndexEntry = IndexFileEntry.INDEX_FILE_HEADER_SIZE + 8;
-        Map<Long, List<Path>> indexFileSizemap = Files.list(directory.toPath())
+        Map<Long, List<Path>> indexFileSizemap = Files.list(Paths.get(directory))
             .filter(path -> Constants.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
             .collect(Collectors.groupingBy(path -> path.toFile().length()));
 
@@ -68,16 +68,11 @@ public class HaloDBMergeTest {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(r.getValue(), actual);
         }
-
-        db.close();
-
-        TestUtils.deleteDirectory(directory);
     }
 
     @Test
     public void testReOpenDBAfterMerge() throws IOException, InterruptedException {
-        File directory = new File("/tmp/HaloDBTestWithMerge/testReOpenDBAfterMerge");
-        TestUtils.deleteDirectory(directory);
+        String directory = "/tmp/HaloDBTestWithMerge/testReOpenDBAfterMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
@@ -86,7 +81,7 @@ public class HaloDBMergeTest {
         options.isMergeDisabled = false;
         options.mergeJobIntervalInSeconds = 2;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
@@ -97,28 +92,23 @@ public class HaloDBMergeTest {
 
         Thread.sleep(5000);
 
-        db = HaloDB.open(directory, options);
+        db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(actual, r.getValue());
         }
-
-        db.close();
-
-        TestUtils.deleteDirectory(directory);
     }
 
     @Test
     public void testReOpenDBWithoutMerge() throws IOException, InterruptedException {
-        File directory = new File("/tmp/HaloDBTestWithMerge/testReOpenAndUpdatesAndWithoutMerge");
-        TestUtils.deleteDirectory(directory);
+        String directory ="/tmp/HaloDBTestWithMerge/testReOpenAndUpdatesAndWithoutMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.isMergeDisabled = true;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
@@ -126,28 +116,23 @@ public class HaloDBMergeTest {
 
         Thread.sleep(2000);
 
-        db = HaloDB.open(directory, options);
+        db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(actual, r.getValue());
         }
-
-        db.close();
-
-        TestUtils.deleteDirectory(directory);
     }
 
     @Test
     public void testUpdatesToSameFile() throws IOException, InterruptedException {
-        File directory = new File("/tmp/HaloDBTestWithMerge/testUpdatesToSameFile");
-        TestUtils.deleteDirectory(directory);
+        String directory ="/tmp/HaloDBTestWithMerge/testUpdatesToSameFile";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.isMergeDisabled = true;
 
-        HaloDB db = HaloDB.open(directory, options);
+        HaloDB db = getTestDB(directory, options);
 
         Record[] records = insertAndUpdateRecordsToSameFile(2, db);
 
@@ -155,16 +140,12 @@ public class HaloDBMergeTest {
 
         Thread.sleep(2000);
 
-        db = HaloDB.open(directory, options);
+        db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(actual, r.getValue());
         }
-
-        db.close();
-
-        TestUtils.deleteDirectory(directory);
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {

@@ -1,6 +1,8 @@
 package amannaly;
 
 import com.google.common.primitives.Ints;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,14 +19,11 @@ import static amannaly.Record.Header.HEADER_SIZE;
  * @author Arjun Mannaly
  */
 class HaloDBFile {
+    private static final Logger logger = LoggerFactory.getLogger(HaloDBFile.class);
 
 	private FileChannel channel;
 
 	private int writeOffset;
-
-	long getWriteOffset() {
-		return writeOffset;
-	}
 
 	private final File backingFile;
 	private IndexFile indexFile;
@@ -89,8 +88,6 @@ class HaloDBFile {
 	}
 
 	RecordMetaDataForCache writeRecord(Record record) throws IOException {
-
-		long start = System.nanoTime();
 		writeToChannel(record.serialize(), channel);
 
 		int recordSize = record.getRecordSize();
@@ -99,8 +96,6 @@ class HaloDBFile {
 
 		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), record.getFlags());
 		indexFile.write(indexFileEntry);
-
-		HaloDB.recordWriteLatency(System.nanoTime() - start);
 
 		int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
 		return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
@@ -120,11 +115,15 @@ class HaloDBFile {
 		unFlushedData += written;
 
 		if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
+		    //TODO: since metadata is not flushed file corruption can happen when process crashes.
 			writeChannel.force(false);
 			unFlushedData = 0;
 		}
-
 		return written;
+	}
+
+	long getWriteOffset() {
+		return writeOffset;
 	}
 
 	public long getSize() {
@@ -140,15 +139,12 @@ class HaloDBFile {
 	}
 
 	static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
-
 		int fileId = HaloDBFile.getFileTimeStamp(filename);
-		
-		FileChannel rch = new RandomAccessFile(filename, "r").getChannel();
-
+		FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, indexFile, rch, options);
+		return new HaloDBFile(fileId, filename, indexFile, channel, options);
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
@@ -160,7 +156,6 @@ class HaloDBFile {
         }
 
 		FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
-
 		//TODO: setting the length might improve performance.
 		//file.setLength(max_);
 
@@ -223,7 +218,7 @@ class HaloDBFile {
 			try {
 				record = readRecord(currentOffset);
 			} catch (IOException e) {
-				e.printStackTrace();
+			    logger.error("Error in iterator", e);
 				return null;
 			}
 			currentOffset += record.getRecordSize();

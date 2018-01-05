@@ -22,7 +22,7 @@ public class HaloDBOptions {
 	 */
 	public long flushDataSizeBytes = -1;
 
-	// used primarily for testing.
+	// used for testing.
 	public boolean isMergeDisabled = false;
 
 	public int numberOfRecords = 1_000;

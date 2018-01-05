@@ -74,8 +74,6 @@ class TombstoneFile {
         unFlushedData += written;
 
         if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
-            //TODO: do I need to sync the metadata also?
-            //TODO: what will happen after a crash if I don't sync metadata.
             channel.force(false);
             unFlushedData = 0;
         }

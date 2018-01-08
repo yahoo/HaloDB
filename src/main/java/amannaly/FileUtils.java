@@ -8,7 +8,7 @@ import java.io.IOException;
  */
 class FileUtils {
 
-    static void createDirectory(File directory) throws IOException {
+    static void createDirectoryIfNotExists(File directory) throws IOException {
         if (directory.exists()  && directory.isDirectory())
             return;
 

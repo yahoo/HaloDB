@@ -55,6 +55,9 @@ class Record {
         this.recordMetaData = recordMetaData;
     }
 
+    /**
+     * @return recordSize which is HEADER_SIZE + key size + value size.
+     */
     int getRecordSize() {
         return header.getRecordSize();
     }

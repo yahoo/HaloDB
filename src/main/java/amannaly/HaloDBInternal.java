@@ -1,6 +1,5 @@
 package amannaly;
 
-import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -43,8 +41,18 @@ class HaloDBInternal {
     static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
         HaloDBInternal result = new HaloDBInternal();
 
-        FileUtils.createDirectory(directory);
+        FileUtils.createDirectoryIfNotExists(directory);
         result.dbDirectory = directory;
+
+        DBMetaData dbMetaData = new DBMetaData(directory.getPath());
+        dbMetaData.loadFromFile();
+        if (dbMetaData.isOpen()) {
+            // open flag is true, this might mean that the db was not cleanly closed the last time.
+        }
+        else {
+            dbMetaData.setOpen(true);
+            dbMetaData.storeToFile();
+        }
 
         result.keyCache = new OffHeapCache(options.numberOfRecords);
         result.buildReadFileMap();
@@ -86,6 +94,10 @@ class HaloDBInternal {
         if (tombstoneFile != null) {
             tombstoneFile.close();
         }
+
+        DBMetaData metaData = new DBMetaData(dbDirectory.getPath());
+        metaData.setOpen(false);
+        metaData.storeToFile();
     }
 
     void put(byte[] key, byte[] value) throws IOException {
@@ -216,7 +228,13 @@ class HaloDBInternal {
     }
 
     HaloDBFile createHaloDBFile() throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options);
+        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options, HaloDBFile.FileType.DATA_FILE);
+        readFileMap.put(file.fileId, file);
+        return file;
+    }
+
+    HaloDBFile createCompactedHaloDBFile() throws IOException {
+        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options, HaloDBFile.FileType.COMPACTED_FILE);
         readFileMap.put(file.fileId, file);
         return file;
     }

@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 /**
  * @author Arjun Mannaly
  */
-public class Constants {
+class Constants {
 
     static final Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+)" + HaloDBFile.DATA_FILE_NAME);
 

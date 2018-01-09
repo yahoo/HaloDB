@@ -9,8 +9,11 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 
 import static amannaly.Record.Header.HEADER_SIZE;
@@ -34,6 +37,7 @@ class HaloDBFile {
 	private long unFlushedData = 0;
 
     static final String DATA_FILE_NAME = ".data";
+    static final String COMPACTED_DATA_FILE_NAME = ".datac";
 
     private HaloDBFile(int fileId, File backingFile, IndexFile indexFile,
                        FileChannel channel, HaloDBOptions options) throws IOException {
@@ -100,6 +104,22 @@ class HaloDBFile {
 		int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
 		return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
 	}
+
+	void rebuildIndexFile() throws IOException {
+        indexFile.delete();
+
+        indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
+        indexFile.open();
+
+        HaloDBFileIterator iterator = new HaloDBFileIterator();
+        int offset = 0;
+        while (iterator.hasNext()) {
+            Record record = iterator.next();
+            IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), record.getRecordSize(), offset, record.getSequenceNumber(), record.getFlags());
+            indexFile.write(indexFileEntry);
+            offset += record.getRecordSize();
+        }
+    }
 	
 	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
 		long toWrite = 0;
@@ -147,12 +167,14 @@ class HaloDBFile {
 		return new HaloDBFile(fileId, filename, indexFile, channel, options);
 	}
 
-	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options) throws IOException {
-		File file = getDataFile(haloDBDirectory, fileId);
+	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
+        BiFunction<File, Integer, File> toFile = (fileType == FileType.DATA_FILE) ? HaloDBFile::getDataFile : HaloDBFile::getCompactedDataFile;
+
+		File file = toFile.apply(haloDBDirectory, fileId);
 		while (!file.createNewFile()) {
             // file already exists try another one.
 		    fileId++;
-            file = getDataFile(haloDBDirectory, fileId);
+            file = toFile.apply(haloDBDirectory, fileId);
         }
 
 		FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
@@ -187,6 +209,10 @@ class HaloDBFile {
 	private static File getDataFile(File haloDBDirectory, int fileId) {
         return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
 	}
+
+    private static File getCompactedDataFile(File haloDBDirectory, int fileId) {
+        return Paths.get(haloDBDirectory.getPath(), fileId + COMPACTED_DATA_FILE_NAME).toFile();
+    }
 
 	static int getFileTimeStamp(File file) {
 		Matcher matcher = Constants.DATA_FILE_PATTERN.matcher(file.getName());
@@ -225,4 +251,8 @@ class HaloDBFile {
 			return record;
 		}
 	}
+
+	static enum FileType {
+        DATA_FILE, COMPACTED_FILE;
+    }
 }

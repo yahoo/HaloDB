@@ -60,7 +60,7 @@ public class HaloDBFileMergeTest extends TestBase {
             db.put(r.getKey(), r.getValue());
         }
 
-        HaloDBFile mergedFile = HaloDBFile.create(new File(directory), 1000, options);
+        HaloDBFile mergedFile = HaloDBFile.create(new File(directory), 1000, options, HaloDBFile.FileType.COMPACTED_FILE);
         CompactionJob compactionJob = new CompactionJob(fileIdsToMerge, mergedFile, db.getDbInternal());
         compactionJob.run();
 

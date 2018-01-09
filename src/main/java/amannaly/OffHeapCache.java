@@ -4,6 +4,7 @@ import amannaly.ohc.Eviction;
 import amannaly.ohc.OHCache;
 import amannaly.ohc.OHCacheBuilder;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,9 +94,9 @@ class OffHeapCache implements KeyCache {
     @Override
     public void printMapContents() {
         Set<Long> set = new TreeSet<>();
-        ohCache.keyIterator().forEachRemaining(key -> set.add(Utils.bytesToLong(key)));
+        ohCache.keyIterator().forEachRemaining(key -> set.add(Longs.fromByteArray(key)));
         set.forEach(key -> System.out
-            .printf("%d -> %d\n", key, ohCache.get(Utils.longToBytes(key)).getFileId()));
+            .printf("%d -> %d\n", key, ohCache.get(Longs.toByteArray(key)).getFileId()));
     }
 
     @Override

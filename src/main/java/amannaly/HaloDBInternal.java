@@ -1,5 +1,6 @@
 package amannaly;
 
+import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +11,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -36,6 +38,8 @@ class HaloDBInternal {
 
     private final Set<Integer> filesToMerge = new ConcurrentSkipListSet<>();
 
+    private AtomicInteger nextFileId;
+
     private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
@@ -55,16 +59,17 @@ class HaloDBInternal {
         }
 
         result.keyCache = new OffHeapCache(options.numberOfRecords);
-        result.buildReadFileMap();
+        int maxFileId = result.buildReadFileMap();
+        result.nextFileId = new AtomicInteger(maxFileId + 10);
         result.buildKeyCache(options);
 
         result.options = options;
-        result.currentWriteFile = result.createHaloDBFile();
+        result.currentWriteFile = result.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
 
         result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
         result.compactionManager.start();
 
-        result.tombstoneFile = TombstoneFile.create(directory, options);
+        result.tombstoneFile = TombstoneFile.create(directory, result.getNextFileId(), options);
 
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isMergeDisabled - {}", options.isMergeDisabled);
@@ -168,7 +173,7 @@ class HaloDBInternal {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
-            currentWriteFile = createHaloDBFile();
+            currentWriteFile = createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
         }
     }
 
@@ -180,7 +185,7 @@ class HaloDBInternal {
                 tombstoneFile.close();
             }
 
-            tombstoneFile = TombstoneFile.create(dbDirectory, options);
+            tombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
         }
     }
 
@@ -227,14 +232,8 @@ class HaloDBInternal {
         return keyCache;
     }
 
-    HaloDBFile createHaloDBFile() throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options, HaloDBFile.FileType.DATA_FILE);
-        readFileMap.put(file.fileId, file);
-        return file;
-    }
-
-    HaloDBFile createCompactedHaloDBFile() throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory, Utils.generateFileId(), options, HaloDBFile.FileType.COMPACTED_FILE);
+    HaloDBFile createHaloDBFile(HaloDBFile.FileType fileType) throws IOException {
+        HaloDBFile file = HaloDBFile.create(dbDirectory, getNextFileId(), options, fileType);
         readFileMap.put(file.fileId, file);
         return file;
     }
@@ -255,8 +254,23 @@ class HaloDBInternal {
         return result;
     }
 
-    private void buildReadFileMap() throws IOException {
-        getHaloDBDataFilesForReading().forEach(f -> readFileMap.put(f.fileId, f));
+    private int buildReadFileMap() throws IOException {
+        int maxFileId = Integer.MIN_VALUE;
+
+        for (HaloDBFile file : getHaloDBDataFilesForReading()) {
+            readFileMap.put(file.fileId, file);
+            maxFileId = Math.max(maxFileId, file.fileId);
+        }
+
+        if (maxFileId == Integer.MIN_VALUE) {
+            // no files in the directory. use the current time as the first file id.
+            maxFileId = Ints.checkedCast(System.currentTimeMillis() / 1000);
+        }
+        return maxFileId;
+    }
+
+    int getNextFileId() {
+        return nextFileId.incrementAndGet();
     }
 
     private List<Integer> listIndexFiles() {

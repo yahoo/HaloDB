@@ -1,5 +1,6 @@
 package amannaly;
 
+import com.google.common.primitives.Longs;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -153,7 +154,7 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {
-            byte[] key = Utils.longToBytes(i);
+            byte[] key = Longs.toByteArray(i);
             byte[] value = TestUtils.generateRandomByteArray(valueSize);
             records[i] = new Record(key, value);
             db.put(records[i].getKey(), records[i].getValue());
@@ -179,12 +180,12 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = new Record[numberOfRecords];
         for (int i = 0; i < numberOfRecords; i++) {
-            byte[] key = Utils.longToBytes(i);
+            byte[] key = Longs.toByteArray(i);
             byte[] value = TestUtils.generateRandomByteArray(valueSize);
 
             byte[] updatedValue = null;
             for (long j = 0; j < recordsPerFile; j++) {
-                updatedValue = TestUtils.concatenateArrays(value, Utils.longToBytes(j));
+                updatedValue = TestUtils.concatenateArrays(value, Longs.toByteArray(i));
                 db.put(key, updatedValue);
             }
 

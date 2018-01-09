@@ -40,7 +40,7 @@ class CompactionManager extends Thread {
                 if (filesToMerge.size() >= dbInternal.options.mergeThresholdFileNumber) {
                     HaloDBFile mergedFile;
                     try {
-                        mergedFile = dbInternal.createHaloDBFile();
+                        mergedFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
                     } catch (IOException e) {
                         logger.error("Error while creating merged file", e);
                         isRunning = false;

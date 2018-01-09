@@ -25,8 +25,7 @@ class TombstoneFile {
     static final String TOMBSTONE_FILE_NAME = ".tombstone";
     private static final String nullMessage = "Tombstone entry cannot be null";
 
-    static TombstoneFile create(File dbDirectory, HaloDBOptions options)  throws IOException {
-        int fileId = Utils.generateFileId();
+    static TombstoneFile create(File dbDirectory, int fileId, HaloDBOptions options)  throws IOException {
         File file = getTombstoneFile(dbDirectory, fileId);
 
         while (!file.createNewFile()) {

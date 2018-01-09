@@ -7,7 +7,8 @@ import java.util.regex.Pattern;
  */
 class Constants {
 
-    static final Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+)" + HaloDBFile.DATA_FILE_NAME);
+    // matches data and compcated files with extension .data and .datac respectively.
+    static final Pattern DATA_FILE_PATTERN = Pattern.compile("([0-9]+)" + HaloDBFile.DATA_FILE_NAME + "c?");
 
     static final Pattern INDEX_FILE_PATTERN = Pattern.compile("([0-9]+)" + IndexFile.INDEX_FILE_NAME);
 

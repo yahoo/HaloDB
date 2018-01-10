@@ -52,6 +52,23 @@ class HaloDBInternal {
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
             // open flag is true, this might mean that the db was not cleanly closed the last time.
+                result.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
+                    try {
+                        file.rebuildIndexFile();
+                    }
+                    catch (IOException e) {
+                        throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
+                    }
+                });
+
+            result.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
+                try {
+                    file.rebuildIndexFile();
+                }
+                catch (IOException e) {
+                    throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
+                }
+            });
         }
         else {
             dbMetaData.setOpen(true);
@@ -248,7 +265,8 @@ class HaloDBInternal {
 
         List<HaloDBFile> result = new ArrayList<>();
         for (File f : files) {
-            result.add(HaloDBFile.openForReading(dbDirectory, f, options));
+            HaloDBFile.FileType fileType = HaloDBFile.findFileType(f);
+            result.add(HaloDBFile.openForReading(dbDirectory, f, fileType, options));
         }
 
         return result;
@@ -269,8 +287,15 @@ class HaloDBInternal {
         return maxFileId;
     }
 
-    int getNextFileId() {
+    private int getNextFileId() {
         return nextFileId.incrementAndGet();
+    }
+
+    private Optional<HaloDBFile> getLatestDataFile(HaloDBFile.FileType fileType) {
+        return readFileMap.values()
+                .stream()
+                .filter(f -> f.getFileType() == fileType)
+                .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
     private List<Integer> listIndexFiles() {
@@ -296,14 +321,12 @@ class HaloDBInternal {
     }
 
     private File[] listTombstoneFiles() {
-        File[] files = dbDirectory.listFiles(new FileFilter() {
+        return dbDirectory.listFiles(new FileFilter() {
             @Override
             public boolean accept(File file) {
                 return Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches();
             }
         });
-
-        return files;
     }
 
     private void buildKeyCache(HaloDBOptions options) throws IOException {

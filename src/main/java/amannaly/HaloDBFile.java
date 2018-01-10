@@ -39,11 +39,14 @@ class HaloDBFile {
     static final String DATA_FILE_NAME = ".data";
     static final String COMPACTED_DATA_FILE_NAME = ".datac";
 
-    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile,
+    private final FileType fileType;
+
+    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileType fileType,
                        FileChannel channel, HaloDBOptions options) throws IOException {
 		this.fileId = fileId;
 		this.backingFile = backingFile;
 		this.indexFile = indexFile;
+		this.fileType = fileType;
 		this.channel = channel;
 		this.writeOffset = Ints.checkedCast(channel.size());
 		this.options = options;
@@ -158,13 +161,21 @@ class HaloDBFile {
 		return channel;
 	}
 
-	static HaloDBFile openForReading(File haloDBDirectory, File filename, HaloDBOptions options) throws IOException {
+	FileType getFileType() {
+        return fileType;
+    }
+
+    int getFileId() {
+        return fileId;
+    }
+
+	static HaloDBFile openForReading(File haloDBDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
 		int fileId = HaloDBFile.getFileTimeStamp(filename);
 		FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, filename, indexFile, channel, options);
+		return new HaloDBFile(fileId, filename, indexFile, fileType, channel, options);
 	}
 
 	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
@@ -184,7 +195,7 @@ class HaloDBFile {
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
 		indexFile.open();
 
-		return new HaloDBFile(fileId, file, indexFile, channel, options);
+		return new HaloDBFile(fileId, file, indexFile, fileType, channel, options);
 	}
 
 	HaloDBFileIterator newIterator() throws IOException {
@@ -212,6 +223,11 @@ class HaloDBFile {
 
     private static File getCompactedDataFile(File haloDBDirectory, int fileId) {
         return Paths.get(haloDBDirectory.getPath(), fileId + COMPACTED_DATA_FILE_NAME).toFile();
+    }
+
+    static FileType findFileType(File file) {
+        String name = file.getName();
+        return name.endsWith(COMPACTED_DATA_FILE_NAME) ? FileType.COMPACTED_FILE : FileType.DATA_FILE;
     }
 
 	static int getFileTimeStamp(File file) {

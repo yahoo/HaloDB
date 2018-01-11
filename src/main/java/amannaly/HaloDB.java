@@ -22,12 +22,13 @@ public class HaloDB {
 	public byte[] get(byte[] key) throws IOException {
 		return dbInternal.get(key);
 	}
+	
 
-    /**
-     * Reads value into the given destination buffer.
-     * The buffer will be cleared and data will be written
-     * from position 0.
-     */
+	/**
+	 * Reads value into the given destination buffer.
+	 * The buffer will be cleared and data will be written
+	 * from position 0.
+	 */
 	public int get(byte[] key, ByteBuffer destination) throws IOException {
 		return dbInternal.get(key, destination);
 	}
@@ -114,16 +115,16 @@ public class HaloDB {
 	}
 
 	// used in tests.
-    boolean isMergeComplete() {
+	boolean isMergeComplete() {
 		return dbInternal.isMergeComplete();
 	}
 
 
-    //TODO: probably don't expose these methods, used to unit tests.
-    Set<Integer> listDataFileIds() {
-        return dbInternal.listDataFileIds();
-    }
-    HaloDBInternal getDbInternal() {
-        return dbInternal;
-    }
+	//TODO: probably don't expose these methods, used to unit tests.
+	Set<Integer> listDataFileIds() {
+		return dbInternal.listDataFileIds();
+	}
+	HaloDBInternal getDbInternal() {
+		return dbInternal;
+	}
 }

@@ -52,14 +52,14 @@ class HaloDBInternal {
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
             // open flag is true, this might mean that the db was not cleanly closed the last time.
-                result.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
-                    try {
-                        file.rebuildIndexFile();
-                    }
-                    catch (IOException e) {
-                        throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
-                    }
-                });
+            result.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
+                try {
+                    file.rebuildIndexFile();
+                }
+                catch (IOException e) {
+                    throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
+                }
+            });
 
             result.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
                 try {
@@ -293,9 +293,9 @@ class HaloDBInternal {
 
     private Optional<HaloDBFile> getLatestDataFile(HaloDBFile.FileType fileType) {
         return readFileMap.values()
-                .stream()
-                .filter(f -> f.getFileType() == fileType)
-                .max(Comparator.comparingInt(HaloDBFile::getFileId));
+            .stream()
+            .filter(f -> f.getFileType() == fileType)
+            .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
     private List<Integer> listIndexFiles() {
@@ -309,15 +309,15 @@ class HaloDBInternal {
         // sort in ascending order. we want the earliest index files to be processed first.
 
         return
-        Arrays.stream(files)
-            .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
-            .map(file -> Constants.INDEX_FILE_PATTERN.matcher(file.getName()))
-            .map(matcher -> {
-                matcher.find();
-                return matcher.group(1);
-            })
-            .map(Integer::valueOf)
-            .collect(Collectors.toList());
+            Arrays.stream(files)
+                .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
+                .map(file -> Constants.INDEX_FILE_PATTERN.matcher(file.getName()))
+                .map(matcher -> {
+                    matcher.find();
+                    return matcher.group(1);
+                })
+                .map(Integer::valueOf)
+                .collect(Collectors.toList());
     }
 
     private File[] listTombstoneFiles() {

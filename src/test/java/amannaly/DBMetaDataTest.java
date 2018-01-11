@@ -20,8 +20,6 @@ public class DBMetaDataTest {
 
     @Test
     public void testDBMetaData() throws IOException {
-
-
         Path metaDataFile = Paths.get(directory, DBMetaData.METADATA_FILE_NAME);
 
         // confirm that the file doesn't exist.

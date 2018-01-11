@@ -10,19 +10,19 @@ import java.nio.ByteBuffer;
  */
 class RecordMetaDataForCache {
 
-	private final int fileId;
-	private final int valueOffset;
-	private final int valueSize;
-	private final long sequenceNumber;
+    private final int fileId;
+    private final int valueOffset;
+    private final int valueSize;
+    private final long sequenceNumber;
 
     static final int SERIALIZED_SIZE = 4 + 4 + 4 + 8;
 
     RecordMetaDataForCache(int fileId, int valueOffset, int valueSize, long sequenceNumber) {
-		this.fileId = fileId;
-		this.valueOffset = valueOffset;
-		this.valueSize = valueSize;
-		this.sequenceNumber = sequenceNumber;
-	}
+        this.fileId = fileId;
+        this.valueOffset = valueOffset;
+        this.valueSize = valueSize;
+        this.sequenceNumber = sequenceNumber;
+    }
 
     void serialize(ByteBuffer byteBuffer) {
         byteBuffer.putInt(getFileId());

@@ -13,11 +13,12 @@ HaloDB is probably not for you, but if your use case is somewhere near ours' the
 with reasonable confidence that HaloDB will outperform other storage engines. 
 
 HaloDB comprises of two main components: a cache in memory which stores all the keys, and files on
-the persistent layer which stores all the data. Since all the keys are stored in memory HaloDB
-requires considerable amount of it. Currently, storing one billion 8 byte keys requires around 
-100GB of memory which is stored in native memory, outside the Java heap. 
+the persistent layer which stores all the data. To reduce Java garbage collection pressure the cache 
+is allocated in native memory, outside the Java heap. 
 
 These are few other limitations/restrictions of HaloDB that you need to be aware of:
+* Since all the keys are stored in memory HaloDB need lots of it. Currently for 100 million records 
+   HaloDB needs around 10GB of memory.  
 * HaloDB supports multiple reader threads but only a single writer thread.
 * HaloDB also doesn't order keys and hence doesn't support range scans.
 * It takes time to open a HaloDB instance as it needs to scan all the index files and build a cache of all keys. 
@@ -25,20 +26,20 @@ These are few other limitations/restrictions of HaloDB that you need to be aware
 * Key size is restricted to 128 bytes. 
 
 
-#### Read, Write and Space amplification.
+### Read, Write and Space amplification.
 Read amplification in HaloDB is always 1—for a read request it needs to do just one disk lookup—hence it is well suited for read latency critical workloads. 
 HaloDB provides a simple configuration option which can be changed to tune write amplification and space amplification, both of which trade-off with each other;
 HaloDB has a background compaction thread which removes stale data from the DB. The percentage of stale data at which a file is compacted can be controlled. Increasing this value
 will increase space amplification but will reduce write amplification. For example if the value is set to 50% then write amplification
 and space amplification will be approximately 2 and 1.5 respectively. 
 
-#### Crash recovery.
+### Crash recovery.
 Write Ahead Logs (WAL) are usually used by databases for crash recovery. Since for HaloDB WAL _is the_ database crash recovery
 is easier. 
   TODO: add more details. 
   
-#### Key cache. 
-All keys and associated metadata are stored in memory. Currently HaloDB takes around 100GB of memory for a billion keys. 
+### Key cache. 
+All keys and associated metadata are stored in memory. Currently HaloDB takes around 100GB of memory for a billion 8 byte keys. 
 Storing this in the Java Heap is a non-starter for a performance critical storage engine. HaloDB solves this problem by storing 
 all data in native memory, outside the heap. Each key in the cache takes an additional 41 bytes for the metadata. Also, each bucket
 in the hash table requires 8 bytes, and the total number of such buckets depends on the number of keys.  
@@ -46,7 +47,7 @@ Memory fragmentation is an always an issue with native memory allocation. We use
 provides substantial reduction in fragmentation. We are also currently working on a slab allocator to further reduce memory usage
 and fragmentation. 
 
-#### Delete operations. 
+### Delete operations. 
 Delete operation in HaloDB works very differently from inserts. //TODO: add more details. 
 
 ### Benchmarks.

@@ -5,29 +5,30 @@ package amannaly;
  */
 public class HaloDBOptions {
 
-	//TODO; convert to private with get+set.
+    //TODO; convert to private with get+set.
 
-	// threshold of stale date at which file needs to be compacted.
-	public double mergeThresholdPerFile = 0.75;
+    // threshold of stale date at which file needs to be compacted.
+    public double mergeThresholdPerFile = 0.75;
 
-	public int mergeThresholdFileNumber = 4;
+    public int mergeThresholdFileNumber = 4;
 
-	public int mergeJobIntervalInSeconds = 60 * 1000;
+    public int mergeJobIntervalInSeconds = 60 * 1000;
 
-	public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
+    public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
-	/**
-	 * Data will be flushed to disk after flushDataSizeBytes have been written.
-	 * -1 disables explicit flushing and let the kernel handle it.
-	 */
-	public long flushDataSizeBytes = -1;
 
-	// used for testing.
-	public boolean isMergeDisabled = false;
+    /**
+     * Data will be flushed to disk after flushDataSizeBytes have been written.
+     * -1 disables explicit flushing and let the kernel handle it.
+     */
+    public long flushDataSizeBytes = -1;
 
-	public int numberOfRecords = 1_000;
+    // used for testing.
+    public boolean isMergeDisabled = false;
 
-	// MB of data to be compacted per second.
-	public int compactionJobRate = 1024 * 1024 * 1024;
+    public int numberOfRecords = 1_000;
+
+    // MB of data to be compacted per second.
+    public int compactionJobRate = 1024 * 1024 * 1024;
 
 }

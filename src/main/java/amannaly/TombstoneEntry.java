@@ -3,10 +3,11 @@ package amannaly;
 import java.nio.ByteBuffer;
 
 /**
+ * This is what is stored in the tombstone file.
+ *
  * @author Arjun Mannaly
  */
 class TombstoneEntry {
-
     //TODO: test.
 
     /**
@@ -46,7 +47,6 @@ class TombstoneEntry {
     static TombstoneEntry deserialize(ByteBuffer buffer) {
         long sequenceNumber = buffer.getLong();
         int keySize = (int)buffer.get();
-
         byte[] key = new byte[keySize];
         buffer.get(key);
 

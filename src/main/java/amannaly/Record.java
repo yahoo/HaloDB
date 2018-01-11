@@ -19,7 +19,6 @@ class Record {
     Record(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
-
         header = new Header((byte)key.length, value.length, -1, (byte)0);
     }
 
@@ -29,13 +28,10 @@ class Record {
 
     static Record deserialize(ByteBuffer buffer, short keySize, int valueSize) {
         buffer.flip();
-
         byte[] key = new byte[keySize];
         byte[] value = new byte[valueSize];
-
         buffer.get(key);
         buffer.get(value);
-
         return new Record(key, value);
     }
 
@@ -88,16 +84,13 @@ class Record {
         if (this == obj) {
             return true;
         }
-
         if (!(obj instanceof Record)) {
             return false;
         }
 
         Record record = (Record)obj;
-
         if (getKey() == null || record.getKey() == null)
             return false;
-
         if (getValue() == null || record.getValue() == null)
             return false;
 
@@ -105,11 +98,8 @@ class Record {
     }
 
     //TODO: override hash code.
-
     //TODO: remove flags if not required.
     static class Header {
-
-
         /**
          * key size         - 1 bytes.
          * value size       - 4 bytes.
@@ -135,7 +125,6 @@ class Record {
             this.valueSize = valueSize;
             this.sequenceNumber = sequenceNumber;
             this.flags = flags;
-
             recordSize = keySize + valueSize + HEADER_SIZE;
         }
 
@@ -151,7 +140,6 @@ class Record {
 
         ByteBuffer serialize() {
             byte[] header = new byte[HEADER_SIZE];
-
             ByteBuffer headerBuffer = ByteBuffer.wrap(header);
             headerBuffer.put(KEY_SIZE_OFFSET, keySize);
             headerBuffer.putInt(VALUE_SIZE_OFFSET, valueSize);

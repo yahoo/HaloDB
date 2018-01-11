@@ -23,6 +23,11 @@ public class HaloDB {
 		return dbInternal.get(key);
 	}
 
+    /**
+     * Reads value into the given destination buffer.
+     * The buffer will be cleared and data will be written
+     * from position 0.
+     */
 	public int get(byte[] key, ByteBuffer destination) throws IOException {
 		return dbInternal.get(key, destination);
 	}
@@ -52,7 +57,6 @@ public class HaloDB {
 	}
 
 	public class HaloDBIterator implements Iterator<Record> {
-
 		private Iterator<Integer> outer;
 		private Iterator<Record> inner;
 
@@ -62,7 +66,6 @@ public class HaloDB {
 
 		public HaloDBIterator() throws IOException {
 			outer = dbInternal.listDataFileIds().iterator();
-
 			if (outer.hasNext()) {
 				inner = dbInternal.getHaloDBFile(outer.next()).newIterator();
 			}
@@ -110,18 +113,16 @@ public class HaloDB {
 		}
 	}
 
-	public boolean isMergeComplete() {
+	// used in tests.
+    boolean isMergeComplete() {
 		return dbInternal.isMergeComplete();
 	}
 
-    //TODO: probably don't expose this?
-    //TODO: current we need this for unit testing.
+
+    //TODO: probably don't expose these methods, used to unit tests.
     Set<Integer> listDataFileIds() {
         return dbInternal.listDataFileIds();
     }
-
-    //TODO: exposing this doesn't look good, any way around this?
-    // Used for unit tests.
     HaloDBInternal getDbInternal() {
         return dbInternal;
     }

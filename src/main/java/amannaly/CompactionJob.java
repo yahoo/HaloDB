@@ -18,7 +18,6 @@ class CompactionJob {
     private final HaloDBFile mergedFile;
     private final HaloDBInternal db;
 
-    // TODO: use 35 MB for tests.
     private final RateLimiter compactionRateLimiter;
 
     private int mergedFileOffset = 0;

@@ -7,7 +7,7 @@ public class HaloDBOptions {
 
 	//TODO; convert to private with get+set.
 
-	// threshold of stale recordSize at which file needs to be merged.
+	// threshold of stale date at which file needs to be compacted.
 	public double mergeThresholdPerFile = 0.75;
 
 	public int mergeThresholdFileNumber = 4;

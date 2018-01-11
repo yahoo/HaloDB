@@ -1,6 +1,6 @@
 package amannaly;
 
-import amannaly.ohc.CacheSerializer;
+import amannaly.cache.CacheSerializer;
 
 import java.nio.ByteBuffer;
 

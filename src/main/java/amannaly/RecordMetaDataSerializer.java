@@ -1,7 +1,6 @@
 package amannaly;
 
-import amannaly.RecordMetaDataForCache;
-import amannaly.ohc.CacheSerializer;
+import amannaly.cache.CacheSerializer;
 
 import java.nio.ByteBuffer;
 

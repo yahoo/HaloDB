@@ -4,6 +4,8 @@ package amannaly;
 import java.nio.ByteBuffer;
 
 /**
+ * Metadata for each key stored in the cache.
+ *
  * @author Arjun Mannaly
  */
 class RecordMetaDataForCache {

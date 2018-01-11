@@ -63,7 +63,6 @@ class TombstoneFile {
         for (ByteBuffer buffer : contents) {
             toWrite += buffer.remaining();
         }
-
         long written = 0;
         while (written < toWrite) {
             written += channel.write(contents);
@@ -71,7 +70,6 @@ class TombstoneFile {
 
         writeOffset += written;
         unFlushedData += written;
-
         if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
             channel.force(false);
             unFlushedData = 0;
@@ -115,5 +113,4 @@ class TombstoneFile {
             return null;
         }
     }
-
 }

@@ -3,6 +3,8 @@ package amannaly;
 import java.nio.ByteBuffer;
 
 /**
+ * This is what is stored in the index file.
+ *
  * @author Arjun Mannaly
  */
 class IndexFileEntry {

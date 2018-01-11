@@ -56,24 +56,20 @@ class IndexFile {
         Objects.requireNonNull(entry, nullMessage);
 
         ByteBuffer[] contents = entry.serialize();
-
         long toWrite = 0;
         for (ByteBuffer buffer : contents) {
             toWrite += buffer.remaining();
         }
-
         long written = 0;
         while (written < toWrite) {
             written += channel.write(contents);
         }
 
         unFlushedData += written;
-
         if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
             channel.force(false);
             unFlushedData = 0;
         }
-
     }
 
     IndexFileIterator newIterator() throws IOException {
@@ -104,7 +100,6 @@ class IndexFile {
             if (hasNext()) {
                 return IndexFileEntry.deserialize(buffer);
             }
-
             return null;
         }
     }

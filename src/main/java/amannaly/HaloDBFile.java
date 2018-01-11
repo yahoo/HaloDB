@@ -19,6 +19,8 @@ import java.util.regex.Matcher;
 import static amannaly.Record.Header.HEADER_SIZE;
 
 /**
+ * Represents a data file and its associated index file.
+ *
  * @author Arjun Mannaly
  */
 class HaloDBFile {
@@ -268,7 +270,7 @@ class HaloDBFile {
 		}
 	}
 
-	static enum FileType {
+    enum FileType {
         DATA_FILE, COMPACTED_FILE;
     }
 }

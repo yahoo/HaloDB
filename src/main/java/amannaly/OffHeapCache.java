@@ -1,8 +1,7 @@
 package amannaly;
 
-import amannaly.ohc.Eviction;
-import amannaly.ohc.OHCache;
-import amannaly.ohc.OHCacheBuilder;
+import amannaly.cache.OHCache;
+import amannaly.cache.OHCacheBuilder;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import org.HdrHistogram.Histogram;
@@ -15,6 +14,8 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * Hash table stored in native memory, outside Java heap.
+ *
  * @author Arjun Mannaly
  */
 class OffHeapCache implements KeyCache {

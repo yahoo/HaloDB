@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -39,6 +40,8 @@ class HaloDBInternal {
     private final Set<Integer> filesToMerge = new ConcurrentSkipListSet<>();
 
     private AtomicInteger nextFileId;
+
+    private volatile boolean isClosing = false;
 
     private HaloDBInternal() {}
 
@@ -99,6 +102,7 @@ class HaloDBInternal {
     }
 
     void close() throws IOException {
+        isClosing = true;
         compactionManager.stopThread();
 
         //TODO: make this optional as it will take time.
@@ -145,8 +149,19 @@ class HaloDBInternal {
             logger.debug("File {} not present. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
             return get(key);
         }
-        //TODO: there is a race condition. the file could be deleted by compaciton thread.
-        return readFile.readFromFile(metaData.getValueOffset(), metaData.getValueSize());
+
+        try {
+            return readFile.readFromFile(metaData.getValueOffset(), metaData.getValueSize());
+        }
+        catch (ClosedChannelException e) {
+            if (!isClosing) {
+                logger.debug("File {} was closed. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
+                return get(key);
+            }
+            
+            // trying to read after HaloDB.close() method called. 
+            throw e;
+        }
     }
 
     int get(byte[] key, ByteBuffer buffer) throws IOException {
@@ -163,9 +178,21 @@ class HaloDBInternal {
 
         buffer.clear();
         buffer.limit(metaData.getValueSize());
-        int read = readFile.readFromFile(metaData.getValueOffset(), buffer);
-        buffer.flip();
-        return read;
+
+        try {
+            int read = readFile.readFromFile(metaData.getValueOffset(), buffer);
+            buffer.flip();
+            return read;
+        }
+        catch (ClosedChannelException e) {
+            if (!isClosing) {
+                logger.debug("File {} was closed. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
+                return get(key, buffer);
+            }
+
+            // trying to read after HaloDB.close() method called.
+            throw e;
+        }
     }
 
     void delete(byte[] key) throws IOException {

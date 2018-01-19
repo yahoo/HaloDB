@@ -94,6 +94,11 @@ class CompactionJob {
                 mergedFileOffset += recordSize;
             }
         }
+
+        // TODO: there is a chance of data loss if this file is deleted before the data that was moved from
+        // this file to the merged file hits the disk. To prevent that fsync the data before deleting the file.
+        // This again assumes the the file system guarantees ordering of operations, what if delete is done first
+        // by the file system before append?
         db.deleteHaloDBFile(idOfFileToMerge);
     }
 

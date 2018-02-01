@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -13,7 +12,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 /**
  * @author Arjun Mannaly
@@ -50,28 +48,15 @@ class HaloDBInternal {
 
         FileUtils.createDirectoryIfNotExists(directory);
         result.dbDirectory = directory;
+        result.options = options;
+
+        int maxFileId = result.buildReadFileMap();
 
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
             // open flag is true, this might mean that the db was not cleanly closed the last time.
-            result.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
-                try {
-                    file.rebuildIndexFile();
-                }
-                catch (IOException e) {
-                    throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
-                }
-            });
-
-            result.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
-                try {
-                    file.rebuildIndexFile();
-                }
-                catch (IOException e) {
-                    throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " while might be corrupted", e);
-                }
-            });
+            repairFiles(result);
         }
         else {
             dbMetaData.setOpen(true);
@@ -79,11 +64,9 @@ class HaloDBInternal {
         }
 
         result.keyCache = new OffHeapCache(options.numberOfRecords);
-        int maxFileId = result.buildReadFileMap();
         result.nextFileId = new AtomicInteger(maxFileId + 10);
         result.buildKeyCache(options);
 
-        result.options = options;
         result.currentWriteFile = result.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
 
         result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
@@ -158,7 +141,7 @@ class HaloDBInternal {
                 logger.debug("File {} was closed. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
                 return get(key);
             }
-            
+
             // trying to read after HaloDB.close() method called. 
             throw e;
         }
@@ -282,13 +265,8 @@ class HaloDBInternal {
         return file;
     }
 
-    private List<HaloDBFile> getHaloDBDataFilesForReading() throws IOException {
-        File[] files = dbDirectory.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                return Constants.DATA_FILE_PATTERN.matcher(file.getName()).matches();
-            }
-        });
+    private List<HaloDBFile> openDataFilesForReading() throws IOException {
+        File[] files = FileUtils.listDataFiles(dbDirectory);
 
         List<HaloDBFile> result = new ArrayList<>();
         for (File f : files) {
@@ -299,10 +277,15 @@ class HaloDBInternal {
         return result;
     }
 
+    /**
+     * Opens data files for reading and creates a map with file id as the key.
+     * Also returns the latest file id in the directory which is then used
+     * to determine the next file id.
+     */
     private int buildReadFileMap() throws IOException {
         int maxFileId = Integer.MIN_VALUE;
 
-        for (HaloDBFile file : getHaloDBDataFilesForReading()) {
+        for (HaloDBFile file : openDataFilesForReading()) {
             readFileMap.put(file.fileId, file);
             maxFileId = Math.max(maxFileId, file.fileId);
         }
@@ -325,39 +308,8 @@ class HaloDBInternal {
             .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
-    private List<Integer> listIndexFiles() {
-        File[] files = dbDirectory.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                return Constants.INDEX_FILE_PATTERN.matcher(file.getName()).matches();
-            }
-        });
-
-        // sort in ascending order. we want the earliest index files to be processed first.
-
-        return
-            Arrays.stream(files)
-                .sorted((f1, f2) -> f1.getName().compareTo(f2.getName()))
-                .map(file -> Constants.INDEX_FILE_PATTERN.matcher(file.getName()))
-                .map(matcher -> {
-                    matcher.find();
-                    return matcher.group(1);
-                })
-                .map(Integer::valueOf)
-                .collect(Collectors.toList());
-    }
-
-    private File[] listTombstoneFiles() {
-        return dbDirectory.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File file) {
-                return Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches();
-            }
-        });
-    }
-
     private void buildKeyCache(HaloDBOptions options) throws IOException {
-        List<Integer> indexFiles = listIndexFiles();
+        List<Integer> indexFiles = FileUtils.listIndexFiles(dbDirectory);
 
         logger.info("About to scan {} index files to construct cache ...", indexFiles.size());
 
@@ -396,7 +348,7 @@ class HaloDBInternal {
             indexFile.close();
         }
 
-        File[] tombStoneFiles = listTombstoneFiles();
+        File[] tombStoneFiles = FileUtils.listTombstoneFiles(dbDirectory);
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
             TombstoneFile tombstoneFile = new TombstoneFile(file, options);
@@ -438,6 +390,25 @@ class HaloDBInternal {
         }
 
         staleDataPerFileMap.remove(fileId);
+    }
+
+    private static void repairFiles(HaloDBInternal db) {
+        db.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
+            try {
+                file.rebuildIndexFile();
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
+            }
+        });
+        db.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
+            try {
+                file.rebuildIndexFile();
+            }
+            catch (IOException e) {
+                throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
+            }
+        });
     }
 
     //TODO: probably don't expose this?

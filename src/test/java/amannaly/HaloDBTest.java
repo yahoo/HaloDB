@@ -326,6 +326,7 @@ public class HaloDBTest extends TestBase {
 
         TestUtils.deleteRecords(db, deleted);
 
+        // inserting deleted records again. 
         List<Record> deleteAndInsert = new ArrayList<>();
         deleted.forEach(r -> {
             try {
@@ -337,17 +338,18 @@ public class HaloDBTest extends TestBase {
             }
         });
 
-
-        HaloDB openAgainDB = HaloDB.open(new File(directory), options);
+        db.close();
+        HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);
 
         Assert.assertTrue(remaining.size() == noOfRecords);
 
+        // make sure that records that were earlier deleted shows up now, since they were put back later.
         deleteAndInsert.forEach(r -> {
             try {
-                Assert.assertEquals(r.getValue(), db.get(r.getKey()));
+                Assert.assertEquals(r.getValue(), openAgainDB.get(r.getKey()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

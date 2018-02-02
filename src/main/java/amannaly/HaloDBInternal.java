@@ -55,6 +55,7 @@ class HaloDBInternal {
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
+            logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
             // open flag is true, this might mean that the db was not cleanly closed the last time.
             repairFiles(result);
         }
@@ -395,6 +396,7 @@ class HaloDBInternal {
     private static void repairFiles(HaloDBInternal db) {
         db.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
             try {
+                logger.info("Rebuilding index file for {}.data", file.getFileId());
                 file.rebuildIndexFile();
             }
             catch (IOException e) {
@@ -403,6 +405,7 @@ class HaloDBInternal {
         });
         db.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
             try {
+                logger.info("Rebuilding index file for {}.datac", file.getFileId());
                 file.rebuildIndexFile();
             }
             catch (IOException e) {

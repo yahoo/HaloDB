@@ -1,5 +1,8 @@
 package amannaly;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -9,6 +12,8 @@ import java.util.*;
  * @author Arjun Mannaly
  */
 public class HaloDB {
+    private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
+
     private HaloDBInternal dbInternal;
 
     //TODO: accept a string instead of File.
@@ -58,16 +63,16 @@ public class HaloDB {
 
     public class HaloDBIterator implements Iterator<Record> {
         private Iterator<Integer> outer;
-        private Iterator<Record> inner;
+        private Iterator<IndexFileEntry> inner;
+        private HaloDBFile currentFile;
 
         private Record next;
-
-        private final List<HaloDBFile.HaloDBFileIterator> files = new ArrayList<>();
 
         public HaloDBIterator() throws IOException {
             outer = dbInternal.listDataFileIds().iterator();
             if (outer.hasNext()) {
-                inner = dbInternal.getHaloDBFile(outer.next()).newIterator();
+                currentFile = dbInternal.getHaloDBFile(outer.next());
+                inner = currentFile.getIndexFile().newIterator();
             }
         }
 
@@ -80,23 +85,33 @@ public class HaloDB {
                 return true;
 
             while (inner.hasNext()) {
-                next = inner.next();
-                if (dbInternal.isRecordFresh(next)) {
-                    return true;
+                IndexFileEntry entry = inner.next();
+                try {
+                    next = readRecordFromDataFile(entry);
+                    if (next != null) {
+                        return true;
+                    }
+                } catch (IOException e) {
+                    logger.info("Error in iterator", e);
+                    return false;
                 }
             }
 
             while (outer.hasNext()) {
                 try {
-                    inner = dbInternal.getHaloDBFile(outer.next()).newIterator();
+                    currentFile = dbInternal.getHaloDBFile(outer.next());
+                    inner = currentFile.getIndexFile().newIterator();
+
                     while (inner.hasNext()) {
-                        next = inner.next();
-                        if (dbInternal.isRecordFresh(next)) {
+                        IndexFileEntry entry = inner.next();
+                        next = readRecordFromDataFile(entry);
+                        if (next != null) {
                             return true;
                         }
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.info("Error in iterator", e);
+                    return false;
                 }
             }
             return false;
@@ -110,6 +125,19 @@ public class HaloDB {
                 return record;
             }
             throw new NoSuchElementException();
+        }
+
+        private Record readRecordFromDataFile(IndexFileEntry entry) throws IOException {
+            RecordMetaDataForCache meta = Utils.getMetaData(entry, currentFile.getFileId());
+            Record record = null;
+            if (dbInternal.isRecordFresh(entry.getKey(), meta)) {
+                byte[] value = currentFile.readFromFile(
+                    Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()),
+                    Utils.getValueSize(entry.getRecordSize(), entry.getKey()));
+                record = new Record(entry.getKey(), value);
+                record.setRecordMetaData(meta);
+            }
+            return record;
         }
     }
 

@@ -440,6 +440,17 @@ class HaloDBInternal {
             metaData.getValueOffset() == record.getRecordMetaData().getValueOffset();
     }
 
+    boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
+        RecordMetaDataForCache metaDataFromCache = keyCache.get(key);
+
+        return
+            metaDataFromCache != null
+            &&
+            metaData.getFileId() == metaDataFromCache.getFileId()
+            &&
+            metaData.getValueOffset() == metaDataFromCache.getValueOffset();
+    }
+
     String stats() {
         return keyCache.stats().toString();
     }

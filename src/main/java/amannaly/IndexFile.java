@@ -72,6 +72,10 @@ class IndexFile {
         }
     }
 
+    void flushToDisk() throws IOException {
+        channel.force(true);
+    }
+
     IndexFileIterator newIterator() throws IOException {
         return new IndexFileIterator();
     }

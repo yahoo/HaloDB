@@ -396,8 +396,8 @@ class HaloDBInternal {
     private static void repairFiles(HaloDBInternal db) {
         db.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
             try {
-                logger.info("Rebuilding index file for {}.data", file.getFileId());
-                file.rebuildIndexFile();
+                logger.info("Repairing file {}.data", file.getFileId());
+                file.repairFile();
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
@@ -405,8 +405,8 @@ class HaloDBInternal {
         });
         db.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
             try {
-                logger.info("Rebuilding index file for {}.datac", file.getFileId());
-                file.rebuildIndexFile();
+                logger.info("Repairing file {}.datac", file.getFileId());
+                file.repairFile();
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
@@ -414,13 +414,11 @@ class HaloDBInternal {
         });
     }
 
-    //TODO: probably don't expose this?
-    //TODO: current we need this for unit testing.
     Set<Integer> listDataFileIds() {
         return new HashSet<>(readFileMap.keySet());
     }
 
-    public void printStaleFileStatus() {
+    void printStaleFileStatus() {
         System.out.println("********************************");
         staleDataPerFileMap.forEach((key, value) -> {
             System.out.printf("%d.data - %f\n", key, (value * 100.0) / options.maxFileSize);
@@ -428,17 +426,6 @@ class HaloDBInternal {
         System.out.println("********************************\n\n");
     }
 
-    //TODO: merge this with the one in CompactionJob.
-    boolean isRecordFresh(Record record) {
-        RecordMetaDataForCache metaData = keyCache.get(record.getKey());
-
-        return
-            metaData != null
-            &&
-            metaData.getFileId() == record.getRecordMetaData().getFileId()
-            &&
-            metaData.getValueOffset() == record.getRecordMetaData().getValueOffset();
-    }
 
     boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
         RecordMetaDataForCache metaDataFromCache = keyCache.get(key);
@@ -459,7 +446,7 @@ class HaloDBInternal {
         return filesToMerge.isEmpty();
     }
 
-    long getNextSequenceNumber() {
+    private long getNextSequenceNumber() {
         return System.nanoTime();
     }
 }

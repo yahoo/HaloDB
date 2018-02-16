@@ -91,6 +91,7 @@ class HaloDBFile {
 		readFromFile(tempOffset, recordBuf);
 
 		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
+		record.setHeader(header);
 		int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
 		record.setRecordMetaData(new RecordMetaDataForCache(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
 		return record;
@@ -126,6 +127,40 @@ class HaloDBFile {
 		}
 	}
 
+    /**
+     * Copies to a new file those records whose computed checksum matches the stored one.
+     * Records in the file which are occur after a corrupted record are discarded.
+     * Index file is also recreated.
+     *
+     * Current file is deleted after copy.
+     *
+     * This method is called if we detect an unclean shutdown. 
+     */
+	HaloDBFile repairFile() throws IOException {
+	    HaloDBFile newFile = create(backingFile.getParentFile(), fileId, options, fileType);
+
+	    logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
+
+        HaloDBFileIterator iterator = new HaloDBFileIterator();
+        int count = 0;
+        while (iterator.hasNext()) {
+            Record record = iterator.next();
+            if (record.verifyChecksum()) {
+                newFile.writeRecord(record);
+                count++;
+            }
+            else {
+                logger.info("Found a corrupted record after copying {} records", count);
+                break;
+            }
+        }
+        logger.info("Copied {} from {} to {}. Deleting file ...", count, fileId, newFile.fileId);
+        newFile.flushToDisk();
+        newFile.indexFile.flushToDisk();
+        delete();
+        return newFile;
+    }
+
 	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
 		long toWrite = 0;
 		for (ByteBuffer buffer : buffers) {
@@ -146,6 +181,10 @@ class HaloDBFile {
 		}
 		return written;
 	}
+
+	private void flushToDisk() throws IOException {
+	    channel.force(true);
+    }
 
 	long getWriteOffset() {
 		return writeOffset;
@@ -239,9 +278,6 @@ class HaloDBFile {
 		return Integer.parseInt(s);
 	}
 
-
-	//TODO: we need to return only fresh files.
-	//TODO: scan Index file iterator for performance.
 	public class HaloDBFileIterator implements Iterator<Record> {
 
 		private final long endOffset;

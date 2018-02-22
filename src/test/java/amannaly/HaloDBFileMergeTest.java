@@ -1,11 +1,15 @@
 package amannaly;
 
 import com.google.common.primitives.Longs;
+
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
@@ -22,10 +26,9 @@ public class HaloDBFileMergeTest extends TestBase {
         int recordNumber = 20;
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * recordSize;
+        options.maxFileSize = 10 * recordSize; // 10 records per data file.
         options.mergeThresholdPerFile = 0.5;
         options.mergeThresholdFileNumber = 2;
-        options.isMergeDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -42,37 +45,32 @@ public class HaloDBFileMergeTest extends TestBase {
             db.put(records[i].getKey(), records[i].getValue());
         }
 
-        Set<Integer> fileIdsToMerge = db.listDataFileIds();
-
-        List<Record> staleRecords = new ArrayList<>();
         List<Record> freshRecords = new ArrayList<>();
 
-        for (int i = 0, j = 0; i < 5; i++, j++) {
-            staleRecords.add(records[i]);
-            staleRecords.add(records[i+10]);
+        // There are two data files. make the first half of both the files stale. 
+        for (int i = 0; i < 5; i++) {
+            db.put(records[i].getKey(), records[i].getValue());
+            db.put(records[i+10].getKey(), records[i+10].getValue());
         }
 
-        for (int i = 5, j = 0; i < 10; i++, j++) {
+        // Second half of both the files should be copied to the compacted file.
+        for (int i = 5; i < 10; i++) {
             freshRecords.add(records[i]);
             freshRecords.add(records[i + 10]);
         }
 
-        for (Record r : staleRecords) {
-            db.put(r.getKey(), r.getValue());
-        }
+        TestUtils.waitForMergeToComplete(db);
 
-        HaloDBFile mergedFile = HaloDBFile.create(new File(directory), 1000, options, HaloDBFile.FileType.COMPACTED_FILE);
-        CompactionJob compactionJob = new CompactionJob(fileIdsToMerge, mergedFile, db.getDbInternal());
-        compactionJob.run();
+        // the latest file will be the compacted file.
+        int compactedFile = db.getDbInternal().listDataFileIds().stream().max(Comparator.comparingInt(Integer::intValue)).get();
+        HaloDBFile.HaloDBFileIterator iterator = db.getDbInternal().getHaloDBFile(compactedFile).newIterator();
 
-        HaloDBFile.HaloDBFileIterator iterator = mergedFile.newIterator();
-
+        // make sure the the compacted file has the bottom half of two files.
         List<Record> mergedRecords = new ArrayList<>();
-
         while (iterator.hasNext()) {
             mergedRecords.add(iterator.next());
         }
 
-        Assert.assertTrue(mergedRecords.containsAll(freshRecords) && freshRecords.containsAll(mergedRecords));
+        MatcherAssert.assertThat(freshRecords, Matchers.containsInAnyOrder(mergedRecords.toArray()));
     }
 }

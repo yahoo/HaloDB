@@ -50,7 +50,7 @@ class HaloDBFile {
 		this.indexFile = indexFile;
 		this.fileType = fileType;
 		this.channel = channel;
-		this.writeOffset = Ints.checkedCast(channel.size());
+		this.writeOffset = 0;
 		this.options = options;
 	}
 
@@ -182,8 +182,9 @@ class HaloDBFile {
 		return written;
 	}
 
-	private void flushToDisk() throws IOException {
-	    channel.force(true);
+	void flushToDisk() throws IOException {
+        if (channel != null && channel.isOpen())
+	        channel.force(true);
     }
 
 	long getWriteOffset() {
@@ -191,7 +192,7 @@ class HaloDBFile {
 	}
 
 	public long getSize() {
-		return backingFile.length();
+		return writeOffset;
 	}
 
 	IndexFile getIndexFile() {

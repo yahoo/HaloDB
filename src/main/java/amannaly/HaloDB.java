@@ -141,16 +141,16 @@ public class HaloDB {
         }
     }
 
-    // used in tests.
+    // methods used in tests.
+
     boolean isMergeComplete() {
         return dbInternal.isMergeComplete();
     }
-
-
-    //TODO: probably don't expose these methods, used to unit tests.
+    
     Set<Integer> listDataFileIds() {
         return dbInternal.listDataFileIds();
     }
+
     HaloDBInternal getDbInternal() {
         return dbInternal;
     }

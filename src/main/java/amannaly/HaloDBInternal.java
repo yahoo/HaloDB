@@ -238,22 +238,18 @@ class HaloDBInternal {
         return filesToMerge.size() >= options.mergeThresholdFileNumber;
     }
 
-    Set<Integer> getFilesToMerge() {
-        Set<Integer> fileIds = new HashSet<>();
-        Iterator<Integer> it = filesToMerge.iterator();
-
-        while (fileIds.size() < options.mergeThresholdFileNumber && it.hasNext()) {
-            Integer next = it.next();
-            if (currentWriteFile.fileId != next)
-                // currentWriteFile should never be compacted.
-                fileIds.add(next);
+    int getFileToCompact() {
+        for (int fileId : filesToMerge) {
+            if (currentWriteFile.fileId != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
+                return fileId;
+            }
         }
 
-        return fileIds;
+        return -1;
     }
 
-    void submitMergedFiles(Set<Integer> mergedFiles) {
-        filesToMerge.removeAll(mergedFiles);
+    void submitMergedFile(int fileId) {
+        filesToMerge.remove(fileId);
     }
 
     KeyCache getKeyCache() {

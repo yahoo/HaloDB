@@ -39,31 +39,24 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
-        // wait for the merge jobs to complete.
-        //TODO: use TestUtils.waitForMergeToComplete
-        // after we implement compaction with one file.
-        Thread.sleep(10000);
+        TestUtils.waitForMergeToComplete(db);
 
-        Map<Long, List<Path>> map = Files.list(Paths.get(directory))
+        Map<String, List<Path>> map = Files.list(Paths.get(directory))
             .filter(path -> Constants.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
-            .collect(Collectors.groupingBy(path -> path.toFile().length()));
+            .collect(Collectors.groupingBy(path -> "."+path.toFile().getName().split("\\.")[1]));
 
-        // 4 data files of size 10K.
-        Assert.assertEquals(map.get(10 * 1024l).size(), 4);
+        // 4 data files of size.
+        Assert.assertEquals(map.get(HaloDBFile.DATA_FILE_NAME).size(), 4);
 
-        //2 merged data files of size 20K.
-        Assert.assertEquals(map.get(20 * 1024l).size(), 2);
+        //4 merged data files.
+        Assert.assertEquals(map.get(HaloDBFile.COMPACTED_DATA_FILE_NAME).size(), 4);
 
-        int sizeOfIndexEntry = IndexFileEntry.INDEX_FILE_HEADER_SIZE + 8;
-        Map<Long, List<Path>> indexFileSizemap = Files.list(Paths.get(directory))
+        long actualIndexFileCount = Files.list(Paths.get(directory))
             .filter(path -> Constants.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
-            .collect(Collectors.groupingBy(path -> path.toFile().length()));
+            .count();
 
-        // 4 index files of size 220 bytes.
-        Assert.assertEquals(indexFileSizemap.get(sizeOfIndexEntry * 10l).size(), 4);
-
-        // 2 index files of size 440 bytes.
-        Assert.assertEquals(indexFileSizemap.get(sizeOfIndexEntry * 20l).size(), 2);
+        // 8 index files.
+        Assert.assertEquals(actualIndexFileCount, 8);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());

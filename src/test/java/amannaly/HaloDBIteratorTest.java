@@ -88,8 +88,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
-
-        Assert.assertTrue(actual.containsAll(updated) && updated.containsAll(actual));
+        MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(updated.toArray()));
     }
 
     @Test
@@ -110,12 +109,10 @@ public class HaloDBIteratorTest extends TestBase {
 
         List<Record> updated = TestUtils.updateRecords(db, records);
 
-        // wait for merge to complete.
-        Thread.sleep(10_000);
+        TestUtils.waitForMergeToComplete(db);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
-
-        Assert.assertTrue(actual.containsAll(updated) && updated.containsAll(actual));
+        MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(updated.toArray()));
     }
 }

@@ -10,8 +10,6 @@ public class HaloDBOptions {
     // threshold of stale data at which file needs to be compacted.
     public double mergeThresholdPerFile = 0.75;
 
-    public int mergeThresholdFileNumber = 4;
-
     public int mergeJobIntervalInSeconds = 5;
 
     public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */

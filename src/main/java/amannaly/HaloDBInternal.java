@@ -80,7 +80,6 @@ class HaloDBInternal {
         logger.info("maxFileSize - {}", options.maxFileSize);
         logger.info("mergeJobIntervalInSeconds - {}", options.mergeJobIntervalInSeconds);
         logger.info("mergeThresholdPerFile - {}", options.mergeThresholdPerFile);
-        logger.info("mergeThresholdFileNumber - {}", options.mergeThresholdFileNumber);
 
         return result;
     }
@@ -232,12 +231,6 @@ class HaloDBInternal {
         }
     }
 
-    boolean areThereEnoughFilesToMerge() {
-        //TODO: size() is not a constant time operation.
-        //TODO: probably okay since number of files are usually not too many.
-        return filesToMerge.size() >= options.mergeThresholdFileNumber;
-    }
-
     int getFileToCompact() {
         for (int fileId : filesToMerge) {
             if (currentWriteFile.fileId != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
@@ -331,14 +324,20 @@ class HaloDBInternal {
                 RecordMetaDataForCache existing = keyCache.get(key);
 
                 if (existing == null) {
+                    // first version of the record that we have seen, add to cache.
                     keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
                     inserted++;
                 }
-                else if (existing.getSequenceNumber() < sequenceNumber) {
+                else if (existing.getSequenceNumber() <= sequenceNumber) {
+                    // a newer version of the record, replace existing record in cache with newer one.
                     keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
                     int staleDataSize = existing.getValueSize() + key.length + Record.Header.HEADER_SIZE;
                     staleDataPerFileMap.merge(existing.getFileId(), staleDataSize, (oldValue, newValue) -> oldValue + newValue);
                     inserted++;
+                }
+                else {
+                    // stale data, update stale data map.
+                    staleDataPerFileMap.merge(fileId, recordSize, (oldValue, newValue) -> oldValue + newValue);
                 }
             }
             logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);

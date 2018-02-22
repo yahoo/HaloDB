@@ -164,7 +164,6 @@ public class HaloDBDeletionTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.mergeJobIntervalInSeconds = 1;
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdFileNumber = 1;
         options.mergeThresholdPerFile = 0.10;
 
         HaloDB db = getTestDB(directory, options);

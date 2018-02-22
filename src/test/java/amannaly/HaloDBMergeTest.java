@@ -30,7 +30,6 @@ public class HaloDBMergeTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
-        options.mergeThresholdFileNumber = 4;
         options.isMergeDisabled = false;
         options.mergeJobIntervalInSeconds = 2;
         options.flushDataSizeBytes = 2048;
@@ -71,7 +70,6 @@ public class HaloDBMergeTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
-        options.mergeThresholdFileNumber = 4;
         options.isMergeDisabled = false;
         options.mergeJobIntervalInSeconds = 2;
 
@@ -79,12 +77,9 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
-        // wait for the merge jobs to complete.
-        Thread.sleep(10000);
+        TestUtils.waitForMergeToComplete(db);
 
         db.close();
-
-        Thread.sleep(5000);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
@@ -108,8 +103,6 @@ public class HaloDBMergeTest extends TestBase {
 
         db.close();
 
-        Thread.sleep(2000);
-
         db = getTestDBWithoutDeletingFiles(directory, options);
 
         for (Record r : records) {
@@ -131,8 +124,6 @@ public class HaloDBMergeTest extends TestBase {
         Record[] records = insertAndUpdateRecordsToSameFile(2, db);
 
         db.close();
-
-        Thread.sleep(2000);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 

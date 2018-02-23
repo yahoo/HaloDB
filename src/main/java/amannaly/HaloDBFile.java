@@ -50,7 +50,7 @@ class HaloDBFile {
 		this.indexFile = indexFile;
 		this.fileType = fileType;
 		this.channel = channel;
-		this.writeOffset = 0;
+		this.writeOffset = Ints.checkedCast(channel.size());
 		this.options = options;
 	}
 

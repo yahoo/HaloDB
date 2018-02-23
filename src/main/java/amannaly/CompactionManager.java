@@ -51,7 +51,7 @@ class CompactionManager extends Thread {
                     logger.debug("Compacting {}.data ...", fileToCompact);
                     copyFreshRecordsToMergedFile(fileToCompact);
                     logger.debug("Completed compacting {}.data to {}.datac", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1));
-                    dbInternal.submitMergedFile(fileToCompact);
+                    dbInternal.markFileAsCompacted(fileToCompact);
                     // TODO: there is a chance of data loss if this file is deleted before the data that was moved from
                     // this file to the merged file hits the disk. To prevent that fsync the data before deleting the file.
                     dbInternal.deleteHaloDBFile(fileToCompact);
@@ -114,7 +114,7 @@ class CompactionManager extends Thread {
                 if (!updated) {
                     // write thread wrote a new version while this version was being compacted.
                     // therefore, this version is stale.
-                    //TODO: update stale data per file map.
+                    dbInternal.updateStaleDataMap(currentWriteFile.fileId, recordSize);
                 }
                 currentWriteFileOffset += recordSize;
             }
@@ -129,6 +129,9 @@ class CompactionManager extends Thread {
 
     private void rollOverCurrentWriteFile(int recordSize) throws IOException {
         if (currentWriteFile == null ||  currentWriteFileOffset + recordSize > dbInternal.options.maxFileSize) {
+            if (currentWriteFile != null) {
+                currentWriteFile.flushToDisk();
+            }
             currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
             currentWriteFileOffset = 0;
         }

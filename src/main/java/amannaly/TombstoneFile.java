@@ -80,6 +80,11 @@ class TombstoneFile {
         return writeOffset;
     }
 
+    void flushToDisk() throws IOException {
+        if (channel != null && channel.isOpen())
+            channel.force(true);
+    }
+
     TombstoneFile.TombstoneFileIterator newIterator() throws IOException {
         return new TombstoneFile.TombstoneFileIterator();
     }

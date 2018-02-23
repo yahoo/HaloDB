@@ -88,8 +88,8 @@ class HaloDBInternal {
         isClosing = true;
         compactionManager.stopThread();
 
-        //TODO: make this optional as it will take time.
-        keyCache.close();
+        if (options.cleanUpKeyCacheOnClose)
+            keyCache.close();
 
         for (HaloDBFile file : readFileMap.values()) {
             file.close();
@@ -98,9 +98,12 @@ class HaloDBInternal {
         readFileMap.clear();
 
         if (currentWriteFile != null) {
+            currentWriteFile.flushToDisk();
+            currentWriteFile.getIndexFile().flushToDisk();
             currentWriteFile.close();
         }
         if (tombstoneFile != null) {
+            tombstoneFile.flushToDisk();
             tombstoneFile.close();
         }
 
@@ -117,7 +120,7 @@ class HaloDBInternal {
         Record record = new Record(key, value);
         record.setSequenceNumber(getNextSequenceNumber());
         RecordMetaDataForCache entry = writeRecordToFile(record);
-        updateStaleDataMap(key);
+        markPreviousVersionAsStale(key);
         keyCache.put(key, entry);
     }
 
@@ -183,7 +186,7 @@ class HaloDBInternal {
             TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber());
             rollOverCurrentTombstoneFile(entry);
             tombstoneFile.write(entry);
-            updateStaleDataMap(key);
+            markPreviousVersionAsStale(key);
         }
     }
 
@@ -200,6 +203,10 @@ class HaloDBInternal {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
+            if (currentWriteFile != null) {
+                currentWriteFile.flushToDisk();
+                currentWriteFile.getIndexFile().flushToDisk();
+            }
             currentWriteFile = createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
         }
     }
@@ -209,6 +216,7 @@ class HaloDBInternal {
 
         if (tombstoneFile == null ||  tombstoneFile.getWriteOffset() + size > options.maxFileSize) {
             if (tombstoneFile != null) {
+                tombstoneFile.flushToDisk();
                 tombstoneFile.close();
             }
 
@@ -216,11 +224,11 @@ class HaloDBInternal {
         }
     }
 
-    private void updateStaleDataMap(byte[] key) {
+    private void markPreviousVersionAsStale(byte[] key) {
         RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
             int stale = recordMetaData.getValueSize() + key.length + Record.Header.HEADER_SIZE;
-            long currentStaleSize = staleDataPerFileMap.merge(recordMetaData.getFileId(), stale, (oldValue, newValue) -> oldValue + newValue);
+            int currentStaleSize = updateStaleDataMap(recordMetaData.getFileId(), stale);
 
             HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
 
@@ -229,6 +237,10 @@ class HaloDBInternal {
                 staleDataPerFileMap.remove(recordMetaData.getFileId());
             }
         }
+    }
+
+    int updateStaleDataMap(int fileId, int staleDataSize) {
+        return staleDataPerFileMap.merge(fileId, staleDataSize, (oldValue, newValue) -> oldValue + newValue);
     }
 
     int getFileToCompact() {
@@ -241,8 +253,9 @@ class HaloDBInternal {
         return -1;
     }
 
-    void submitMergedFile(int fileId) {
+    void markFileAsCompacted(int fileId) {
         filesToMerge.remove(fileId);
+        staleDataPerFileMap.remove(fileId);
     }
 
     KeyCache getKeyCache() {

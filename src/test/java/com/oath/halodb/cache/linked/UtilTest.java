@@ -1,4 +1,9 @@
 /*
+ * Copyright 2018, Oath Inc
+ * Licensed under the terms of the Apache License 2.0. Please refer to accompanying LICENSE file for terms.
+ */
+
+/*
  *      Copyright (C) 2014 Robert Stupp, Koeln, Germany, robert-stupp.de
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");

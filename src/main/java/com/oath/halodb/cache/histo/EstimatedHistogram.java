@@ -1,4 +1,9 @@
 /*
+ * Copyright 2018, Oath Inc
+ * Licensed under the terms of the Apache License 2.0. Please refer to accompanying LICENSE file for terms.
+ */
+
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information

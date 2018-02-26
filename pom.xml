@@ -1,3 +1,8 @@
+<!--
+  ~ Copyright 2018, Oath Inc
+  ~ Licensed under the terms of the Apache License 2.0. Please refer to accompanying LICENSE file for terms.
+  -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -15,10 +20,6 @@
         <developer>
             <name>Arjun Mannaly</name>
             <email>a.mannaly@gmail.com</email>
-            <roles>
-                <role>architect</role>
-                <role>developer</role>
-            </roles>
         </developer>
     </developers>
 

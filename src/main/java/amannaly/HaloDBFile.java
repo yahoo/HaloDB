@@ -81,10 +81,15 @@ class HaloDBFile {
 		// read the header from disk.
 		ByteBuffer headerBuf = ByteBuffer.allocate(HEADER_SIZE);
 		int readSize = readFromFile(offset, headerBuf);
-		assert readSize == HEADER_SIZE;
+		if (readSize != HEADER_SIZE) {
+		    throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+        }
 		tempOffset += readSize;
 
 		Record.Header header = Record.Header.deserialize(headerBuf);
+		if (!Record.Header.verifyHeader(header)) {
+            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+        }
 
 		// read key-value from disk.
 		ByteBuffer recordBuf = ByteBuffer.allocate(header.getRecordSize());
@@ -145,7 +150,8 @@ class HaloDBFile {
         int count = 0;
         while (iterator.hasNext()) {
             Record record = iterator.next();
-            if (record.verifyChecksum()) {
+            // if the header is corrupted iterator will return null.
+            if (record != null && record.verifyChecksum()) {
                 newFile.writeRecord(record);
                 count++;
             }

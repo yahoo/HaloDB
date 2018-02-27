@@ -189,6 +189,10 @@ class Record {
             return headerBuffer;
         }
 
+        static boolean verifyHeader(Record.Header header) {
+            return header.keySize > 0 && header.valueSize > 0 && header.recordSize > 0 && header.sequenceNumber > 0;
+        }
+
         // tombstones will have the lsb of flags set to 1.
         void markAsTombStone() {
             flags = (byte)(flags | 1);

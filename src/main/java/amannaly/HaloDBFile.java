@@ -92,8 +92,11 @@ class HaloDBFile {
         }
 
 		// read key-value from disk.
-		ByteBuffer recordBuf = ByteBuffer.allocate(header.getRecordSize());
-		readFromFile(tempOffset, recordBuf);
+		ByteBuffer recordBuf = ByteBuffer.allocate(header.getKeySize() + header.getValueSize());
+		readSize = readFromFile(tempOffset, recordBuf);
+		if (readSize != recordBuf.capacity()) {
+		    throw new IOException("Corrupted record at " + offset + " in file " + fileId);
+        }
 
 		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
 		record.setHeader(header);
@@ -285,13 +288,18 @@ class HaloDBFile {
 		return Integer.parseInt(s);
 	}
 
-	public class HaloDBFileIterator implements Iterator<Record> {
+    /**
+     * This iterator is intended only to be used internally as it behaves bit differently
+     * from expected Iterator behavior: If a record is corrupted next() will return null although hasNext()
+     * returns true. 
+     */
+	class HaloDBFileIterator implements Iterator<Record> {
 
-		private final long endOffset;
+		private final int endOffset;
 		private int currentOffset = 0;
 
 		HaloDBFileIterator() throws IOException {
-			this.endOffset = channel.size();
+			this.endOffset = Ints.checkedCast(channel.size());
 		}
 
 		@Override
@@ -305,7 +313,10 @@ class HaloDBFile {
 			try {
 				record = readRecord(currentOffset);
 			} catch (IOException e) {
+			    // we have encountered an error, probably because record is corrupted.
+                // we skip rest of the file and return null.
 				logger.error("Error in iterator", e);
+				currentOffset = endOffset;
 				return null;
 			}
 			currentOffset += record.getRecordSize();

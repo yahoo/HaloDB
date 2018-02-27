@@ -40,40 +40,15 @@ public class HaloDBFileTest extends TestBase {
 
     @Test
     public void testIndexFile() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(1000);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+        List<Record> list = insertTestRecords();
 
         indexFile.open();
-        IndexFile.IndexFileIterator iterator = indexFile.newIterator();
-
-        int count = 0;
-        while (iterator.hasNext()) {
-            IndexFileEntry e = iterator.next();
-            Record r = list.get(count);
-            RecordMetaDataForCache meta = metaDataList.get(count);
-            Assert.assertEquals(e.getKey(), r.getKey());
-
-            int expectedOffset = meta.getValueOffset() - Record.Header.HEADER_SIZE - r.getKey().length;
-            Assert.assertEquals(e.getRecordOffset(), expectedOffset);
-            count++;
-        }
-
-        Assert.assertEquals(count, list.size());
+        verifyIndexFile(indexFile, list);
     }
 
     @Test
-    public void testHeaderWithIncorrectSize() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(100);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            record.setSequenceNumber(100);
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+    public void testFileWithInvalidRecord() throws IOException {
+        List<Record> list = insertTestRecords();
 
         // write a corrupted header to file.
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
@@ -96,13 +71,7 @@ public class HaloDBFileTest extends TestBase {
 
     @Test
     public void testCorruptedHeader() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(100);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            record.setSequenceNumber(100);
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+        List<Record> list = insertTestRecords();
 
         // write a corrupted header to file.
         // write a corrupted record to file.
@@ -133,49 +102,23 @@ public class HaloDBFileTest extends TestBase {
 
     @Test
     public void testRebuildIndexFile() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(1000);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            record.setSequenceNumber(100);
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+        List<Record> list = insertTestRecords();
 
         indexFile.delete();
 
         // make sure that the file is deleted. 
         Assert.assertFalse(Paths.get(directory.getName(), fileId + IndexFile.INDEX_FILE_NAME).toFile().exists());
-
         file.rebuildIndexFile();
         indexFile.open();
-        IndexFile.IndexFileIterator iterator = indexFile.newIterator();
-
-        int count = 0;
-        while (iterator.hasNext()) {
-            IndexFileEntry e = iterator.next();
-            Record r = list.get(count);
-            RecordMetaDataForCache meta = metaDataList.get(count);
-            Assert.assertEquals(e.getKey(), r.getKey());
-
-            int expectedOffset = meta.getValueOffset() - Record.Header.HEADER_SIZE - r.getKey().length;
-            Assert.assertEquals(e.getRecordOffset(), expectedOffset);
-            count++;
-        }
-
-        Assert.assertEquals(count, list.size());
+        verifyIndexFile(indexFile, list);
     }
 
     @Test
     public void testRepairDataFileWithCorruptedValue() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(1000);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            record.setSequenceNumber(100);
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+        List<Record> list = insertTestRecords();
 
         // write a corrupted record to file.
+        // the record is corrupted in such a way the the size is unchanged but the contents have changed, thus crc will be different. 
         byte[] key = "corrupted key".getBytes();
         byte[] value = "corrupted value".getBytes();
         Record record = new Record(key, value);
@@ -187,55 +130,44 @@ public class HaloDBFileTest extends TestBase {
            channel.write(data);
         }
 
-        // make sure that the corrupted record was also written.
-        List<Record> records = new ArrayList<>();
-        file.newIterator().forEachRemaining(records::add);
-        Assert.assertEquals(records.size(), list.size() + 1);
+        HaloDBFile newFile = file.repairFile();
+
+        // make sure that old file is deleted.
+        Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
+        verifyDataFile(list, newFile);
+        verifyIndexFile(newFile.getIndexFile(), list);
+    }
+
+    @Test
+    public void testRepairDataFileWithInCompleteRecord() throws IOException {
+        List<Record> list = insertTestRecords();
+
+        // write a corrupted record to file.
+        // value was not completely written to file. 
+        byte[] key = "corrupted key".getBytes();
+        byte[] value = "corrupted value".getBytes();
+        Record record = new Record(key, value);
+        record.setHeader(new Record.Header(0, (byte)key.length, value.length, 1234, (byte)0));
+        record.setSequenceNumber(1234);
+        try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
+            ByteBuffer[] data = record.serialize();
+            data[2] = ByteBuffer.wrap("missing".getBytes());
+            channel.write(data);
+        }
 
         HaloDBFile newFile = file.repairFile();
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
-
-        HaloDBFile.HaloDBFileIterator iterator = newFile.newIterator();
-        int count = 0;
-        while (iterator.hasNext()) {
-            Record actual = iterator.next();
-            Record expected = list.get(count);
-            count++;
-            Assert.assertEquals(actual, expected);
-        }
-
-        Assert.assertEquals(count, list.size());
-
-        // make sure the the index file was written correctly. 
-        IndexFile.IndexFileIterator indexFileIterator = newFile.getIndexFile().newIterator();
-        count = 0;
-        while (indexFileIterator.hasNext()) {
-            IndexFileEntry e = indexFileIterator.next();
-            Record r = list.get(count);
-            RecordMetaDataForCache meta = metaDataList.get(count);
-            Assert.assertEquals(e.getKey(), r.getKey());
-
-            int expectedOffset = meta.getValueOffset() - Record.Header.HEADER_SIZE - r.getKey().length;
-            Assert.assertEquals(e.getRecordOffset(), expectedOffset);
-            count++;
-        }
-
-        Assert.assertEquals(count, list.size());
+        verifyDataFile(list, newFile);
+        verifyIndexFile(newFile.getIndexFile(), list);
     }
 
     @Test
     public void testRepairDataFileContainingRecordsWithCorruptedHeader() throws IOException {
-        List<Record> list = TestUtils.generateRandomData(1000);
-        List<RecordMetaDataForCache> metaDataList = new ArrayList<>();
-        for (Record record : list) {
-            record.setSequenceNumber(100);
-            RecordMetaDataForCache r = file.writeRecord(record);
-            metaDataList.add(r);
-        }
+        List<Record> list = insertTestRecords();
 
-        // write a corrupted header to file. 
+        // write a corrupted header to file.
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer data = ByteBuffer.wrap("garbage".getBytes());
             channel.write(data);
@@ -245,34 +177,69 @@ public class HaloDBFileTest extends TestBase {
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
+        verifyDataFile(list, newFile);
+        verifyIndexFile(newFile.getIndexFile(), list);
+    }
 
-        HaloDBFile.HaloDBFileIterator iterator = newFile.newIterator();
-        int count = 0;
-        while (iterator.hasNext()) {
-            Record actual = iterator.next();
-            Record expected = list.get(count);
-            count++;
-            Assert.assertEquals(actual, expected);
+    @Test
+    public void testRepairDataFileContainingRecordsWithValidButCorruptedHeader() throws IOException {
+        List<Record> list = insertTestRecords();
+
+        // write a corrupted record to file.
+        byte[] key = "corrupted key".getBytes();
+        byte[] value = "corrupted value".getBytes();
+        Record record = new Record(key, value);
+        // header is valid but the value size is incorrect. 
+        record.setHeader(new Record.Header(0, (byte)key.length, 5, 1234, (byte)0));
+        record.setSequenceNumber(1234);
+        try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
+            ByteBuffer[] data = record.serialize();
+            channel.write(data);
         }
 
-        Assert.assertEquals(count, list.size());
+        HaloDBFile newFile = file.repairFile();
 
-        // make sure the the index file was written correctly.
-        IndexFile.IndexFileIterator indexFileIterator = newFile.getIndexFile().newIterator();
-        count = 0;
+        // make sure that old file is deleted.
+        Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
+        verifyDataFile(list, newFile);
+        verifyIndexFile(newFile.getIndexFile(), list);
+    }
+
+    private void verifyIndexFile(IndexFile file, List<Record> recordList) throws IOException {
+        IndexFile.IndexFileIterator indexFileIterator = file.newIterator();
+        int count = 0;
         while (indexFileIterator.hasNext()) {
             IndexFileEntry e = indexFileIterator.next();
-            Record r = list.get(count);
-            RecordMetaDataForCache meta = metaDataList.get(count);
+            Record r = recordList.get(count++);
+            RecordMetaDataForCache meta = r.getRecordMetaData();
             Assert.assertEquals(e.getKey(), r.getKey());
 
             int expectedOffset = meta.getValueOffset() - Record.Header.HEADER_SIZE - r.getKey().length;
             Assert.assertEquals(e.getRecordOffset(), expectedOffset);
-            count++;
         }
 
-        Assert.assertEquals(count, list.size());
+        Assert.assertEquals(count, recordList.size());
+    }
 
+    private List<Record> insertTestRecords() throws IOException {
+        List<Record> list = TestUtils.generateRandomData(100);
+        for (Record record : list) {
+            record.setSequenceNumber(100);
+            RecordMetaDataForCache meta = file.writeRecord(record);
+            record.setRecordMetaData(meta);
+        }
+        return list;
+    }
 
+    private void verifyDataFile(List<Record> recordList, HaloDBFile dataFile) throws IOException {
+        HaloDBFile.HaloDBFileIterator iterator = dataFile.newIterator();
+        int count = 0;
+        while (iterator.hasNext()) {
+            Record actual = iterator.next();
+            Record expected = recordList.get(count++);
+            Assert.assertEquals(actual, expected);
+        }
+
+        Assert.assertEquals(count, recordList.size());
     }
 }

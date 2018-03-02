@@ -182,11 +182,14 @@ class HaloDBInternal {
     }
 
     void delete(byte[] key) throws IOException {
-        if (keyCache.remove(key)) {
+        RecordMetaDataForCache metaData = keyCache.get(key);
+        if (metaData != null) {
+            //TODO: implement a getAndRemove method in keyCache. 
+            keyCache.remove(key);
             TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber());
             rollOverCurrentTombstoneFile(entry);
             tombstoneFile.write(entry);
-            markPreviousVersionAsStale(key);
+            markPreviousVersionAsStale(key, metaData);
         }
     }
 
@@ -227,15 +230,19 @@ class HaloDBInternal {
     private void markPreviousVersionAsStale(byte[] key) {
         RecordMetaDataForCache recordMetaData = keyCache.get(key);
         if (recordMetaData != null) {
-            int stale = recordMetaData.getValueSize() + key.length + Record.Header.HEADER_SIZE;
-            int currentStaleSize = updateStaleDataMap(recordMetaData.getFileId(), stale);
+            markPreviousVersionAsStale(key, recordMetaData);
+        }
+    }
 
-            HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
+    private void markPreviousVersionAsStale(byte[] key, RecordMetaDataForCache recordMetaData) {
+        int stale = recordMetaData.getValueSize() + key.length + Record.Header.HEADER_SIZE;
+        int currentStaleSize = updateStaleDataMap(recordMetaData.getFileId(), stale);
 
-            if (currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
-                filesToMerge.add(recordMetaData.getFileId());
-                staleDataPerFileMap.remove(recordMetaData.getFileId());
-            }
+        HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
+
+        if (currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
+            filesToMerge.add(recordMetaData.getFileId());
+            staleDataPerFileMap.remove(recordMetaData.getFileId());
         }
     }
 
@@ -451,7 +458,18 @@ class HaloDBInternal {
     }
 
     boolean isMergeComplete() {
-        return filesToMerge.isEmpty();
+        if (filesToMerge.isEmpty())
+            return true;
+
+        for (int fileId : filesToMerge) {
+            // current write file and current compaction file will not be compacted.
+            // if there are any other pending files return false. 
+            if (fileId != currentWriteFile.fileId && fileId != compactionManager.getCurrentWriteFileId()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private long getNextSequenceNumber() {

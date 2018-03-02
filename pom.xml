@@ -7,8 +7,20 @@
     <version>0.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>halodb</name>
+    <name>HaloDB</name>
+    <description>A fast, embedded, persistent key-value storage engine.</description>
     <url>http://maven.apache.org</url>
+
+    <developers>
+        <developer>
+            <name>Arjun Mannaly</name>
+            <email>a.mannaly@gmail.com</email>
+            <roles>
+                <role>architect</role>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

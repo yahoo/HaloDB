@@ -16,7 +16,7 @@ import java.nio.file.Paths;
  */
 public class DBMetaDataTest {
 
-    private static final String directory = "/tmp/DBMetaDataTest/testDBMetaData";
+    private static final String directory = Paths.get("tmp", "DBMetaDataTest",  "testDBMetaData").toString();
 
     @Test
     public void testDBMetaData() throws IOException {

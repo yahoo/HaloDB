@@ -4,6 +4,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -210,5 +211,34 @@ public class HaloDBDeletionTest extends TestBase {
                 Assert.assertEquals(records.get(i).getValue(), actual);
             }
         }
+    }
+
+    @Test
+    public void testDeleteAllRecords() throws Exception {
+        String directory = Paths.get("tmp", "HaloDBDeletionTest", "testDeleteAllRecords").toString();
+        HaloDBOptions options = new HaloDBOptions();
+        options.mergeJobIntervalInSeconds = 1;
+        options.maxFileSize = 10 * 1024;
+        options.mergeThresholdPerFile = 0.50;
+
+        HaloDB db = getTestDB(directory, options);
+
+        int noOfRecords = 10_000;
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
+
+        // delete all records.
+        for (Record r : records) {
+            db.delete(r.getKey());
+        }
+
+        TestUtils.waitForMergeToComplete(db);
+
+        for (Record r : records) {
+            Assert.assertNull(db.get(r.getKey()));
+        }
+
+        // only the current write file will be remaining everything else should have been
+        // deleted by the compaction job. 
+        Assert.assertEquals(1, db.listDataFileIds().size());
     }
 }

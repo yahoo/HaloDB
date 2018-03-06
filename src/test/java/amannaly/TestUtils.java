@@ -21,18 +21,34 @@ import java.util.Set;
 public class TestUtils {
 
     static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws IOException {
+        return insertRandomRecordsOfSize(db, noOfRecords, -1);
+    }
+
+    static List<Record> insertRandomRecordsOfSize(HaloDB db, int noOfRecords, int size) throws IOException {
         List<Record> records = new ArrayList<>();
         Set<ByteBuffer> keySet = new HashSet<>();
 
         for (int i = 0; i < noOfRecords; i++) {
-            byte[] key = TestUtils.generateRandomByteArray();
+            byte[] key;
+            if (size > 0) {
+             key = TestUtils.generateRandomByteArray(Math.min(Byte.MAX_VALUE, size));
+            }
+            else {
+                key = TestUtils.generateRandomByteArray();
+            }
             while (keySet.contains(ByteBuffer.wrap(key))) {
                 key = TestUtils.generateRandomByteArray();
             }
             ByteBuffer buf = ByteBuffer.wrap(key);
             keySet.add(buf);
 
-            byte[] value = TestUtils.generateRandomByteArray();
+            byte[] value;
+            if (size > 0) {
+                value = TestUtils.generateRandomByteArray(size - key.length);
+            }
+            else {
+                value = TestUtils.generateRandomByteArray();
+            }
             records.add(new Record(key, value));
 
             db.put(key, value);

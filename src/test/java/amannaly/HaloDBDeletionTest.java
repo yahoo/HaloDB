@@ -163,7 +163,6 @@ public class HaloDBDeletionTest extends TestBase {
     public void testDeleteAndMerge() throws Exception {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndMerge";
         HaloDBOptions options = new HaloDBOptions();
-        options.mergeJobIntervalInSeconds = 1;
         options.maxFileSize = 10 * 1024;
         options.mergeThresholdPerFile = 0.10;
 
@@ -217,14 +216,14 @@ public class HaloDBDeletionTest extends TestBase {
     public void testDeleteAllRecords() throws Exception {
         String directory = Paths.get("tmp", "HaloDBDeletionTest", "testDeleteAllRecords").toString();
         HaloDBOptions options = new HaloDBOptions();
-        options.mergeJobIntervalInSeconds = 1;
         options.maxFileSize = 10 * 1024;
         options.mergeThresholdPerFile = 0.50;
 
         HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 10_000;
-        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
+        // There will be 1000 files each of size 10KB
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - Record.Header.HEADER_SIZE);
 
         // delete all records.
         for (Record r : records) {
@@ -233,12 +232,14 @@ public class HaloDBDeletionTest extends TestBase {
 
         TestUtils.waitForMergeToComplete(db);
 
+        Assert.assertEquals(db.size(), 0);
+
         for (Record r : records) {
             Assert.assertNull(db.get(r.getKey()));
         }
 
         // only the current write file will be remaining everything else should have been
         // deleted by the compaction job. 
-        Assert.assertEquals(1, db.listDataFileIds().size());
+        Assert.assertEquals(db.listDataFileIds().size(), 1);
     }
 }

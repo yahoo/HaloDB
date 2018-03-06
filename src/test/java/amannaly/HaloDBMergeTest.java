@@ -31,7 +31,6 @@ public class HaloDBMergeTest extends TestBase {
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
         options.isMergeDisabled = false;
-        options.mergeJobIntervalInSeconds = 2;
         options.flushDataSizeBytes = 2048;
 
         HaloDB db =  getTestDB(directory, options);
@@ -71,7 +70,6 @@ public class HaloDBMergeTest extends TestBase {
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
         options.isMergeDisabled = false;
-        options.mergeJobIntervalInSeconds = 2;
 
         HaloDB db = getTestDB(directory, options);
 

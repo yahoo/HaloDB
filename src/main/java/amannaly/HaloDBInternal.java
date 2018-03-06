@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -35,8 +34,6 @@ class HaloDBInternal {
 
     private CompactionManager compactionManager;
 
-    private final Set<Integer> filesToMerge = new ConcurrentSkipListSet<>();
-
     private AtomicInteger nextFileId;
 
     private volatile boolean isClosing = false;
@@ -44,49 +41,48 @@ class HaloDBInternal {
     private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
-        HaloDBInternal result = new HaloDBInternal();
+        HaloDBInternal dbInternal = new HaloDBInternal();
 
         FileUtils.createDirectoryIfNotExists(directory);
-        result.dbDirectory = directory;
-        result.options = options;
+        dbInternal.dbDirectory = directory;
+        dbInternal.options = options;
 
-        int maxFileId = result.buildReadFileMap();
+        int maxFileId = dbInternal.buildReadFileMap();
 
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
             logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
             // open flag is true, this might mean that the db was not cleanly closed the last time.
-            repairFiles(result);
+            repairFiles(dbInternal);
         }
         else {
             dbMetaData.setOpen(true);
             dbMetaData.storeToFile();
         }
 
-        result.keyCache = new OffHeapCache(options.numberOfRecords);
-        result.nextFileId = new AtomicInteger(maxFileId + 10);
-        result.buildKeyCache(options);
+        dbInternal.keyCache = new OffHeapCache(options.numberOfRecords);
+        dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
+        dbInternal.buildKeyCache(options);
 
-        result.currentWriteFile = result.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
+        dbInternal.currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
 
-        result.compactionManager = new CompactionManager(result, options.mergeJobIntervalInSeconds);
-        result.compactionManager.start();
+        dbInternal.compactionManager = new CompactionManager(dbInternal);
+        dbInternal.compactionManager.startCompactionThread();
 
-        result.tombstoneFile = TombstoneFile.create(directory, result.getNextFileId(), options);
+        dbInternal.tombstoneFile = TombstoneFile.create(directory, dbInternal.getNextFileId(), options);
 
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isMergeDisabled - {}", options.isMergeDisabled);
         logger.info("maxFileSize - {}", options.maxFileSize);
-        logger.info("mergeJobIntervalInSeconds - {}", options.mergeJobIntervalInSeconds);
         logger.info("mergeThresholdPerFile - {}", options.mergeThresholdPerFile);
 
-        return result;
+        return dbInternal;
     }
 
     void close() throws IOException {
         isClosing = true;
-        compactionManager.stopThread();
+        compactionManager.stopCompactionThread();
 
         if (options.cleanUpKeyCacheOnClose)
             keyCache.close();
@@ -121,6 +117,9 @@ class HaloDBInternal {
         record.setSequenceNumber(getNextSequenceNumber());
         RecordMetaDataForCache entry = writeRecordToFile(record);
         markPreviousVersionAsStale(key);
+
+        //TODO: implement getAndSet and use the return value for
+        //TODO: markPreviousVersionAsStale method.   
         keyCache.put(key, entry);
     }
 
@@ -241,8 +240,14 @@ class HaloDBInternal {
         HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
 
         if (file != null && currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
-            filesToMerge.add(recordMetaData.getFileId());
-            staleDataPerFileMap.remove(recordMetaData.getFileId());
+            int fileId = recordMetaData.getFileId();
+
+            // We don't want to compact the files the writer thread and the compaction thread is currently writing to.  
+            if (currentWriteFile.fileId != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
+                if(compactionManager.submitFileForCompaction(fileId)) {
+                    staleDataPerFileMap.remove(fileId);
+                }
+            }
         }
     }
 
@@ -250,18 +255,7 @@ class HaloDBInternal {
         return staleDataPerFileMap.merge(fileId, staleDataSize, (oldValue, newValue) -> oldValue + newValue);
     }
 
-    int getFileToCompact() {
-        for (int fileId : filesToMerge) {
-            if (currentWriteFile.fileId != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
-                return fileId;
-            }
-        }
-
-        return -1;
-    }
-
     void markFileAsCompacted(int fileId) {
-        filesToMerge.remove(fileId);
         staleDataPerFileMap.remove(fileId);
     }
 
@@ -457,22 +451,18 @@ class HaloDBInternal {
         return keyCache.stats().toString();
     }
 
-    boolean isMergeComplete() {
-        if (filesToMerge.isEmpty())
-            return true;
 
-        for (int fileId : filesToMerge) {
-            // current write file and current compaction file will not be compacted.
-            // if there are any other pending files return false. 
-            if (fileId != currentWriteFile.fileId && fileId != compactionManager.getCurrentWriteFileId()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     private long getNextSequenceNumber() {
         return System.nanoTime();
+    }
+
+    int getCurrentWriteFileId() {
+        return currentWriteFile != null ? currentWriteFile.fileId : -1;
+    }
+
+    // Used only in tests.
+    boolean isMergeComplete() {
+        return compactionManager.isMergeComplete();
     }
 }

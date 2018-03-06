@@ -98,7 +98,6 @@ public class HaloDBIteratorTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isMergeDisabled = false;
         options.maxFileSize = 10*1024;
-        options.mergeJobIntervalInSeconds = 2;
         options.mergeThresholdPerFile = 0.50;
 
         HaloDB db = getTestDB(directory, options);

@@ -141,6 +141,7 @@ public class HaloDB {
         }
     }
 
+
     // methods used in tests.
 
     boolean isMergeComplete() {

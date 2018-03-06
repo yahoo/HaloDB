@@ -201,11 +201,6 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return putInternal(key, value, false, old);
     }
 
-    public boolean addOrReplace(K key, V old, V value, long expireAt)
-    {
-        return putInternal(key, value, false, old);
-    }
-
     public boolean putIfAbsent(K k, V v)
     {
         return putInternal(k, v, true, null);

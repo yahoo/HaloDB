@@ -78,6 +78,7 @@ final class Util
 
     static long allocLen(long keyLen, long valueLen)
     {
+        //TODO: remove roundup to 8.
         return ENTRY_OFF_DATA + roundUpTo8(keyLen) + valueLen;
     }
 

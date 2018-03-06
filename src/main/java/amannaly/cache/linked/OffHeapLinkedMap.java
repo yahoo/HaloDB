@@ -199,7 +199,6 @@ class OffHeapLinkedMap {
                     return false;
 
                 // key already exists, we just need to replace the value.
-
                 if (oldValueAddr != 0L)
                 {
                     // code for replace() operation
@@ -213,8 +212,16 @@ class OffHeapLinkedMap {
                 break;
             }
 
+            // key is not present in the map, therefore we need to add a new entry.
             if (hashEntryAdr == 0L)
             {
+
+                // key is not present but old value is not null.
+                // we consider this as a mismatch and return.
+                if (oldValueAddr != 0) {
+                    return false;
+                }
+
                 if (size >= threshold)
                     rehash();
 

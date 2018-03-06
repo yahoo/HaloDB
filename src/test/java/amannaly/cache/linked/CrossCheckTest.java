@@ -220,8 +220,9 @@ public class CrossCheckTest
     {
         try (OHCache<byte[], byte[]> cache = cache(eviction, hashAlgorithm))
         {
+            byte[] oldValue = null;
             for (int i = 0; i < TestUtils.manyCount; i++)
-                assertTrue(cache.addOrReplace(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize), TestUtils.randomBytes(fixedValueSize)));
+                assertTrue(cache.addOrReplace(Longs.toByteArray(i), oldValue, TestUtils.randomBytes(fixedValueSize)));
 
             byte[] key = Longs.toByteArray(42);
             byte[] value = cache.get(key);

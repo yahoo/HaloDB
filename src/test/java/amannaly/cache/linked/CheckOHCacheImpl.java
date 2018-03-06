@@ -122,11 +122,6 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         throw new UnsupportedOperationException();
     }
 
-    public boolean addOrReplace(K key, V old, V value, long expireAt)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public boolean put(K key, V value, long expireAt)
     {
         throw new UnsupportedOperationException();
@@ -494,6 +489,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
 
     private byte[] value(V value)
     {
+        if (value == null) {
+            return null;
+        }
         ByteBuffer buf = ByteBuffer.allocate(valueSerializer.serializedSize(value));
         valueSerializer.serialize(value, buf);
         return buf.array();

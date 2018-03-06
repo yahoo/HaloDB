@@ -53,7 +53,7 @@ public interface OHCache<K, V> extends Closeable
     boolean put(K key, V value, long expireAt);
 
     /**
-     * Same as {@link #addOrReplace(Object, Object, Object, long)} but uses the configured default TTL, if any.
+     * Adds key/value if either the key is not present and {@code old} is null or the existing value matches parameter {@code old}.
      *
      * @param key      key of the entry to be added or replaced. Must not be {@code null}.
      * @param old      if the entry exists, it's serialized value is compared to the serialized value of {@code old}
@@ -62,21 +62,6 @@ public interface OHCache<K, V> extends Closeable
      * @return {@code true} on success or {@code false} if the existing value does not matcuh {@code old}
      */
     boolean addOrReplace(K key, V old, V value);
-
-    /**
-     * Adds key/value if either the key is not present or the existing value matches parameter {@code old}.
-     * If the entry size of key/value exceeds the configured maximum entry length, the old value is removed.
-     *
-     * @param key      key of the entry to be added or replaced. Must not be {@code null}.
-     * @param old      if the entry exists, it's serialized value is compared to the serialized value of {@code old}
-     *                 and only replaced, if it matches.
-     * @param value    value of the entry to be added. Must not be {@code null}.
-     * @param expireAt timestamp in milliseconds since "epoch" (like {@link System#currentTimeMillis() System.currentTimeMillis()})
-     *                 when the entry shall expire. Pass {@link #USE_DEFAULT_EXPIRE_AT} for the configured default
-     *                 time-to-live or {@link #NEVER_EXPIRE} to let it never expire.
-     * @return {@code true} on success or {@code false} if the existing value does not matcuh {@code old}
-     */
-    boolean addOrReplace(K key, V old, V value, long expireAt);
 
     /**
      * Same as {@link #putIfAbsent(Object, Object, long)} but uses the configured default TTL, if any.

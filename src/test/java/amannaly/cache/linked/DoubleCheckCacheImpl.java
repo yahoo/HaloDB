@@ -72,11 +72,6 @@ public class DoubleCheckCacheImpl<K, V> implements OHCache<K, V>
         throw new UnsupportedOperationException();
     }
 
-    public boolean addOrReplace(K key, V old, V value, long expireAt)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     public boolean put(K key, V value, long expireAt)
     {
         throw new UnsupportedOperationException();

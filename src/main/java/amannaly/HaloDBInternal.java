@@ -240,7 +240,7 @@ class HaloDBInternal {
 
         HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
 
-        if (currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
+        if (file != null && currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
             filesToMerge.add(recordMetaData.getFileId());
             staleDataPerFileMap.remove(recordMetaData.getFileId());
         }

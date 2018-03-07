@@ -427,13 +427,6 @@ class HaloDBInternal {
         return new HashSet<>(readFileMap.keySet());
     }
 
-    void printStaleFileStatus() {
-        System.out.println("********************************");
-        staleDataPerFileMap.forEach((key, value) -> {
-            System.out.printf("%d.data - %f\n", key, (value * 100.0) / options.maxFileSize);
-        });
-        System.out.println("********************************\n\n");
-    }
 
 
     boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
@@ -451,14 +444,24 @@ class HaloDBInternal {
         return keyCache.stats().toString();
     }
 
-
-
     private long getNextSequenceNumber() {
         return System.nanoTime();
     }
 
     int getCurrentWriteFileId() {
         return currentWriteFile != null ? currentWriteFile.fileId : -1;
+    }
+
+    void printStaleFileStatus() {
+        logger.info("Stale data per file =>");
+
+        staleDataPerFileMap.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
+            int fileId = e.getKey();
+            int staleSize = e.getValue();
+            HaloDBFile file = readFileMap.get(fileId);
+            if (file != null)
+                logger.info("{} - {}", fileId, (staleSize * 100.0)/file.getSize() );
+        });
     }
 
     // Used only in tests.

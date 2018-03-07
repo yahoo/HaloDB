@@ -155,4 +155,8 @@ public class HaloDB {
     HaloDBInternal getDbInternal() {
         return dbInternal;
     }
+
+    public void printStaleFileStatus() {
+        dbInternal.printStaleFileStatus();
+    }
 }

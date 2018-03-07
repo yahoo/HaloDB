@@ -170,6 +170,7 @@ class CompactionManager {
                         dbInternal.updateStaleDataMap(currentWriteFile.fileId, recordSize);
                     }
                     currentWriteFileOffset += recordSize;
+                    currentWriteFile.setWriteOffset(currentWriteFileOffset);
                 }
             }
         }

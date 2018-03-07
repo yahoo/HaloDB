@@ -28,7 +28,7 @@ class HaloDBFile {
 
 	private FileChannel channel;
 
-	private int writeOffset;
+	private volatile int writeOffset;
 
 	private final File backingFile;
 	private IndexFile indexFile;
@@ -200,7 +200,11 @@ class HaloDBFile {
 		return writeOffset;
 	}
 
-	public long getSize() {
+    void setWriteOffset(int writeOffset) {
+        this.writeOffset = writeOffset;
+    }
+
+    long getSize() {
 		return writeOffset;
 	}
 

@@ -406,7 +406,9 @@ class HaloDBInternal {
         db.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.data", file.getFileId());
-                file.repairFile();
+                HaloDBFile newFile = file.repairFile();
+                db.readFileMap.put(newFile.fileId, newFile);
+                db.readFileMap.remove(file.fileId);
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
@@ -415,7 +417,9 @@ class HaloDBInternal {
         db.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.datac", file.getFileId());
-                file.repairFile();
+                HaloDBFile newFile = file.repairFile();
+                db.readFileMap.put(newFile.fileId, newFile);
+                db.readFileMap.remove(file.fileId);
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);

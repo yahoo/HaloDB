@@ -10,6 +10,8 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -178,5 +180,17 @@ public class TestUtils {
         while (!db.isMergeComplete()) {
             Thread.sleep(1_000);
         }
+    }
+
+    static File getLatestDataFile(String directory) {
+        return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
+            .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.DATA_FILE)
+            .max(Comparator.comparing(File::getName)).get();
+    }
+
+    static File getLatestCompactionFile(String directory) {
+        return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
+            .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.COMPACTED_FILE)
+            .max(Comparator.comparing(File::getName)).get();
     }
 }

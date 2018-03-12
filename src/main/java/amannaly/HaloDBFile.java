@@ -163,7 +163,7 @@ class HaloDBFile {
                 break;
             }
         }
-        logger.info("Copied {} from {} to {}. Deleting file ...", count, fileId, newFile.fileId);
+        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
         newFile.flushToDisk();
         newFile.indexFile.flushToDisk();
         delete();

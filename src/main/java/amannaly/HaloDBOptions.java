@@ -22,7 +22,7 @@ public class HaloDBOptions {
     // used for testing.
     public boolean isMergeDisabled = false;
 
-    public int numberOfRecords = 1_000;
+    public int numberOfRecords = 1_000_000;
 
     // MB of data to be compacted per second.
     public int compactionJobRate = 1024 * 1024 * 1024;

@@ -137,15 +137,15 @@ class HaloDBFile {
 
     /**
      * Copies to a new file those records whose computed checksum matches the stored one.
-     * Records in the file which are occur after a corrupted record are discarded.
+     * Records in the file which occur after a corrupted record are discarded.
      * Index file is also recreated.
      *
      * Current file is deleted after copy.
      *
      * This method is called if we detect an unclean shutdown. 
      */
-	HaloDBFile repairFile() throws IOException {
-	    HaloDBFile newFile = create(backingFile.getParentFile(), fileId, options, fileType);
+	HaloDBFile repairFile(int newFileId) throws IOException {
+	    HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
 
 	    logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
 

@@ -48,13 +48,14 @@ class HaloDBInternal {
         dbInternal.options = options;
 
         int maxFileId = dbInternal.buildReadFileMap();
+        dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
 
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
         dbMetaData.loadFromFile();
         if (dbMetaData.isOpen()) {
             logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
             // open flag is true, this might mean that the db was not cleanly closed the last time.
-            repairFiles(dbInternal);
+            dbInternal.repairFiles();
         }
         else {
             dbMetaData.setOpen(true);
@@ -62,7 +63,6 @@ class HaloDBInternal {
         }
 
         dbInternal.keyCache = new OffHeapCache(options.numberOfRecords);
-        dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
         dbInternal.buildKeyCache(options);
 
         dbInternal.currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
@@ -402,24 +402,24 @@ class HaloDBInternal {
         staleDataPerFileMap.remove(fileId);
     }
 
-    private static void repairFiles(HaloDBInternal db) {
-        db.getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
+    private void repairFiles() {
+        getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.data", file.getFileId());
-                HaloDBFile newFile = file.repairFile();
-                db.readFileMap.put(newFile.fileId, newFile);
-                db.readFileMap.remove(file.fileId);
+                HaloDBFile newFile = file.repairFile(getNextFileId());
+                readFileMap.put(newFile.fileId, newFile);
+                readFileMap.remove(file.fileId);
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
             }
         });
-        db.getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
+        getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.datac", file.getFileId());
-                HaloDBFile newFile = file.repairFile();
-                db.readFileMap.put(newFile.fileId, newFile);
-                db.readFileMap.remove(file.fileId);
+                HaloDBFile newFile = file.repairFile(getNextFileId());
+                readFileMap.put(newFile.fileId, newFile);
+                readFileMap.remove(file.fileId);
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);

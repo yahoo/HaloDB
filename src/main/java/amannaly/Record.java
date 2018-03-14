@@ -37,11 +37,11 @@ public class Record {
         return new Record(key, value);
     }
 
-    byte[] getKey() {
+    public byte[] getKey() {
         return key;
     }
 
-    byte[] getValue() {
+    public byte[] getValue() {
         return value;
     }
 
@@ -81,11 +81,11 @@ public class Record {
         return header.getSequenceNumber();
     }
 
-    public Header getHeader() {
+    Header getHeader() {
         return header;
     }
 
-    public void setHeader(Header header) {
+    void setHeader(Header header) {
         this.header = header;
     }
 

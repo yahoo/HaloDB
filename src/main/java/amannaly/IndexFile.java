@@ -32,14 +32,20 @@ class IndexFile {
         this.options = options;
     }
 
-    public void open() throws IOException {
+    void create() throws IOException {
         File file = getIndexFile();
-        file.createNewFile();
-
+        if (!file.createNewFile()) {
+            throw new IOException("Index file with id " + fileId + " already exists");
+        }
         channel = new RandomAccessFile(file, "rw").getChannel();
     }
 
-    public void close() throws IOException {
+    void open() throws IOException {
+        File file = getIndexFile();
+        channel = new RandomAccessFile(file, "rw").getChannel();
+    }
+
+    void close() throws IOException {
         if (channel != null) {
             channel.close();
         }

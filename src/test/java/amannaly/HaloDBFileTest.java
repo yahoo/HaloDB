@@ -20,6 +20,7 @@ public class HaloDBFileTest extends TestBase {
     private HaloDBFile file;
     private IndexFile indexFile;
     private int fileId = 100;
+    private int newFileId = 200;
 
     @BeforeMethod
     public void before() throws IOException {
@@ -130,7 +131,7 @@ public class HaloDBFileTest extends TestBase {
            channel.write(data);
         }
 
-        HaloDBFile newFile = file.repairFile();
+        HaloDBFile newFile = file.repairFile(newFileId);
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
@@ -155,7 +156,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile newFile = file.repairFile();
+        HaloDBFile newFile = file.repairFile(newFileId);
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
@@ -173,7 +174,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile newFile = file.repairFile();
+        HaloDBFile newFile = file.repairFile(newFileId);
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());
@@ -197,7 +198,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile newFile = file.repairFile();
+        HaloDBFile newFile = file.repairFile(newFileId);
 
         // make sure that old file is deleted.
         Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toFile().exists());

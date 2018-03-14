@@ -290,7 +290,10 @@ class HaloDBInternal {
         int maxFileId = Integer.MIN_VALUE;
 
         for (HaloDBFile file : openDataFilesForReading()) {
-            readFileMap.put(file.fileId, file);
+            if (readFileMap.putIfAbsent(file.fileId, file) != null) {
+                // There should only be a single file with a given file id.
+                throw new IOException("Found duplicate file with id " + file.fileId);
+            }
             maxFileId = Math.max(maxFileId, file.fileId);
         }
 

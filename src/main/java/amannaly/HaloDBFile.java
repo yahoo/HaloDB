@@ -123,7 +123,7 @@ class HaloDBFile {
 		indexFile.delete();
 
 		indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
-		indexFile.open();
+		indexFile.create();
 
 		HaloDBFileIterator iterator = new HaloDBFileIterator();
 		int offset = 0;
@@ -248,7 +248,7 @@ class HaloDBFile {
 		//file.setLength(max_);
 
 		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
-		indexFile.open();
+		indexFile.create();
 
 		return new HaloDBFile(fileId, file, indexFile, fileType, channel, options);
 	}

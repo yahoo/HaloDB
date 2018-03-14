@@ -7,7 +7,7 @@ import java.util.zip.CRC32;
 /**
  * @author Arjun Mannaly
  */
-class Record {
+public class Record {
 
     private final byte[] key, value;
 

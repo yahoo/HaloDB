@@ -3,9 +3,9 @@ package amannaly;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -354,5 +354,35 @@ public class HaloDBTest extends TestBase {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    @Test
+    public void testDBMetaFile() throws IOException {
+        String directory = Paths.get("tmp", "HaloDBTest", "testDBClose").toString();
+
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+
+        // Make sure that the META file was written.
+        Assert.assertTrue(Paths.get(directory, DBMetaData.METADATA_FILE_NAME).toFile().exists());
+
+        DBMetaData metaData = new DBMetaData(directory);
+        metaData.loadFromFileIfExists();
+
+        // Make sure that the open flag was set on db open.
+        Assert.assertTrue(metaData.isOpen());
+
+        // Default value of ioError flag must be false. 
+        Assert.assertFalse(metaData.isIOError());
+
+        db.close();
+
+        // Make sure that the META file was written.
+        Assert.assertTrue(Paths.get(directory, DBMetaData.METADATA_FILE_NAME).toFile().exists());
+
+        // Make sure that the flags were set correctly on close.
+        metaData.loadFromFileIfExists();
+
+        Assert.assertFalse(metaData.isOpen());
+        Assert.assertFalse(metaData.isIOError());
     }
 }

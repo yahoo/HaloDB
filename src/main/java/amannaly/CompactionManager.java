@@ -74,6 +74,17 @@ class CompactionManager {
             super("CompactionThread");
 
             setUncaughtExceptionHandler((t, e) -> {
+                if (e instanceof RuntimeException && e.getCause() instanceof IOException) {
+                    logger.error("IOException in Compaction thread. This is probably non-recoverable. Hence shutting down compaction");
+                    isRunning = false;
+                    try {
+                        dbInternal.setIOErrorFlag();
+                    } catch (IOException e1) {
+                        logger.error("Error while setting IOError flag", e1);
+                    }
+                    return;
+                }
+
                 logger.error("Compaction thread crashed. Creating and running another thread. ", e);
                 compactionThread = null;
                 if (currentWriteFile != null) {
@@ -110,6 +121,11 @@ class CompactionManager {
                 catch (InterruptedException e) {
                     logger.error("Compaction thread interrupted", e);
                 }
+                catch (IOException e) {
+                    logger.error("IO error while compacting file {} to {}", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1));
+                    // IO errors are usually non-recoverable; problem with disk, lack of space etc.
+                    throw new RuntimeException(e);
+                }
                 catch (Exception e){
                     logger.error("Error while compacting " + fileToCompact, e);
                 }
@@ -143,7 +159,6 @@ class CompactionManager {
 
                     // fresh record, copy to merged file.
                     long transferred = readFrom.transferTo(recordOffset, recordSize, currentWriteFile.getChannel());
-                    assert transferred == recordSize;
 
                     //TODO: for testing. remove.
                     if (transferred != recordSize) {
@@ -152,7 +167,6 @@ class CompactionManager {
 
                     unFlushedData += transferred;
                     if (dbInternal.options.flushDataSizeBytes != -1 && unFlushedData > dbInternal.options.flushDataSizeBytes) {
-                        //TODO: since metadata is not flushed file corruption can happen when process crashes.
                         currentWriteFile.getChannel().force(false);
                         unFlushedData = 0;
                     }

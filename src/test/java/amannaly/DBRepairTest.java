@@ -21,7 +21,7 @@ public class DBRepairTest extends TestBase {
         options.maxFileSize = 1024 * 1024;
 
         HaloDB db = getTestDB(directory, options);
-        int noOfRecords = 5 * 1024 + 512;
+        int noOfRecords = 5 * 1024 + 512; // 5 files with 1024 records and 1 with 512 records. 
 
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
 
@@ -53,7 +53,7 @@ public class DBRepairTest extends TestBase {
         options.maxFileSize = 1024 * 1024;
 
         HaloDB db = getTestDB(directory, options);
-        int noOfRecords = 5 * 1024 + 512;
+        int noOfRecords = 10 * 1024 + 512;
 
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
         records = TestUtils.updateRecords(db, records);

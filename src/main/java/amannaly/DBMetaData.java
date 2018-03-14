@@ -19,11 +19,13 @@ class DBMetaData {
     /**
      * open             - 1 byte
      * sequence number  - 8 bytes.
+     * io error         - 1 byte.
      */
-    final static int META_DATA_SIZE = 1+8;
+    final static int META_DATA_SIZE = 1+8+1;
 
     private boolean open = false;
     private long sequenceNumber = 0;
+    private boolean ioError = false;
 
     private final String dbDirectory;
 
@@ -33,7 +35,7 @@ class DBMetaData {
         this.dbDirectory = dbDirectory;
     }
 
-    synchronized void loadFromFile() throws IOException {
+    synchronized void loadFromFileIfExists() throws IOException {
         Path metaFile = Paths.get(dbDirectory, METADATA_FILE_NAME);
         if (Files.exists(metaFile)) {
             try (SeekableByteChannel channel = Files.newByteChannel(metaFile)) {
@@ -42,6 +44,7 @@ class DBMetaData {
                 buff.flip();
                 open = buff.get() != 0;
                 sequenceNumber = buff.getLong();
+                ioError = buff.get() != 0;
             }
         }
     }
@@ -54,6 +57,7 @@ class DBMetaData {
             ByteBuffer buff = ByteBuffer.allocate(META_DATA_SIZE);
             buff.put((byte)(open ? 0xFF : 0));
             buff.putLong(sequenceNumber);
+            buff.put((byte)(ioError ? 0xFF : 0));
             buff.flip();
             channel.write(buff);
             Files.move(tempFile, Paths.get(dbDirectory, METADATA_FILE_NAME), REPLACE_EXISTING, ATOMIC_MOVE);
@@ -74,5 +78,13 @@ class DBMetaData {
 
     void setSequenceNumber(long sequenceNumber) {
         this.sequenceNumber = sequenceNumber;
+    }
+
+    boolean isIOError() {
+        return ioError;
+    }
+
+    void setIOError(boolean ioError) {
+        this.ioError = ioError;
     }
 }

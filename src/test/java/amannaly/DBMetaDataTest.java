@@ -26,14 +26,16 @@ public class DBMetaDataTest {
         Assert.assertFalse(Files.exists(metaDataFile));
 
         DBMetaData metaData = new DBMetaData(directory);
-        metaData.loadFromFile();
+        metaData.loadFromFileIfExists();
 
         // file has not yet been created, return default values.
         Assert.assertFalse(metaData.isOpen());
         Assert.assertEquals(metaData.getSequenceNumber(), 0);
+        Assert.assertFalse(metaData.isIOError());
 
         metaData.setOpen(true);
         metaData.setSequenceNumber(100);
+        metaData.setIOError(false);
         metaData.storeToFile();
 
         // confirm that the file has been created.
@@ -41,21 +43,24 @@ public class DBMetaDataTest {
 
         // load again to read stored values.
         metaData = new DBMetaData(directory);
-        metaData.loadFromFile();
+        metaData.loadFromFileIfExists();
 
         Assert.assertTrue(metaData.isOpen());
         Assert.assertEquals(metaData.getSequenceNumber(), 100);
+        Assert.assertFalse(metaData.isIOError());
 
         metaData.setOpen(false);
         metaData.setSequenceNumber(Long.MAX_VALUE);
+        metaData.setIOError(true);
         metaData.storeToFile();
 
         // load again to read stored values.
         metaData = new DBMetaData(directory);
-        metaData.loadFromFile();
+        metaData.loadFromFileIfExists();
 
         Assert.assertFalse(metaData.isOpen());
         Assert.assertEquals(metaData.getSequenceNumber(), Long.MAX_VALUE);
+        Assert.assertTrue(metaData.isIOError());
     }
 
     @BeforeMethod

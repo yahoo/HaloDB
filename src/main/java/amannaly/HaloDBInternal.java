@@ -51,16 +51,15 @@ class HaloDBInternal {
         dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
 
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
-        dbMetaData.loadFromFile();
-        if (dbMetaData.isOpen()) {
+        dbMetaData.loadFromFileIfExists();
+        if (dbMetaData.isOpen() || dbMetaData.isIOError()) {
             logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
             // open flag is true, this might mean that the db was not cleanly closed the last time.
             dbInternal.repairFiles();
         }
-        else {
-            dbMetaData.setOpen(true);
-            dbMetaData.storeToFile();
-        }
+        dbMetaData.setOpen(true);
+        dbMetaData.setIOError(false);
+        dbMetaData.storeToFile();
 
         dbInternal.keyCache = new OffHeapCache(options.numberOfRecords);
         dbInternal.buildKeyCache(options);
@@ -104,6 +103,7 @@ class HaloDBInternal {
         }
 
         DBMetaData metaData = new DBMetaData(dbDirectory.getPath());
+        metaData.loadFromFileIfExists();
         metaData.setOpen(false);
         metaData.storeToFile();
     }
@@ -194,6 +194,13 @@ class HaloDBInternal {
 
     long size() {
         return keyCache.size();
+    }
+
+    void setIOErrorFlag() throws IOException {
+        DBMetaData metaData = new DBMetaData(dbDirectory.getPath());
+        metaData.loadFromFileIfExists();
+        metaData.setIOError(true);
+        metaData.storeToFile();
     }
 
     private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException {

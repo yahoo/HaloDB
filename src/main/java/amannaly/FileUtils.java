@@ -37,10 +37,16 @@ class FileUtils {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Returns all *.tombstone files in the given directory.
+     */
     static File[] listTombstoneFiles(File directory) {
         return directory.listFiles(file -> Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches());
     }
 
+    /**
+     * Returns all *.data and *.datac files in the given directory.
+     */
     static File[] listDataFiles(File directory) {
         return directory.listFiles(file -> Constants.DATA_FILE_PATTERN.matcher(file.getName()).matches());
     }

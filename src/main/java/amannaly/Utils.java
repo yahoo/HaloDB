@@ -12,6 +12,11 @@ class Utils {
         return recordOffset + Record.Header.HEADER_SIZE + key.length;
     }
 
+    //TODO: probably belongs to Record.
+    static int getRecordSize(int keySize, int valueSize) {
+        return keySize + valueSize + Record.Header.HEADER_SIZE;
+    }
+
     static int getValueSize(int recordSize, byte[] key) {
         return recordSize - Record.Header.HEADER_SIZE - key.length;
     }

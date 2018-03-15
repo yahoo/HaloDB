@@ -58,7 +58,7 @@ public class DBRepairTest extends TestBase {
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
         records = TestUtils.updateRecords(db, records);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         File latestDataFile = TestUtils.getLatestDataFile(directory);
         File latestCompactionFile = TestUtils.getLatestCompactionFile(directory);

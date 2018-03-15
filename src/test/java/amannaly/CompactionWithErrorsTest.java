@@ -99,7 +99,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         List<Record> records = insertAndUpdate(db, numberOfRecords);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         // An exception was thrown while copying a record in the compaction thread.
         // Make sure that all records are still correct. 
@@ -152,7 +152,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         List<Record> records = insertAndUpdate(db, numberOfRecords);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         // An exception was thrown while copying a record in the compaction thread.
         // Make sure that all records are still correct.

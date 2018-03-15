@@ -4,14 +4,11 @@ import com.google.common.primitives.Longs;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 
 /**
  * @author Arjun Mannaly
@@ -58,7 +55,7 @@ public class HaloDBFileMergeTest extends TestBase {
             freshRecords.add(records[i + 10]);
         }
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         // the latest file will be the compacted file.
         int compactedFile = db.getDbInternal().listDataFileIds().stream().max(Comparator.comparingInt(Integer::intValue)).get();

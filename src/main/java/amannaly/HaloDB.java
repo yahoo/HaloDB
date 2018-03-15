@@ -1,5 +1,7 @@
 package amannaly;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,6 +146,7 @@ public class HaloDB {
 
     // methods used in tests.
 
+    @VisibleForTesting
     boolean isMergeComplete() {
         return dbInternal.isMergeComplete();
     }

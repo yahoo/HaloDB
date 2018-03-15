@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,7 +38,7 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         Map<String, List<Path>> map = Files.list(Paths.get(directory))
             .filter(path -> Constants.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
@@ -63,7 +64,7 @@ public class HaloDBMergeTest extends TestBase {
     }
 
     @Test
-    public void testReOpenDBAfterMerge() throws IOException, InterruptedException {
+    public void testReOpenDBAfterMerge() throws IOException {
         String directory = "/tmp/HaloDBTestWithMerge/testReOpenDBAfterMerge";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -75,7 +76,7 @@ public class HaloDBMergeTest extends TestBase {
 
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         db.close();
 
@@ -88,7 +89,7 @@ public class HaloDBMergeTest extends TestBase {
     }
 
     @Test
-    public void testReOpenDBWithoutMerge() throws IOException, InterruptedException {
+    public void testReOpenDBWithoutMerge() throws IOException {
         String directory ="/tmp/HaloDBTestWithMerge/testReOpenAndUpdatesAndWithoutMerge";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -110,7 +111,7 @@ public class HaloDBMergeTest extends TestBase {
     }
 
     @Test
-    public void testUpdatesToSameFile() throws IOException, InterruptedException {
+    public void testUpdatesToSameFile() throws IOException {
         String directory ="/tmp/HaloDBTestWithMerge/testUpdatesToSameFile";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -129,6 +130,42 @@ public class HaloDBMergeTest extends TestBase {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(actual, r.getValue());
         }
+    }
+
+    @Test
+    public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws IOException, InterruptedException {
+        String directory = Paths.get("tmp", "HaloDBMergeTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.isMergeDisabled = true;
+        options.maxFileSize = 10 * 1024;
+
+        HaloDB db = getTestDB(directory, options);
+
+        List<Record> records = TestUtils.insertRandomRecords(db, 10_000);
+
+        // Delete all records, which means that all data files would have crossed the
+        // stale data threshold.  
+        for (Record r : records) {
+            db.delete(r.getKey());
+        }
+
+        db.close();
+
+        options = new HaloDBOptions();
+        options.maxFileSize = 10 * 1024;
+
+        db = getTestDBWithoutDeletingFiles(directory, options);
+
+        // Since all files have crossed stale data threshold, everything will be compacted
+        // and deleted. 
+        TestUtils.waitForCompactionToComplete(db);
+
+        File file = TestUtils.getLatestDataFile(directory);
+        Assert.assertEquals(file.length(), 0);
+
+        long noOfDataFiles = Arrays.stream(FileUtils.listDataFiles(new File(directory))).filter(f -> f.getName().endsWith("data")).count();
+        Assert.assertEquals(noOfDataFiles, 1);
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {

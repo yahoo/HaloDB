@@ -1,5 +1,8 @@
 package amannaly;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,6 +24,7 @@ import java.util.Set;
  * @author Arjun Mannaly
  */
 public class TestUtils {
+    private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
 
     static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws IOException {
         return insertRandomRecordsOfSize(db, noOfRecords, -1);
@@ -176,9 +180,14 @@ public class TestUtils {
         return array;
     }
 
-    static void waitForMergeToComplete(HaloDB db) throws InterruptedException {
+    static void waitForCompactionToComplete(HaloDB db) {
         while (!db.isMergeComplete()) {
-            Thread.sleep(1_000);
+            try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                logger.error("Thread interrupted while waiting for compaction to complete");
+                throw new RuntimeException(e);
+            }
         }
     }
 

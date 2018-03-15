@@ -113,8 +113,8 @@ class CompactionManager {
                         break;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);
-                    copyFreshRecordsToMergedFile(fileToCompact);
-                    logger.debug("Completed compacting {} to {}", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1));
+                    long recordsCopied = copyFreshRecordsToMergedFile(fileToCompact);
+                    logger.debug("Completed compacting {} to {}. Copied {} records", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1), recordsCopied);
                     dbInternal.markFileAsCompacted(fileToCompact);
                     dbInternal.deleteHaloDBFile(fileToCompact);
                 }
@@ -135,15 +135,16 @@ class CompactionManager {
         }
 
         // TODO: group and move adjacent fresh records together for performance.
-        private void copyFreshRecordsToMergedFile(int idOfFileToCompact) throws IOException {
+        private long copyFreshRecordsToMergedFile(int idOfFileToCompact) throws IOException {
             HaloDBFile fileToCompact = dbInternal.getHaloDBFile(idOfFileToCompact);
             if (fileToCompact == null) {
                 logger.debug("File doesn't exist, was probably compacted already.");
-                return;
+                return 0;
             }
 
             FileChannel readFrom =  fileToCompact.getChannel();
             IndexFile.IndexFileIterator iterator = fileToCompact.getIndexFile().newIterator();
+            long recordsCopied = 0;
 
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
@@ -154,6 +155,7 @@ class CompactionManager {
                 RecordMetaDataForCache currentRecordMetaData = dbInternal.getKeyCache().get(key);
 
                 if (isRecordFresh(indexFileEntry, currentRecordMetaData, idOfFileToCompact)) {
+                    recordsCopied++;
                     compactionRateLimiter.acquire(recordSize);
                     rollOverCurrentWriteFile(recordSize);
 
@@ -181,12 +183,14 @@ class CompactionManager {
                     if (!updated) {
                         // write thread wrote a new version while this version was being compacted.
                         // therefore, this version is stale.
-                        dbInternal.updateStaleDataMap(currentWriteFile.fileId, recordSize);
+                        dbInternal.addFileToCompactionQueueIfThresholdCrossed(currentWriteFile.fileId, recordSize);
                     }
                     currentWriteFileOffset += recordSize;
                     currentWriteFile.setWriteOffset(currentWriteFileOffset);
                 }
             }
+
+            return recordsCopied;
         }
 
         private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {

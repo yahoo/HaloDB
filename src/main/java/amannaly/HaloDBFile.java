@@ -82,21 +82,21 @@ class HaloDBFile {
 		ByteBuffer headerBuf = ByteBuffer.allocate(HEADER_SIZE);
 		int readSize = readFromFile(offset, headerBuf);
 		if (readSize != HEADER_SIZE) {
-		    throw new IOException("Corrupted header at " + offset + " in file " + fileId);
-        }
+			throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+		}
 		tempOffset += readSize;
 
 		Record.Header header = Record.Header.deserialize(headerBuf);
 		if (!Record.Header.verifyHeader(header)) {
-            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
-        }
+			throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+		}
 
 		// read key-value from disk.
 		ByteBuffer recordBuf = ByteBuffer.allocate(header.getKeySize() + header.getValueSize());
 		readSize = readFromFile(tempOffset, recordBuf);
 		if (readSize != recordBuf.capacity()) {
-		    throw new IOException("Corrupted record at " + offset + " in file " + fileId);
-        }
+			throw new IOException("Corrupted record at " + offset + " in file " + fileId);
+		}
 
 		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
 		record.setHeader(header);
@@ -135,40 +135,40 @@ class HaloDBFile {
 		}
 	}
 
-    /**
-     * Copies to a new file those records whose computed checksum matches the stored one.
-     * Records in the file which occur after a corrupted record are discarded.
-     * Index file is also recreated.
-     *
-     * Current file is deleted after copy.
-     *
-     * This method is called if we detect an unclean shutdown. 
-     */
+	/**
+	 * Copies to a new file those records whose computed checksum matches the stored one.
+	 * Records in the file which occur after a corrupted record are discarded.
+	 * Index file is also recreated.
+	 *
+	 * Current file is deleted after copy.
+	 *
+	 * This method is called if we detect an unclean shutdown.
+	 */
 	HaloDBFile repairFile(int newFileId) throws IOException {
-	    HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
+		HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
 
-	    logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
+		logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
 
-        HaloDBFileIterator iterator = new HaloDBFileIterator();
-        int count = 0;
-        while (iterator.hasNext()) {
-            Record record = iterator.next();
-            // if the header is corrupted iterator will return null.
-            if (record != null && record.verifyChecksum()) {
-                newFile.writeRecord(record);
-                count++;
-            }
-            else {
-                logger.info("Found a corrupted record after copying {} records", count);
-                break;
-            }
-        }
-        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
-        newFile.flushToDisk();
-        newFile.indexFile.flushToDisk();
-        delete();
-        return newFile;
-    }
+		HaloDBFileIterator iterator = new HaloDBFileIterator();
+		int count = 0;
+		while (iterator.hasNext()) {
+			Record record = iterator.next();
+			// if the header is corrupted iterator will return null.
+			if (record != null && record.verifyChecksum()) {
+				newFile.writeRecord(record);
+				count++;
+			}
+			else {
+				logger.info("Found a corrupted record after copying {} records", count);
+				break;
+			}
+		}
+		logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
+		newFile.flushToDisk();
+		newFile.indexFile.flushToDisk();
+		delete();
+		return newFile;
+	}
 
 	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
 		long toWrite = 0;
@@ -192,19 +192,19 @@ class HaloDBFile {
 	}
 
 	void flushToDisk() throws IOException {
-        if (channel != null && channel.isOpen())
-	        channel.force(true);
-    }
+		if (channel != null && channel.isOpen())
+			channel.force(true);
+	}
 
 	long getWriteOffset() {
 		return writeOffset;
 	}
 
-    void setWriteOffset(int writeOffset) {
-        this.writeOffset = writeOffset;
-    }
+	void setWriteOffset(int writeOffset) {
+		this.writeOffset = writeOffset;
+	}
 
-    long getSize() {
+	long getSize() {
 		return writeOffset;
 	}
 
@@ -292,11 +292,11 @@ class HaloDBFile {
 		return Integer.parseInt(s);
 	}
 
-    /**
-     * This iterator is intended only to be used internally as it behaves bit differently
-     * from expected Iterator behavior: If a record is corrupted next() will return null although hasNext()
-     * returns true. 
-     */
+	/**
+	 * This iterator is intended only to be used internally as it behaves bit differently
+	 * from expected Iterator behavior: If a record is corrupted next() will return null although hasNext()
+	 * returns true.
+	 */
 	class HaloDBFileIterator implements Iterator<Record> {
 
 		private final int endOffset;
@@ -317,8 +317,8 @@ class HaloDBFile {
 			try {
 				record = readRecord(currentOffset);
 			} catch (IOException e) {
-			    // we have encountered an error, probably because record is corrupted.
-                // we skip rest of the file and return null.
+				// we have encountered an error, probably because record is corrupted.
+				// we skip rest of the file and return null.
 				logger.error("Error in iterator", e);
 				currentOffset = endOffset;
 				return null;

@@ -194,7 +194,7 @@ public class HaloDBDeletionTest extends TestBase {
             db.put(key, TestUtils.generateRandomByteArray());
         }
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         db.close();
 
@@ -230,7 +230,7 @@ public class HaloDBDeletionTest extends TestBase {
             db.delete(r.getKey());
         }
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         Assert.assertEquals(db.size(), 0);
 

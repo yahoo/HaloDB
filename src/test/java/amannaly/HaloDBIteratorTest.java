@@ -107,7 +107,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         List<Record> updated = TestUtils.updateRecords(db, records);
 
-        TestUtils.waitForMergeToComplete(db);
+        TestUtils.waitForCompactionToComplete(db);
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);

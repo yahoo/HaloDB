@@ -1,5 +1,6 @@
 package amannaly;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,13 +62,15 @@ class HaloDBInternal {
         dbMetaData.setIOError(false);
         dbMetaData.storeToFile();
 
+        dbInternal.compactionManager = new CompactionManager(dbInternal);
+
         dbInternal.keyCache = new OffHeapCache(options.numberOfRecords);
         dbInternal.buildKeyCache(options);
+        dbInternal.compactionManager.startCompactionThread();
 
+        //TODO: create new file only on first put call. 
         dbInternal.currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
 
-        dbInternal.compactionManager = new CompactionManager(dbInternal);
-        dbInternal.compactionManager.startCompactionThread();
 
         dbInternal.tombstoneFile = TombstoneFile.create(directory, dbInternal.getNextFileId(), options);
 
@@ -241,16 +244,20 @@ class HaloDBInternal {
     }
 
     private void markPreviousVersionAsStale(byte[] key, RecordMetaDataForCache recordMetaData) {
-        int stale = recordMetaData.getValueSize() + key.length + Record.Header.HEADER_SIZE;
-        int currentStaleSize = updateStaleDataMap(recordMetaData.getFileId(), stale);
+        int staleRecordSize = Utils.getRecordSize(key.length, recordMetaData.getValueSize());
+        addFileToCompactionQueueIfThresholdCrossed(recordMetaData.getFileId(), staleRecordSize);
+    }
 
-        HaloDBFile file = readFileMap.get(recordMetaData.getFileId());
+    void addFileToCompactionQueueIfThresholdCrossed(int fileId, int staleRecordSize) {
+        HaloDBFile file = readFileMap.get(fileId);
+        if (file == null)
+            return;
 
-        if (file != null && currentStaleSize >= file.getSize() * options.mergeThresholdPerFile) {
-            int fileId = recordMetaData.getFileId();
+        int staleSizeInFile = updateStaleDataMap(fileId, staleRecordSize);
+        if (staleSizeInFile >= file.getSize() * options.mergeThresholdPerFile) {
 
-            // We don't want to compact the files the writer thread and the compaction thread is currently writing to.  
-            if (currentWriteFile.fileId != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
+            // We don't want to compact the files the writer thread and the compaction thread is currently writing to.
+            if (getCurrentWriteFileId() != fileId && compactionManager.getCurrentWriteFileId() != fileId) {
                 if(compactionManager.submitFileForCompaction(fileId)) {
                     staleDataPerFileMap.remove(fileId);
                 }
@@ -258,7 +265,7 @@ class HaloDBInternal {
         }
     }
 
-    int updateStaleDataMap(int fileId, int staleDataSize) {
+    private int updateStaleDataMap(int fileId, int staleDataSize) {
         return staleDataPerFileMap.merge(fileId, staleDataSize, (oldValue, newValue) -> oldValue + newValue);
     }
 
@@ -361,7 +368,7 @@ class HaloDBInternal {
                 }
                 else {
                     // stale data, update stale data map.
-                    staleDataPerFileMap.merge(fileId, recordSize, (oldValue, newValue) -> oldValue + newValue);
+                    addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
                 }
             }
             logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);
@@ -384,6 +391,7 @@ class HaloDBInternal {
 
                 RecordMetaDataForCache existing = keyCache.get(key);
                 if (existing != null && existing.getSequenceNumber() < sequenceNumber) {
+                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
                     keyCache.remove(key);
                     deleted++;
                 }
@@ -479,6 +487,7 @@ class HaloDBInternal {
     }
 
     // Used only in tests.
+    @VisibleForTesting
     boolean isMergeComplete() {
         return compactionManager.isMergeComplete();
     }

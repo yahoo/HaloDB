@@ -25,7 +25,7 @@ public class DBRepairTest extends TestBase {
 
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
 
-        File latestDataFile = TestUtils.getLatestDataFile(directory);
+        File latestDataFile = TestUtils.getLatestDataFile(directory).get();
 
         db.close();
 
@@ -60,8 +60,8 @@ public class DBRepairTest extends TestBase {
 
         TestUtils.waitForCompactionToComplete(db);
 
-        File latestDataFile = TestUtils.getLatestDataFile(directory);
-        File latestCompactionFile = TestUtils.getLatestCompactionFile(directory);
+        File latestDataFile = TestUtils.getLatestDataFile(directory).get();
+        File latestCompactionFile = TestUtils.getLatestCompactionFile(directory).get();
 
         db.close();
 

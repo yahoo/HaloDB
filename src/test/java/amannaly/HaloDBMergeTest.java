@@ -142,7 +142,8 @@ public class HaloDBMergeTest extends TestBase {
 
         HaloDB db = getTestDB(directory, options);
 
-        List<Record> records = TestUtils.insertRandomRecords(db, 10_000);
+        // insert 50 records into 5 files.
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, 50, 1024-Record.Header.HEADER_SIZE);
 
         // Delete all records, which means that all data files would have crossed the
         // stale data threshold.  
@@ -152,20 +153,51 @@ public class HaloDBMergeTest extends TestBase {
 
         db.close();
 
+        // open the db withe compaction enabled. 
         options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // Since all files have crossed stale data threshold, everything will be compacted
-        // and deleted. 
         TestUtils.waitForCompactionToComplete(db);
 
-        File file = TestUtils.getLatestDataFile(directory);
-        Assert.assertEquals(file.length(), 0);
+        // Since all files have crossed stale data threshold, everything will be compacted and deleted.
+        Assert.assertFalse(TestUtils.getLatestDataFile(directory).isPresent());
+        Assert.assertFalse(TestUtils.getLatestCompactionFile(directory).isPresent());
 
-        long noOfDataFiles = Arrays.stream(FileUtils.listDataFiles(new File(directory))).filter(f -> f.getName().endsWith("data")).count();
-        Assert.assertEquals(noOfDataFiles, 1);
+        db.close();
+
+        // open the db with compaction disabled.
+        options = new HaloDBOptions();
+        options.maxFileSize = 10 * 1024;
+        options.isMergeDisabled = true;
+
+        db = getTestDBWithoutDeletingFiles(directory, options);
+
+        // insert 20 records into two files. 
+        records = TestUtils.insertRandomRecordsOfSize(db, 20, 1024-Record.Header.HEADER_SIZE);
+        File[] dataFilesToDelete = FileUtils.listDataFiles(new File(directory));
+
+        // update all records; since compaction is disabled no file is deleted.
+        List<Record> updatedRecords = TestUtils.updateRecords(db, records);
+
+        db.close();
+
+        // Open db again with compaction enabled. 
+        options = new HaloDBOptions();
+        options.maxFileSize = 10 * 1024;
+
+        db = getTestDBWithoutDeletingFiles(directory, options);
+        TestUtils.waitForCompactionToComplete(db);
+
+        //Confirm that previous data files were compacted and deleted.
+        for (File f : dataFilesToDelete) {
+            Assert.assertFalse(f.exists());
+        }
+
+        for (Record r : updatedRecords) {
+            Assert.assertEquals(db.get(r.getKey()), r.getValue());
+        }
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {

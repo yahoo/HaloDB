@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
@@ -191,15 +192,15 @@ public class TestUtils {
         }
     }
 
-    static File getLatestDataFile(String directory) {
+    static Optional<File> getLatestDataFile(String directory) {
         return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
             .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.DATA_FILE)
-            .max(Comparator.comparing(File::getName)).get();
+            .max(Comparator.comparing(File::getName));
     }
 
-    static File getLatestCompactionFile(String directory) {
+    static Optional<File> getLatestCompactionFile(String directory) {
         return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
             .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.COMPACTED_FILE)
-            .max(Comparator.comparing(File::getName)).get();
+            .max(Comparator.comparing(File::getName));
     }
 }

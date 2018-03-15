@@ -17,7 +17,7 @@ public class Record {
 
     private Header header;
 
-    Record(byte[] key, byte[] value) {
+    public Record(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
         header = new Header(0, (byte)key.length, value.length, -1, (byte)0);

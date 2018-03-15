@@ -68,12 +68,6 @@ class HaloDBInternal {
         dbInternal.buildKeyCache(options);
         dbInternal.compactionManager.startCompactionThread();
 
-        //TODO: create new file only on first put call. 
-        dbInternal.currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
-
-
-        dbInternal.tombstoneFile = TombstoneFile.create(directory, dbInternal.getNextFileId(), options);
-
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isMergeDisabled - {}", options.isMergeDisabled);
         logger.info("maxFileSize - {}", options.maxFileSize);
@@ -341,6 +335,7 @@ class HaloDBInternal {
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
+            // build the cache by scanning all index files. 
             int count = 0, inserted = 0;
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
@@ -362,8 +357,9 @@ class HaloDBInternal {
                 else if (existing.getSequenceNumber() <= sequenceNumber) {
                     // a newer version of the record, replace existing record in cache with newer one.
                     keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
-                    int staleDataSize = existing.getValueSize() + key.length + Record.Header.HEADER_SIZE;
-                    staleDataPerFileMap.merge(existing.getFileId(), staleDataSize, (oldValue, newValue) -> oldValue + newValue);
+
+                    // update stale data map for the previous version.
+                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
                     inserted++;
                 }
                 else {
@@ -375,6 +371,7 @@ class HaloDBInternal {
             indexFile.close();
         }
 
+        // Scan all the tombstone files and remove records from cache. 
         File[] tombStoneFiles = FileUtils.listTombstoneFiles(dbDirectory);
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
@@ -391,8 +388,11 @@ class HaloDBInternal {
 
                 RecordMetaDataForCache existing = keyCache.get(key);
                 if (existing != null && existing.getSequenceNumber() < sequenceNumber) {
-                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                    // Found a tombstone record which happened after the version currently in cache; remove.
                     keyCache.remove(key);
+
+                    // update stale data map for the previous version.
+                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
                     deleted++;
                 }
             }
@@ -400,9 +400,7 @@ class HaloDBInternal {
             tombstoneFile.close();
         }
 
-        long time = (System.currentTimeMillis() - start)/1000;
-
-        logger.info("Completed scanning all key files in {}.\n", time);
+        logger.info("Completed scanning all key files in {}", (System.currentTimeMillis() - start)/1000);
     }
 
     HaloDBFile getHaloDBFile(int fileId) {

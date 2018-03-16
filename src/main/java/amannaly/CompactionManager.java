@@ -36,7 +36,7 @@ class CompactionManager {
         this.queue = new LinkedBlockingQueue<>();
     }
 
-    void stopCompactionThread() {
+    void stopCompactionThread() throws IOException {
         isRunning = false;
         if (compactionThread != null) {
             try {
@@ -45,6 +45,9 @@ class CompactionManager {
                 // instead we use -10101 as a stop signal.
                 queue.put(-10101);
                 compactionThread.join();
+                if (currentWriteFile != null) {
+                    currentWriteFile.flushToDisk();
+                }
             } catch (InterruptedException e) {
                 logger.error("Error while waiting for compaction thread to stop", e);
             }
@@ -190,6 +193,13 @@ class CompactionManager {
                 }
             }
 
+            if (recordsCopied > 0) {
+                // After compaction we will delete the stale file.
+                // To prevent data loss in the event of a crash we need to ensure that copied data has hit the disk.
+                currentWriteFile.flushToDisk();
+            }
+
+
             return recordsCopied;
         }
 
@@ -203,6 +213,7 @@ class CompactionManager {
             if (currentWriteFile == null ||  currentWriteFileOffset + recordSize > dbInternal.options.maxFileSize) {
                 if (currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
+                    currentWriteFile.getIndexFile().flushToDisk();
                 }
                 currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
                 currentWriteFileOffset = 0;

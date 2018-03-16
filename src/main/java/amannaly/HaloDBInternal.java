@@ -78,7 +78,13 @@ class HaloDBInternal {
 
     void close() throws IOException {
         isClosing = true;
-        compactionManager.stopCompactionThread();
+
+        try {
+            compactionManager.stopCompactionThread();
+        } catch (IOException e) {
+            logger.error("Error while stopping compaction thread. Setting IOError flag", e);
+            setIOErrorFlag();
+        }
 
         if (options.cleanUpKeyCacheOnClose)
             keyCache.close();
@@ -324,6 +330,7 @@ class HaloDBInternal {
     }
 
     private void buildKeyCache(HaloDBOptions options) throws IOException {
+        //TODO: probably processing files in descending order is more efficient.
         List<Integer> indexFiles = FileUtils.listIndexFiles(dbDirectory);
 
         logger.info("About to scan {} index files to construct cache ...", indexFiles.size());

@@ -491,6 +491,10 @@ class HaloDBInternal {
         });
     }
 
+    boolean isClosing() {
+        return isClosing;
+    }
+
     // Used only in tests.
     @VisibleForTesting
     boolean isMergeComplete() {

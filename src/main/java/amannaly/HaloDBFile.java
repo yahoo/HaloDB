@@ -24,311 +24,312 @@ import static amannaly.Record.Header.HEADER_SIZE;
  * @author Arjun Mannaly
  */
 class HaloDBFile {
-	private static final Logger logger = LoggerFactory.getLogger(HaloDBFile.class);
+    private static final Logger logger = LoggerFactory.getLogger(HaloDBFile.class);
 
-	private FileChannel channel;
+    private FileChannel channel;
 
-	private volatile int writeOffset;
+    private volatile int writeOffset;
 
-	private final File backingFile;
-	private IndexFile indexFile;
-	final int fileId;
 
-	private final HaloDBOptions options;
+    private final File backingFile;
+    private IndexFile indexFile;
+    final int fileId;
 
-	private long unFlushedData = 0;
+    private final HaloDBOptions options;
 
-	static final String DATA_FILE_NAME = ".data";
-	static final String COMPACTED_DATA_FILE_NAME = ".datac";
+    private long unFlushedData = 0;
 
-	private final FileType fileType;
+    static final String DATA_FILE_NAME = ".data";
+    static final String COMPACTED_DATA_FILE_NAME = ".datac";
 
-	private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileType fileType,
-					   FileChannel channel, HaloDBOptions options) throws IOException {
-		this.fileId = fileId;
-		this.backingFile = backingFile;
-		this.indexFile = indexFile;
-		this.fileType = fileType;
-		this.channel = channel;
-		this.writeOffset = Ints.checkedCast(channel.size());
-		this.options = options;
-	}
+    private final FileType fileType;
 
-	byte[] readFromFile(int offset, int length) throws IOException {
-		byte[] value = new byte[length];
-		ByteBuffer valueBuf = ByteBuffer.wrap(value);
-		int read = readFromFile(offset, valueBuf);
-		assert read == length;
+    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileType fileType,
+                       FileChannel channel, HaloDBOptions options) throws IOException {
+        this.fileId = fileId;
+        this.backingFile = backingFile;
+        this.indexFile = indexFile;
+        this.fileType = fileType;
+        this.channel = channel;
+        this.writeOffset = Ints.checkedCast(channel.size());
+        this.options = options;
+    }
 
-		return value;
-	}
+    byte[] readFromFile(int offset, int length) throws IOException {
+        byte[] value = new byte[length];
+        ByteBuffer valueBuf = ByteBuffer.wrap(value);
+        int read = readFromFile(offset, valueBuf);
+        assert read == length;
 
-	int readFromFile(long position, ByteBuffer destinationBuffer) throws IOException {
+        return value;
+    }
 
-		long currentPosition = position;
-		int bytesRead;
-		do {
-			bytesRead = channel.read(destinationBuffer, currentPosition);
-			currentPosition += bytesRead;
-		} while (bytesRead != -1 && destinationBuffer.hasRemaining());
+    int readFromFile(long position, ByteBuffer destinationBuffer) throws IOException {
 
-		return (int)(currentPosition - position);
-	}
+        long currentPosition = position;
+        int bytesRead;
+        do {
+            bytesRead = channel.read(destinationBuffer, currentPosition);
+            currentPosition += bytesRead;
+        } while (bytesRead != -1 && destinationBuffer.hasRemaining());
 
-	private Record readRecord(int offset) throws IOException {
-		long tempOffset = offset;
+        return (int)(currentPosition - position);
+    }
 
-		// read the header from disk.
-		ByteBuffer headerBuf = ByteBuffer.allocate(HEADER_SIZE);
-		int readSize = readFromFile(offset, headerBuf);
-		if (readSize != HEADER_SIZE) {
-			throw new IOException("Corrupted header at " + offset + " in file " + fileId);
-		}
-		tempOffset += readSize;
+    private Record readRecord(int offset) throws IOException {
+        long tempOffset = offset;
 
-		Record.Header header = Record.Header.deserialize(headerBuf);
-		if (!Record.Header.verifyHeader(header)) {
-			throw new IOException("Corrupted header at " + offset + " in file " + fileId);
-		}
+        // read the header from disk.
+        ByteBuffer headerBuf = ByteBuffer.allocate(HEADER_SIZE);
+        int readSize = readFromFile(offset, headerBuf);
+        if (readSize != HEADER_SIZE) {
+            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+        }
+        tempOffset += readSize;
 
-		// read key-value from disk.
-		ByteBuffer recordBuf = ByteBuffer.allocate(header.getKeySize() + header.getValueSize());
-		readSize = readFromFile(tempOffset, recordBuf);
-		if (readSize != recordBuf.capacity()) {
-			throw new IOException("Corrupted record at " + offset + " in file " + fileId);
-		}
+        Record.Header header = Record.Header.deserialize(headerBuf);
+        if (!Record.Header.verifyHeader(header)) {
+            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+        }
 
-		Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
-		record.setHeader(header);
-		int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
-		record.setRecordMetaData(new RecordMetaDataForCache(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
-		return record;
-	}
+        // read key-value from disk.
+        ByteBuffer recordBuf = ByteBuffer.allocate(header.getKeySize() + header.getValueSize());
+        readSize = readFromFile(tempOffset, recordBuf);
+        if (readSize != recordBuf.capacity()) {
+            throw new IOException("Corrupted record at " + offset + " in file " + fileId);
+        }
 
-	RecordMetaDataForCache writeRecord(Record record) throws IOException {
-		writeToChannel(record.serialize(), channel);
+        Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
+        record.setHeader(header);
+        int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
+        record.setRecordMetaData(new RecordMetaDataForCache(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
+        return record;
+    }
 
-		int recordSize = record.getRecordSize();
-		int recordOffset = writeOffset;
-		writeOffset += recordSize;
+    RecordMetaDataForCache writeRecord(Record record) throws IOException {
+        writeToChannel(record.serialize(), channel);
 
-		IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), record.getFlags());
-		indexFile.write(indexFileEntry);
+        int recordSize = record.getRecordSize();
+        int recordOffset = writeOffset;
+        writeOffset += recordSize;
 
-		int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
-		return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
-	}
+        IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), record.getFlags());
+        indexFile.write(indexFileEntry);
 
-	void rebuildIndexFile() throws IOException {
-		indexFile.delete();
+        int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
+        return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
+    }
 
-		indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
-		indexFile.create();
+    void rebuildIndexFile() throws IOException {
+        indexFile.delete();
 
-		HaloDBFileIterator iterator = new HaloDBFileIterator();
-		int offset = 0;
-		while (iterator.hasNext()) {
-			Record record = iterator.next();
-			IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), record.getRecordSize(), offset, record.getSequenceNumber(), record.getFlags());
-			indexFile.write(indexFileEntry);
-			offset += record.getRecordSize();
-		}
-	}
+        indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
+        indexFile.create();
 
-	/**
-	 * Copies to a new file those records whose computed checksum matches the stored one.
-	 * Records in the file which occur after a corrupted record are discarded.
-	 * Index file is also recreated.
-	 *
-	 * Current file is deleted after copy.
-	 *
-	 * This method is called if we detect an unclean shutdown.
-	 */
-	HaloDBFile repairFile(int newFileId) throws IOException {
-		HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
+        HaloDBFileIterator iterator = new HaloDBFileIterator();
+        int offset = 0;
+        while (iterator.hasNext()) {
+            Record record = iterator.next();
+            IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), record.getRecordSize(), offset, record.getSequenceNumber(), record.getFlags());
+            indexFile.write(indexFileEntry);
+            offset += record.getRecordSize();
+        }
+    }
 
-		logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
+    /**
+     * Copies to a new file those records whose computed checksum matches the stored one.
+     * Records in the file which occur after a corrupted record are discarded.
+     * Index file is also recreated.
+     *
+     * Current file is deleted after copy.
+     *
+     * This method is called if we detect an unclean shutdown.
+     */
+    HaloDBFile repairFile(int newFileId) throws IOException {
+        HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
 
-		HaloDBFileIterator iterator = new HaloDBFileIterator();
-		int count = 0;
-		while (iterator.hasNext()) {
-			Record record = iterator.next();
-			// if the header is corrupted iterator will return null.
-			if (record != null && record.verifyChecksum()) {
-				newFile.writeRecord(record);
-				count++;
-			}
-			else {
-				logger.info("Found a corrupted record after copying {} records", count);
-				break;
-			}
-		}
-		logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
-		newFile.flushToDisk();
-		newFile.indexFile.flushToDisk();
-		delete();
-		return newFile;
-	}
+        logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
 
-	private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
-		long toWrite = 0;
-		for (ByteBuffer buffer : buffers) {
-			toWrite += buffer.remaining();
-		}
+        HaloDBFileIterator iterator = new HaloDBFileIterator();
+        int count = 0;
+        while (iterator.hasNext()) {
+            Record record = iterator.next();
+            // if the header is corrupted iterator will return null.
+            if (record != null && record.verifyChecksum()) {
+                newFile.writeRecord(record);
+                count++;
+            }
+            else {
+                logger.info("Found a corrupted record after copying {} records", count);
+                break;
+            }
+        }
+        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
+        newFile.flushToDisk();
+        newFile.indexFile.flushToDisk();
+        delete();
+        return newFile;
+    }
 
-		long written = 0;
-		while (written < toWrite) {
-			written += writeChannel.write(buffers);
-		}
+    private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
+        long toWrite = 0;
+        for (ByteBuffer buffer : buffers) {
+            toWrite += buffer.remaining();
+        }
 
-		unFlushedData += written;
+        long written = 0;
+        while (written < toWrite) {
+            written += writeChannel.write(buffers);
+        }
 
-		if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
-			//TODO: since metadata is not flushed file corruption can happen when process crashes.
-			writeChannel.force(false);
-			unFlushedData = 0;
-		}
-		return written;
-	}
+        unFlushedData += written;
 
-	void flushToDisk() throws IOException {
-		if (channel != null && channel.isOpen())
-			channel.force(true);
-	}
+        if (options.flushDataSizeBytes != -1 && unFlushedData > options.flushDataSizeBytes) {
+            //TODO: since metadata is not flushed file corruption can happen when process crashes.
+            writeChannel.force(false);
+            unFlushedData = 0;
+        }
+        return written;
+    }
 
-	long getWriteOffset() {
-		return writeOffset;
-	}
+    void flushToDisk() throws IOException {
+        if (channel != null && channel.isOpen())
+            channel.force(true);
+    }
 
-	void setWriteOffset(int writeOffset) {
-		this.writeOffset = writeOffset;
-	}
+    long getWriteOffset() {
+        return writeOffset;
+    }
 
-	long getSize() {
-		return writeOffset;
-	}
+    void setWriteOffset(int writeOffset) {
+        this.writeOffset = writeOffset;
+    }
 
-	IndexFile getIndexFile() {
-		return indexFile;
-	}
+    long getSize() {
+        return writeOffset;
+    }
 
-	FileChannel getChannel() {
-		return channel;
-	}
+    IndexFile getIndexFile() {
+        return indexFile;
+    }
 
-	FileType getFileType() {
-		return fileType;
-	}
+    FileChannel getChannel() {
+        return channel;
+    }
 
-	int getFileId() {
-		return fileId;
-	}
+    FileType getFileType() {
+        return fileType;
+    }
 
-	static HaloDBFile openForReading(File haloDBDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
-		int fileId = HaloDBFile.getFileTimeStamp(filename);
-		FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
-		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
-		indexFile.open();
+    int getFileId() {
+        return fileId;
+    }
 
-		return new HaloDBFile(fileId, filename, indexFile, fileType, channel, options);
-	}
+    static HaloDBFile openForReading(File haloDBDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
+        int fileId = HaloDBFile.getFileTimeStamp(filename);
+        FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
+        IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+        indexFile.open();
 
-	static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
-		BiFunction<File, Integer, File> toFile = (fileType == FileType.DATA_FILE) ? HaloDBFile::getDataFile : HaloDBFile::getCompactedDataFile;
+        return new HaloDBFile(fileId, filename, indexFile, fileType, channel, options);
+    }
 
-		File file = toFile.apply(haloDBDirectory, fileId);
-		while (!file.createNewFile()) {
-			// file already exists try another one.
-			fileId++;
-			file = toFile.apply(haloDBDirectory, fileId);
-		}
+    static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
+        BiFunction<File, Integer, File> toFile = (fileType == FileType.DATA_FILE) ? HaloDBFile::getDataFile : HaloDBFile::getCompactedDataFile;
 
-		FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
-		//TODO: setting the length might improve performance.
-		//file.setLength(max_);
+        File file = toFile.apply(haloDBDirectory, fileId);
+        while (!file.createNewFile()) {
+            // file already exists try another one.
+            fileId++;
+            file = toFile.apply(haloDBDirectory, fileId);
+        }
 
-		IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
-		indexFile.create();
+        FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+        //TODO: setting the length might improve performance.
+        //file.setLength(max_);
 
-		return new HaloDBFile(fileId, file, indexFile, fileType, channel, options);
-	}
+        IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+        indexFile.create();
 
-	HaloDBFileIterator newIterator() throws IOException {
-		return new HaloDBFileIterator();
-	}
+        return new HaloDBFile(fileId, file, indexFile, fileType, channel, options);
+    }
 
-	void close() throws IOException {
-		if (channel != null) {
-			channel.close();
-		}
-	}
+    HaloDBFileIterator newIterator() throws IOException {
+        return new HaloDBFileIterator();
+    }
 
-	void delete() throws IOException {
-		close();
-		if (backingFile != null)
-			backingFile.delete();
+    void close() throws IOException {
+        if (channel != null) {
+            channel.close();
+        }
+    }
 
-		if (indexFile != null)
-			indexFile.delete();
-	}
+    void delete() throws IOException {
+        close();
+        if (backingFile != null)
+            backingFile.delete();
 
-	private static File getDataFile(File haloDBDirectory, int fileId) {
-		return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
-	}
+        if (indexFile != null)
+            indexFile.delete();
+    }
 
-	private static File getCompactedDataFile(File haloDBDirectory, int fileId) {
-		return Paths.get(haloDBDirectory.getPath(), fileId + COMPACTED_DATA_FILE_NAME).toFile();
-	}
+    private static File getDataFile(File haloDBDirectory, int fileId) {
+        return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
+    }
 
-	static FileType findFileType(File file) {
-		String name = file.getName();
-		return name.endsWith(COMPACTED_DATA_FILE_NAME) ? FileType.COMPACTED_FILE : FileType.DATA_FILE;
-	}
+    private static File getCompactedDataFile(File haloDBDirectory, int fileId) {
+        return Paths.get(haloDBDirectory.getPath(), fileId + COMPACTED_DATA_FILE_NAME).toFile();
+    }
 
-	static int getFileTimeStamp(File file) {
-		Matcher matcher = Constants.DATA_FILE_PATTERN.matcher(file.getName());
-		matcher.find();
-		String s = matcher.group(1);
-		return Integer.parseInt(s);
-	}
+    static FileType findFileType(File file) {
+        String name = file.getName();
+        return name.endsWith(COMPACTED_DATA_FILE_NAME) ? FileType.COMPACTED_FILE : FileType.DATA_FILE;
+    }
 
-	/**
-	 * This iterator is intended only to be used internally as it behaves bit differently
-	 * from expected Iterator behavior: If a record is corrupted next() will return null although hasNext()
-	 * returns true.
-	 */
-	class HaloDBFileIterator implements Iterator<Record> {
+    static int getFileTimeStamp(File file) {
+        Matcher matcher = Constants.DATA_FILE_PATTERN.matcher(file.getName());
+        matcher.find();
+        String s = matcher.group(1);
+        return Integer.parseInt(s);
+    }
 
-		private final int endOffset;
-		private int currentOffset = 0;
+    /**
+     * This iterator is intended only to be used internally as it behaves bit differently
+     * from expected Iterator behavior: If a record is corrupted next() will return null although hasNext()
+     * returns true.
+     */
+    class HaloDBFileIterator implements Iterator<Record> {
 
-		HaloDBFileIterator() throws IOException {
-			this.endOffset = Ints.checkedCast(channel.size());
-		}
+        private final int endOffset;
+        private int currentOffset = 0;
 
-		@Override
-		public boolean hasNext() {
-			return currentOffset < endOffset;
-		}
+        HaloDBFileIterator() throws IOException {
+            this.endOffset = Ints.checkedCast(channel.size());
+        }
 
-		@Override
-		public Record next() {
-			Record record;
-			try {
-				record = readRecord(currentOffset);
-			} catch (IOException e) {
-				// we have encountered an error, probably because record is corrupted.
-				// we skip rest of the file and return null.
-				logger.error("Error in iterator", e);
-				currentOffset = endOffset;
-				return null;
-			}
-			currentOffset += record.getRecordSize();
-			return record;
-		}
-	}
+        @Override
+        public boolean hasNext() {
+            return currentOffset < endOffset;
+        }
 
-	enum FileType {
-		DATA_FILE, COMPACTED_FILE;
-	}
+        @Override
+        public Record next() {
+            Record record;
+            try {
+                record = readRecord(currentOffset);
+            } catch (IOException e) {
+                // we have encountered an error, probably because record is corrupted.
+                // we skip rest of the file and return null.
+                logger.error("Error in iterator", e);
+                currentOffset = endOffset;
+                return null;
+            }
+            currentOffset += record.getRecordSize();
+            return record;
+        }
+    }
+
+    enum FileType {
+        DATA_FILE, COMPACTED_FILE;
+    }
 }

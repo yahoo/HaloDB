@@ -27,6 +27,10 @@ import java.util.Set;
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
 
+    static String getTestDirectory(String... path) {
+        return Paths.get("tmp", path).toString();
+    }
+
     static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws IOException {
         return insertRandomRecordsOfSize(db, noOfRecords, -1);
     }
@@ -90,6 +94,22 @@ public class TestUtils {
         records.forEach(record -> {
             try {
                 byte[] value = TestUtils.generateRandomByteArray();
+                db.put(record.getKey(), value);
+                updated.add(new Record(record.getKey(), value));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        return updated;
+    }
+
+    static List<Record> updateRecordsWithSize(HaloDB db, List<Record> records, int size) {
+        List<Record> updated = new ArrayList<>();
+
+        records.forEach(record -> {
+            try {
+                byte[] value = TestUtils.generateRandomByteArray(size-record.getKey().length-Record.Header.HEADER_SIZE);
                 db.put(record.getKey(), value);
                 updated.add(new Record(record.getKey(), value));
             } catch (IOException e) {

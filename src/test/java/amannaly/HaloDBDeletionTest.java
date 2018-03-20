@@ -16,7 +16,7 @@ public class HaloDBDeletionTest extends TestBase {
     public void testSimpleDelete() throws IOException {
         String directory = "/tmp/HaloDBDeletionTest/testSimpleDelete";
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -46,7 +46,7 @@ public class HaloDBDeletionTest extends TestBase {
     public void testDeleteWithIterator() throws IOException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteWithIterator";
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -74,7 +74,7 @@ public class HaloDBDeletionTest extends TestBase {
     public void testDeleteAndInsert() throws IOException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndInsert";
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -129,7 +129,7 @@ public class HaloDBDeletionTest extends TestBase {
     public void testDeleteAndOpen() throws IOException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndOpen";
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 

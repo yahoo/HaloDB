@@ -1,6 +1,7 @@
 package amannaly;
 
 import com.google.common.primitives.Ints;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,11 +10,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 
 import static amannaly.Record.Header.HEADER_SIZE;
@@ -33,7 +32,7 @@ class HaloDBFile {
 
     private final File backingFile;
     private IndexFile indexFile;
-    final int fileId;
+    private final int fileId;
 
     private final HaloDBOptions options;
 

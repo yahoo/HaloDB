@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -26,32 +25,34 @@ class CompactionManager {
     private volatile HaloDBFile currentWriteFile = null;
     private int currentWriteFileOffset = 0;
 
-    private final BlockingQueue<Integer> queue;
+    private final BlockingQueue<Integer> compactionQueue;
 
     private CompactionThread compactionThread;
 
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
         this.compactionRateLimiter = RateLimiter.create(dbInternal.options.compactionJobRate);
-        this.queue = new LinkedBlockingQueue<>();
+        this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
-    void stopCompactionThread() throws IOException {
+    boolean stopCompactionThread() throws IOException {
         isRunning = false;
         if (compactionThread != null) {
             try {
                 // We don't want to call interrupt on compaction thread as it
                 // may interrupt IO operations and leave files in an inconsistent state.
                 // instead we use -10101 as a stop signal.
-                queue.put(-10101);
+                compactionQueue.put(-10101);
                 compactionThread.join();
                 if (currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
                 }
             } catch (InterruptedException e) {
                 logger.error("Error while waiting for compaction thread to stop", e);
+                return false;
             }
         }
+        return true;
     }
 
     synchronized void startCompactionThread() {
@@ -62,11 +63,11 @@ class CompactionManager {
     }
 
     int getCurrentWriteFileId() {
-        return currentWriteFile != null ? currentWriteFile.fileId : -1;
+        return currentWriteFile != null ? currentWriteFile.getFileId() : -1;
     }
 
     boolean submitFileForCompaction(int fileId) {
-        return queue.offer(fileId);
+        return compactionQueue.offer(fileId);
     }
 
     private class CompactionThread extends Thread {
@@ -94,7 +95,7 @@ class CompactionManager {
                     try {
                         currentWriteFile.flushToDisk();
                     } catch (IOException e1) {
-                        logger.error("Error while flushing " + currentWriteFile.fileId + " to disk", e);
+                        logger.error("Error while flushing " + currentWriteFile.getFileId() + " to disk", e);
                     }
                     currentWriteFile = null;
                 }
@@ -108,16 +109,16 @@ class CompactionManager {
             logger.info("Starting compaction thread ...");
             int fileToCompact = -1;
 
-            while (isRunning && !dbInternal.options.isMergeDisabled) {
+            while (isRunning && !dbInternal.options.isCompactionDisabled) {
                 try {
-                    fileToCompact = queue.take();
+                    fileToCompact = compactionQueue.take();
                     if (fileToCompact == -10101) {
                         logger.debug("Received a stop signal.");
                         break;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);
-                    long recordsCopied = copyFreshRecordsToMergedFile(fileToCompact);
-                    logger.debug("Completed compacting {} to {}. Copied {} records", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1), recordsCopied);
+                    copyFreshRecordsToMergedFile(fileToCompact);
+                    logger.debug("Completed compacting {} to {}", fileToCompact, getCurrentWriteFileId());
                     dbInternal.markFileAsCompacted(fileToCompact);
                     dbInternal.deleteHaloDBFile(fileToCompact);
                 }
@@ -125,7 +126,7 @@ class CompactionManager {
                     logger.error("Compaction thread interrupted", e);
                 }
                 catch (IOException e) {
-                    logger.error("IO error while compacting file {} to {}", fileToCompact, Optional.ofNullable(currentWriteFile).map(f -> f.fileId).orElse(-1));
+                    logger.error("IO error while compacting file {} to {}", fileToCompact, getCurrentWriteFileId());
                     // IO errors are usually non-recoverable; problem with disk, lack of space etc.
                     throw new RuntimeException(e);
                 }
@@ -138,22 +139,23 @@ class CompactionManager {
         }
 
         // TODO: group and move adjacent fresh records together for performance.
-        private long copyFreshRecordsToMergedFile(int idOfFileToCompact) throws IOException {
+        private void copyFreshRecordsToMergedFile(int idOfFileToCompact) throws IOException {
             HaloDBFile fileToCompact = dbInternal.getHaloDBFile(idOfFileToCompact);
             if (fileToCompact == null) {
                 logger.debug("File doesn't exist, was probably compacted already.");
-                return 0;
+                return;
             }
 
             FileChannel readFrom =  fileToCompact.getChannel();
             IndexFile.IndexFileIterator iterator = fileToCompact.getIndexFile().newIterator();
-            long recordsCopied = 0;
+            long recordsCopied = 0, recordsScanned = 0;
 
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
                 byte[] key = indexFileEntry.getKey();
                 long recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
+                recordsScanned++;
 
                 RecordMetaDataForCache currentRecordMetaData = dbInternal.getKeyCache().get(key);
 
@@ -180,13 +182,13 @@ class CompactionManager {
                     currentWriteFile.getIndexFile().write(newEntry);
 
                     int valueOffset = Utils.getValueOffset(currentWriteFileOffset, key);
-                    RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(currentWriteFile.fileId, valueOffset, currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber());
+                    RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(currentWriteFile.getFileId(), valueOffset, currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber());
 
                     boolean updated = dbInternal.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
                     if (!updated) {
                         // write thread wrote a new version while this version was being compacted.
                         // therefore, this version is stale.
-                        dbInternal.addFileToCompactionQueueIfThresholdCrossed(currentWriteFile.fileId, recordSize);
+                        dbInternal.addFileToCompactionQueueIfThresholdCrossed(currentWriteFile.getFileId(), recordSize);
                     }
                     currentWriteFileOffset += recordSize;
                     currentWriteFile.setWriteOffset(currentWriteFileOffset);
@@ -199,8 +201,7 @@ class CompactionManager {
                 currentWriteFile.flushToDisk();
             }
 
-
-            return recordsCopied;
+            logger.debug("Scanned {} records in file {} and copied {} records to {}.datac", recordsScanned, idOfFileToCompact, recordsCopied, getCurrentWriteFileId());
         }
 
         private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
@@ -224,10 +225,10 @@ class CompactionManager {
 
     // Used only for tests. 
     boolean isMergeComplete() {
-        if (queue.isEmpty())
+        if (compactionQueue.isEmpty())
             return true;
 
-        for (int fileId : queue) {
+        for (int fileId : compactionQueue) {
             // current write file and current compaction file will not be compacted.
             // if there are any other pending files return false.
             if (fileId != dbInternal.getCurrentWriteFileId() && fileId != getCurrentWriteFileId()) {

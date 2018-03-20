@@ -19,7 +19,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testPutAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -46,7 +46,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -77,7 +77,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testPutUpdateAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -108,7 +108,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testCreateCloseAndOpenDB";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -157,7 +157,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         // sized to ensure that there will be two files.
         options.maxFileSize = 1500;
@@ -193,7 +193,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testToCheckDelete";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -227,7 +227,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testDeleteCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -265,7 +265,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testDeleteAndInsert";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -311,7 +311,7 @@ public class HaloDBTest extends TestBase {
         String directory = "/tmp/HaloDBTest/testDeleteInsertCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);

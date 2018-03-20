@@ -35,7 +35,7 @@ public class HaloDBIteratorTest extends TestBase {
         String directory =  TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10_000;
@@ -61,7 +61,7 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -80,7 +80,7 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10*1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -100,7 +100,7 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateMergeAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = false;
+        options.isCompactionDisabled = false;
         options.maxFileSize = 10*1024;
         options.mergeThresholdPerFile = 0.50;
 

@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,7 +16,7 @@ import java.util.stream.Collectors;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBMergeTest extends TestBase {
+public class HaloDBCompactionTest extends TestBase {
 
     private final int recordSize = 1024;
     private final int numberOfFiles = 8;
@@ -26,12 +25,12 @@ public class HaloDBMergeTest extends TestBase {
 
     @Test
     public void testMerge() throws Exception {
-        String directory = "/tmp/HaloDBTestWithMerge/testMerge";
+        String directory = "/tmp/HaloDBCompactionTest/testMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
-        options.isMergeDisabled = false;
+        options.isCompactionDisabled = false;
         options.flushDataSizeBytes = 2048;
 
         HaloDB db =  getTestDB(directory, options);
@@ -65,12 +64,12 @@ public class HaloDBMergeTest extends TestBase {
 
     @Test
     public void testReOpenDBAfterMerge() throws IOException {
-        String directory = "/tmp/HaloDBTestWithMerge/testReOpenDBAfterMerge";
+        String directory = "/tmp/HaloDBCompactionTest/testReOpenDBAfterMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
         options.mergeThresholdPerFile = 0.5;
-        options.isMergeDisabled = false;
+        options.isCompactionDisabled = false;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -90,11 +89,11 @@ public class HaloDBMergeTest extends TestBase {
 
     @Test
     public void testReOpenDBWithoutMerge() throws IOException {
-        String directory ="/tmp/HaloDBTestWithMerge/testReOpenAndUpdatesAndWithoutMerge";
+        String directory ="/tmp/HaloDBCompactionTest/testReOpenAndUpdatesAndWithoutMerge";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -112,11 +111,11 @@ public class HaloDBMergeTest extends TestBase {
 
     @Test
     public void testUpdatesToSameFile() throws IOException {
-        String directory ="/tmp/HaloDBTestWithMerge/testUpdatesToSameFile";
+        String directory ="/tmp/HaloDBCompactionTest/testUpdatesToSameFile";
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -134,10 +133,10 @@ public class HaloDBMergeTest extends TestBase {
 
     @Test
     public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws IOException, InterruptedException {
-        String directory = Paths.get("tmp", "HaloDBMergeTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
+        String directory = Paths.get("tmp", "HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
         options.maxFileSize = 10 * 1024;
 
         HaloDB db = getTestDB(directory, options);
@@ -170,7 +169,7 @@ public class HaloDBMergeTest extends TestBase {
         // open the db with compaction disabled.
         options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.isMergeDisabled = true;
+        options.isCompactionDisabled = true;
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 

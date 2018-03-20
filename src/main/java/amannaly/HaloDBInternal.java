@@ -69,7 +69,7 @@ class HaloDBInternal {
         dbInternal.compactionManager.startCompactionThread();
 
         logger.info("Opened HaloDB {}", directory.getName());
-        logger.info("isMergeDisabled - {}", options.isMergeDisabled);
+        logger.info("isCompactionDisabled - {}", options.isCompactionDisabled);
         logger.info("maxFileSize - {}", options.maxFileSize);
         logger.info("mergeThresholdPerFile - {}", options.mergeThresholdPerFile);
 
@@ -80,7 +80,8 @@ class HaloDBInternal {
         isClosing = true;
 
         try {
-            compactionManager.stopCompactionThread();
+            if(!compactionManager.stopCompactionThread())
+                setIOErrorFlag();
         } catch (IOException e) {
             logger.error("Error while stopping compaction thread. Setting IOError flag", e);
             setIOErrorFlag();
@@ -279,7 +280,7 @@ class HaloDBInternal {
 
     HaloDBFile createHaloDBFile(HaloDBFile.FileType fileType) throws IOException {
         HaloDBFile file = HaloDBFile.create(dbDirectory, getNextFileId(), options, fileType);
-        readFileMap.put(file.fileId, file);
+        readFileMap.put(file.getFileId(), file);
         return file;
     }
 
@@ -304,11 +305,11 @@ class HaloDBInternal {
         int maxFileId = Integer.MIN_VALUE;
 
         for (HaloDBFile file : openDataFilesForReading()) {
-            if (readFileMap.putIfAbsent(file.fileId, file) != null) {
+            if (readFileMap.putIfAbsent(file.getFileId(), file) != null) {
                 // There should only be a single file with a given file id.
-                throw new IOException("Found duplicate file with id " + file.fileId);
+                throw new IOException("Found duplicate file with id " + file.getFileId());
             }
-            maxFileId = Math.max(maxFileId, file.fileId);
+            maxFileId = Math.max(maxFileId, file.getFileId());
         }
 
         if (maxFileId == Integer.MIN_VALUE) {
@@ -430,8 +431,8 @@ class HaloDBInternal {
             try {
                 logger.info("Repairing file {}.data", file.getFileId());
                 HaloDBFile newFile = file.repairFile(getNextFileId());
-                readFileMap.put(newFile.fileId, newFile);
-                readFileMap.remove(file.fileId);
+                readFileMap.put(newFile.getFileId(), newFile);
+                readFileMap.remove(file.getFileId());
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
@@ -441,8 +442,8 @@ class HaloDBInternal {
             try {
                 logger.info("Repairing file {}.datac", file.getFileId());
                 HaloDBFile newFile = file.repairFile(getNextFileId());
-                readFileMap.put(newFile.fileId, newFile);
-                readFileMap.remove(file.fileId);
+                readFileMap.put(newFile.getFileId(), newFile);
+                readFileMap.remove(file.getFileId());
             }
             catch (IOException e) {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
@@ -476,7 +477,7 @@ class HaloDBInternal {
     }
 
     int getCurrentWriteFileId() {
-        return currentWriteFile != null ? currentWriteFile.fileId : -1;
+        return currentWriteFile != null ? currentWriteFile.getFileId() : -1;
     }
 
     void printStaleFileStatus() {

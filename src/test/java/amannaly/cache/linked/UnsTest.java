@@ -444,4 +444,32 @@ public class UnsTest
             Uns.free(adr);
         }
     }
+
+    @Test
+    public void testCompareManyKeys() {
+
+        Random random = new Random();
+        for (int i = 0; i < 128; i++) {
+            long adr1 = Uns.allocate(CAPACITY);
+            long adr2 = Uns.allocate(CAPACITY);
+            try {
+                byte[] key = amannaly.TestUtils.generateRandomByteArray();
+                Uns.copyMemory(key, 0, adr1, i, key.length);
+                Uns.copyMemory(key, 0, adr2, i, key.length);
+                assertTrue(Uns.memoryCompare(adr1, i, adr2, i, key.length));
+
+
+                int offsetToChange = i + random.nextInt(key.length);
+                byte change = (byte)~Uns.getByte(adr2, offsetToChange);
+
+                Uns.setMemory(adr2, offsetToChange, 1, change);
+                assertFalse(Uns.memoryCompare(adr1, i, adr2, i, key.length));
+            }
+            finally {
+                Uns.free(adr1);
+                Uns.free(adr2);
+            }
+        }
+    }
+
 }

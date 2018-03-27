@@ -15,6 +15,8 @@
  */
 package amannaly.cache.linked;
 
+import com.google.common.primitives.Longs;
+
 import amannaly.cache.*;
 import amannaly.cache.histo.EstimatedHistogram;
 import org.testng.Assert;
@@ -101,31 +103,6 @@ public class DoubleCheckCacheImpl<K, V> implements OHCache<K, V>
     {
         prod.clear();
         check.clear();
-    }
-
-    public DirectValueAccess getDirect(K key)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public DirectValueAccess getDirect(K key, boolean updateLRU)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public DirectValueAccess putDirect(K key, long valueLen)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public DirectValueAccess addOrReplaceDirect(K k, DirectValueAccess old, long valueLen)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public DirectValueAccess putIfAbsentDirect(K k, long valueLen)
-    {
-        throw new UnsupportedOperationException();
     }
 
     public V get(K key)

@@ -225,8 +225,15 @@ class CompactionManager {
 
     // Used only for tests. 
     boolean isMergeComplete() {
-        if (compactionQueue.isEmpty())
+        if (compactionQueue.isEmpty()) {
+            try {
+                stopCompactionThread();
+            } catch (IOException e) {
+                logger.error("Error in isMergeComplete", e);
+            }
+
             return true;
+        }
 
         for (int fileId : compactionQueue) {
             // current write file and current compaction file will not be compacted.

@@ -25,6 +25,4 @@ public interface KeyCache {
     void printPutLatency();
 
     void printGetLatency();
-
-    void printMapContents();
 }

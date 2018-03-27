@@ -76,7 +76,7 @@ final class Uns
                 {
                     for (Map.Entry<Long, AllocInfo> addrSize : ohDebug.entrySet())
                     {
-                        System.err.printf("  still allocated: address=%d, size=%d, refCount=%d%n", addrSize.getKey(), addrSize.getValue().size, getInt(addrSize.getKey(), Util.ENTRY_OFF_REFCOUNT));
+                        System.err.printf("  still allocated: address=%d, size=%d%n", addrSize.getKey(), addrSize.getValue().size);
                         addrSize.getValue().trace.printStackTrace();
                     }
                     throw new RuntimeException("Not all allocated memory has been freed!");
@@ -450,21 +450,21 @@ final class Uns
     static ByteBuffer keyBufferR(long hashEntryAdr)
     {
         long keyLen = HashEntries.getKeyLen(hashEntryAdr);
-        return Uns.directBufferFor(hashEntryAdr + Util.ENTRY_OFF_DATA, 0, keyLen, true);
+        return Uns.directBufferFor(hashEntryAdr + HashEntries.ENTRY_OFF_DATA, 0, keyLen, true);
     }
 
     static ByteBuffer keyBuffer(long hashEntryAdr, long keyLen)
     {
-        return Uns.directBufferFor(hashEntryAdr + Util.ENTRY_OFF_DATA, 0, keyLen, false);
+        return Uns.directBufferFor(hashEntryAdr + HashEntries.ENTRY_OFF_DATA, 0, keyLen, false);
     }
 
     static ByteBuffer valueBufferR(long hashEntryAdr, int valueLength)
     {
-        return Uns.directBufferFor(hashEntryAdr + Util.ENTRY_OFF_DATA + Util.roundUpTo8(HashEntries.getKeyLen(hashEntryAdr)), 0, valueLength, true);
+        return Uns.directBufferFor(hashEntryAdr + HashEntries.ENTRY_OFF_DATA + HashEntries.getKeyLen(hashEntryAdr), 0, valueLength, true);
     }
 
     static ByteBuffer valueBuffer(long hashEntryAdr, long keyLen, long valueLen)
     {
-        return Uns.directBufferFor(hashEntryAdr + Util.ENTRY_OFF_DATA + Util.roundUpTo8(keyLen), 0, valueLen, false);
+        return Uns.directBufferFor(hashEntryAdr + HashEntries.ENTRY_OFF_DATA + keyLen, 0, valueLen, false);
     }
 }

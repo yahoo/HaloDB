@@ -18,7 +18,10 @@ package amannaly.cache.linked;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+
+import amannaly.TestUtils;
 import amannaly.cache.HashAlgorithm;
+
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -26,6 +29,8 @@ import org.testng.annotations.Test;
 import java.nio.ByteBuffer;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class KeyBufferTest
 {
@@ -51,7 +56,7 @@ public class KeyBufferTest
         KeyBuffer out = new KeyBuffer(12);
 
         ByteBuffer buf = out.byteBuffer();
-        byte[] ref = TestUtils.randomBytes(10);
+        byte[] ref = TestUtils.generateRandomByteArray(10);
         buf.put((byte) (42 & 0xff));
         buf.put(ref);
         buf.put((byte) (0xf0 & 0xff));
@@ -96,7 +101,7 @@ public class KeyBufferTest
     {
         KeyBuffer out = new KeyBuffer(16);
 
-        byte[] ref = TestUtils.randomBytes(14);
+        byte[] ref = TestUtils.generateRandomByteArray(14);
         ByteBuffer buf = out.byteBuffer();
         buf.put((byte) (42 & 0xff));
         buf.put(ref);
@@ -121,7 +126,7 @@ public class KeyBufferTest
             {
                 KeyBuffer out = new KeyBuffer(i);
 
-                byte[] ref = TestUtils.randomBytes(i);
+                byte[] ref = TestUtils.generateRandomByteArray(i);
                 ByteBuffer buf = out.byteBuffer();
                 buf.put(ref);
                 out.finish(amannaly.cache.linked.Hasher.create(hashAlgorithm));
@@ -132,6 +137,51 @@ public class KeyBufferTest
 
                 assertEquals(out.hash(), longHash);
             }
+        }
+    }
+
+    @Test
+    public void testSameKey() {
+
+        int keyLength = 8;
+        KeyBuffer key = new KeyBuffer(keyLength);
+        byte[] randomKey = TestUtils.generateRandomByteArray(keyLength);
+        compareKey(key, randomKey);
+
+        keyLength = 9;
+        key = new KeyBuffer(keyLength);
+        randomKey = TestUtils.generateRandomByteArray(keyLength);
+        compareKey(key, randomKey);
+
+        for (int i = 0; i < 128; i++) {
+            randomKey = TestUtils.generateRandomByteArray();
+            keyLength = randomKey.length;
+            if (keyLength == 0)
+                continue;
+            key = new KeyBuffer(keyLength);
+            compareKey(key, randomKey);
+        }
+
+    }
+
+    private void compareKey(KeyBuffer key, byte[] randomKey) {
+
+        long adr = Uns.allocate(HashEntries.ENTRY_OFF_DATA + randomKey.length, true);
+        try {
+            ByteBuffer keyBuffer = key.byteBuffer();
+            keyBuffer.put(randomKey);
+            key.finish(amannaly.cache.linked.Hasher.create(HashAlgorithm.MURMUR3));
+
+            HashEntries.init(randomKey.length, adr);
+            Uns.setMemory(adr, HashEntries.ENTRY_OFF_DATA, randomKey.length, (byte) 0);
+
+            assertFalse(key.sameKey(adr));
+
+            Uns.copyMemory(randomKey, 0, adr, HashEntries.ENTRY_OFF_DATA, randomKey.length);
+            HashEntries.init(randomKey.length, adr);
+            assertTrue(key.sameKey(adr));
+        } finally {
+            Uns.free(adr);
         }
     }
 }

@@ -43,11 +43,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
     private final AtomicLong freeCapacity;
     private long putFailCount;
     private final Hasher hasher;
-    private final Eviction eviction;
 
     CheckOHCacheImpl(OHCacheBuilder<K, V> builder)
     {
-        eviction = builder.getEviction();
         capacity = builder.getCapacity();
         loadFactor = builder.getLoadFactor();
         freeCapacity = new AtomicLong(capacity);
@@ -60,7 +58,7 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
 
         maps = new CheckSegment[segments];
         for (int i = 0; i < maps.length; i++)
-            maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor(), freeCapacity, eviction);
+            maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor(), freeCapacity);
 
         keySerializer = builder.getKeySerializer();
         valueSerializer = builder.getValueSerializer();
@@ -150,16 +148,6 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
     {
         for (CheckSegment map : maps)
             map.clear();
-    }
-
-    public DirectValueAccess getDirect(K key)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public DirectValueAccess getDirect(K key, boolean updateLRU)
-    {
-        throw new UnsupportedOperationException();
     }
 
     public V get(K key)

@@ -43,6 +43,7 @@ class OffHeapCache implements KeyCache {
             .hashTableSize(hashTableSize)  // recordSize per segment.
             .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
             .loadFactor(1)   // to make sure that we don't rehash.
+            .throwOOME(true)
             .build();
 
         logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
@@ -90,14 +91,6 @@ class OffHeapCache implements KeyCache {
     @Override
     public void printGetLatency() {
 
-    }
-
-    @Override
-    public void printMapContents() {
-        Set<Long> set = new TreeSet<>();
-        ohCache.keyIterator().forEachRemaining(key -> set.add(Longs.fromByteArray(key)));
-        set.forEach(key -> System.out
-            .printf("%d -> %d\n", key, ohCache.get(Longs.toByteArray(key)).getFileId()));
     }
 
     @Override

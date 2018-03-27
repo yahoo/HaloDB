@@ -86,31 +86,26 @@ final class KeyBuffer
         return ByteBuffer.wrap(buffer);
     }
 
-    boolean sameKey(long hashEntryAdr)
-    {
-        if (HashEntries.getHash(hashEntryAdr) != hash())
-            return false;
-
+    boolean sameKey(long hashEntryAdr) {
         long serKeyLen = HashEntries.getKeyLen(hashEntryAdr);
         return serKeyLen == buffer.length && compareKey(hashEntryAdr);
     }
 
-    private boolean compareKey(long hashEntryAdr)
-    {
-        int blkOff = (int) Util.ENTRY_OFF_DATA;
+    private boolean compareKey(long hashEntryAdr) {
+        int blkOff = (int) HashEntries.ENTRY_OFF_DATA;
         int p = 0;
-        int endIdx = buffer.length - 1;
-        for (; p <= endIdx - 8; p += 8, blkOff += 8)
-            if (Uns.getLong(hashEntryAdr, blkOff) != Uns.getLongFromByteArray(buffer, p))
+        int endIdx = buffer.length;
+        for (; endIdx - p >= 8; p += 8)
+            if (Uns.getLong(hashEntryAdr, blkOff + p) != Uns.getLongFromByteArray(buffer, p))
                 return false;
-        for (; p <= endIdx - 4; p += 4, blkOff += 4)
-            if (Uns.getInt(hashEntryAdr, blkOff) != Uns.getIntFromByteArray(buffer, p))
+        for (; endIdx - p >= 4; p += 4)
+            if (Uns.getInt(hashEntryAdr, blkOff + p) != Uns.getIntFromByteArray(buffer, p))
                 return false;
-        for (; p <= endIdx - 2; p += 2, blkOff += 2)
-            if (Uns.getShort(hashEntryAdr, blkOff) != Uns.getShortFromByteArray(buffer, p))
+        for (; endIdx - p >= 2; p += 2)
+            if (Uns.getShort(hashEntryAdr, blkOff + p) != Uns.getShortFromByteArray(buffer, p))
                 return false;
-        for (; p < endIdx; p++, blkOff++)
-            if (Uns.getByte(hashEntryAdr, blkOff) != buffer[p])
+        for (; endIdx - p >= 1; p += 1)
+            if (Uns.getByte(hashEntryAdr, blkOff + p) != buffer[p])
                 return false;
 
         return true;

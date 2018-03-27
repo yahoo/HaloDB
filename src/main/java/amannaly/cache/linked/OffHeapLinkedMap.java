@@ -19,13 +19,16 @@
  */
 package amannaly.cache.linked;
 
-import amannaly.cache.OHCacheBuilder;
-import amannaly.cache.histo.EstimatedHistogram;
 import com.google.common.primitives.Ints;
 
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
-class OffHeapLinkedMap {
+import amannaly.cache.CacheSerializer;
+import amannaly.cache.HashAlgorithm;
+import amannaly.cache.OHCacheBuilder;
+import amannaly.cache.histo.EstimatedHistogram;
+
+class OffHeapLinkedMap<V> {
     // maximum hash table size
     private static final int MAX_TABLE_SIZE = 1 << 30;
 
@@ -45,6 +48,11 @@ class OffHeapLinkedMap {
     long evictedEntries;
     private long expiredEntries;
 
+    private final CacheSerializer<V> valueSerializer;
+    private final int fixedValueLength;
+
+    private final HashAlgorithm  hashAlgorithm;
+
     // Replacement for Unsafe.monitorEnter/monitorExit. Uses the thread-ID to indicate a lock
     // using a CAS operation on the primitive instance field.
     private final boolean unlocked;
@@ -54,12 +62,17 @@ class OffHeapLinkedMap {
 
     private final boolean throwOOME;
 
-    OffHeapLinkedMap(OHCacheBuilder builder)
+    OffHeapLinkedMap(OHCacheBuilder<?,V> builder)
     {
         this.throwOOME = builder.isThrowOOME();
 
         this.unlocked = builder.isUnlocked();
 
+        this.valueSerializer = builder.getValueSerializer();
+        this.fixedValueLength = builder.getFixedValueSize();
+
+        this.hashAlgorithm = builder.getHashAlgorighm();
+        
         int hts = builder.getHashTableSize();
         if (hts <= 0)
             hts = 8192;
@@ -147,34 +160,44 @@ class OffHeapLinkedMap {
         return expiredEntries;
     }
 
-    long getEntry(KeyBuffer key, boolean reference, boolean updateLRU)
-    {
+    V getEntry(KeyBuffer key) {
         boolean wasFirst = lock();
-        try
-        {
+        try {
             for (long hashEntryAdr = table.getFirst(key.hash());
                  hashEntryAdr != 0L;
-                 hashEntryAdr = HashEntries.getNext(hashEntryAdr))
-            {
-                if (!key.sameKey(hashEntryAdr))
-                    continue;
+                 hashEntryAdr = HashEntries.getNext(hashEntryAdr)) {
 
-                // return existing entry
-
-                if (reference)
-                    HashEntries.reference(hashEntryAdr);
-
-                hitCount++;
-                return hashEntryAdr;
+                if (key.sameKey(hashEntryAdr)) {
+                    hitCount++;
+                    return valueSerializer.deserialize(Uns.valueBufferR(hashEntryAdr, fixedValueLength));
+                }
             }
 
-            // not found
             missCount++;
-            return 0L;
+            return null;
         }
-        finally
-        {
-            unlock(wasFirst); 
+        finally {
+            unlock(wasFirst);
+        }
+    }
+
+    boolean containsEntry(KeyBuffer key) {
+        boolean wasFirst = lock();
+        try {
+            for (long hashEntryAdr = table.getFirst(key.hash());
+                 hashEntryAdr != 0L;
+                 hashEntryAdr = HashEntries.getNext(hashEntryAdr)) {
+                if (key.sameKey(hashEntryAdr)) {
+                    hitCount++;
+                    return true;
+                }
+            }
+
+            missCount++;
+            return false;
+        }
+        finally {
+            unlock(wasFirst);
         }
     }
 
@@ -202,11 +225,11 @@ class OffHeapLinkedMap {
                 if (oldValueAddr != 0L)
                 {
                     // code for replace() operation
-                    if (!Uns.memoryCompare(hashEntryAdr, Util.ENTRY_OFF_DATA + Util.roundUpTo8(keyLen), oldValueAddr, 0L, valueSize))
+                    if (!Uns.memoryCompare(hashEntryAdr, HashEntries.ENTRY_OFF_DATA + keyLen, oldValueAddr, 0L, valueSize))
                         return false;
                 }
 
-                removeInternal(hashEntryAdr, prevEntryAdr, true);
+                removeInternal(hashEntryAdr, prevEntryAdr, hash);
                 removeHashEntryAdr = hashEntryAdr;
 
                 break;
@@ -241,17 +264,15 @@ class OffHeapLinkedMap {
         {
             unlock(wasFirst); 
             if (removeHashEntryAdr != 0L)
-                HashEntries.dereference(removeHashEntryAdr);
+                Uns.free(removeHashEntryAdr);
         }
     }
 
     private static boolean notSameKey(long newHashEntryAdr, long newHash, long newKeyLen, long hashEntryAdr)
     {
-        if (HashEntries.getHash(hashEntryAdr) != newHash) return true;
-
         long serKeyLen = HashEntries.getKeyLen(hashEntryAdr);
         return serKeyLen != newKeyLen
-               || !Uns.memoryCompare(hashEntryAdr, Util.ENTRY_OFF_DATA, newHashEntryAdr, Util.ENTRY_OFF_DATA, serKeyLen);
+               || !Uns.memoryCompare(hashEntryAdr, HashEntries.ENTRY_OFF_DATA, newHashEntryAdr, HashEntries.ENTRY_OFF_DATA, serKeyLen);
     }
 
     void clear()
@@ -268,7 +289,7 @@ class OffHeapLinkedMap {
                      hashEntryAdr = next)
                 {
                     next = HashEntries.getNext(hashEntryAdr);
-                    HashEntries.dereference(hashEntryAdr);
+                    Uns.free(hashEntryAdr);
                 }
 
             table.clear();
@@ -279,42 +300,6 @@ class OffHeapLinkedMap {
         }
     }
 
-    void removeEntry(long removeHashEntryAdr)
-    {
-        removeEntry(removeHashEntryAdr, true);
-    }
-
-    private void removeEntry(long removeHashEntryAdr, boolean removeFromTimeouts)
-    {
-        boolean wasFirst = lock();
-        try
-        {
-            long hash = HashEntries.getHash(removeHashEntryAdr);
-            long prevEntryAdr = 0L;
-            for (long hashEntryAdr = table.getFirst(hash);
-                 hashEntryAdr != 0L;
-                 prevEntryAdr = hashEntryAdr, hashEntryAdr = HashEntries.getNext(hashEntryAdr))
-            {
-                if (hashEntryAdr != removeHashEntryAdr)
-                    continue;
-
-                // remove existing entry
-
-                removeInternal(hashEntryAdr, prevEntryAdr, removeFromTimeouts);
-                size--;
-                removeCount++;
-
-                return;
-            }
-            removeHashEntryAdr = 0L;
-        }
-        finally
-        {
-            unlock(wasFirst);
-            if (removeHashEntryAdr != 0L)
-                HashEntries.dereference(removeHashEntryAdr);
-        }
-    }
 
     boolean removeEntry(KeyBuffer key)
     {
@@ -333,7 +318,7 @@ class OffHeapLinkedMap {
                 // remove existing entry
 
                 removeHashEntryAdr = hashEntryAdr;
-                removeInternal(hashEntryAdr, prevEntryAdr, true);
+                removeInternal(hashEntryAdr, prevEntryAdr, key.hash());
 
                 size--;
                 removeCount++;
@@ -347,7 +332,7 @@ class OffHeapLinkedMap {
         {
             unlock(wasFirst);
             if (removeHashEntryAdr != 0L)
-                HashEntries.dereference(removeHashEntryAdr);
+                Uns.free(removeHashEntryAdr);
         }
     }
 
@@ -366,16 +351,17 @@ class OffHeapLinkedMap {
             return;
         long next;
 
+        Hasher hasher = Hasher.create(hashAlgorithm);
+
         for (int part = 0; part < tableSize; part++)
             for (long hashEntryAdr = tab.getFirst(part);
                  hashEntryAdr != 0L;
-                 hashEntryAdr = next)
-            {
+                 hashEntryAdr = next) {
+
                 next = HashEntries.getNext(hashEntryAdr);
-
                 HashEntries.setNext(hashEntryAdr, 0L);
-
-                newTable.addAsHead(HashEntries.getHash(hashEntryAdr), hashEntryAdr);
+                long hash = hasher.hash(hashEntryAdr, HashEntries.ENTRY_OFF_DATA, HashEntries.getKeyLen(hashEntryAdr));
+                newTable.addAsHead(hash, hashEntryAdr);
             }
 
         threshold = (long) ((float) newTable.size() * loadFactor);
@@ -418,7 +404,6 @@ class OffHeapLinkedMap {
                      hashEntryAdr = HashEntries.getNext(hashEntryAdr))
                 {
                     hashEntryAdrs.add(hashEntryAdr);
-                    HashEntries.reference(hashEntryAdr);
                 }
         }
         finally
@@ -477,7 +462,7 @@ class OffHeapLinkedMap {
             Uns.putLong(address, bucketOffset(hash), hashEntryAdr);
         }
 
-        private long bucketOffset(long hash)
+        long bucketOffset(long hash)
         {
             return bucketIndexForHash(hash) * Util.BUCKET_ENTRY_LEN;
         }
@@ -548,10 +533,7 @@ class OffHeapLinkedMap {
         }
     }
 
-    void removeInternal(long hashEntryAdr, long prevEntryAdr, boolean removeFromTimeouts)
-    {
-        long hash = HashEntries.getHash(hashEntryAdr);
-
+    private void removeInternal(long hashEntryAdr, long prevEntryAdr, long hash) {
         table.removeLink(hash, hashEntryAdr, prevEntryAdr);
     }
 

@@ -28,26 +28,6 @@ import java.nio.channels.WritableByteChannel;
 final class Util
 {
 
-// Hash entries
-
-    // offset of next hash entry in a hash bucket (8 bytes, long)
-    static final long ENTRY_OFF_NEXT = 0;
-    // offset of entry reference counter (4 bytes, int)
-    static final long ENTRY_OFF_REFCOUNT = 8;
-    // offset of serialized hash value (8 bytes, long)
-    static final long ENTRY_OFF_HASH = 12;
-    // offset of serialized hash key length (1 bytes, int)
-    static final long ENTRY_OFF_KEY_LENGTH = 20;
-    // offset of data in first block
-    static final long ENTRY_OFF_DATA = 21;
-
-    static final int SERIALIZED_ENTRY_SIZE = (int) (ENTRY_OFF_DATA - ENTRY_OFF_HASH);
-    static final int SERIALIZED_KEY_LEN_SIZE = (int) (ENTRY_OFF_DATA - ENTRY_OFF_KEY_LENGTH);
-
-    // Note: keep ENTRY_OFF_HASH, ENTRY_OFF_VALUE_LENGTH, ENTRY_OFF_KEY_LENGTH in exact that order
-    // and together and at the end of the header because
-    // org.caffinitas.ohc.linked.OHCacheImpl.(de)serializeEntry relies on it!
-
 // Hash bucket-table
 
     // total memory required for a hash-partition
@@ -68,35 +48,10 @@ final class Util
     // 'OHCK' reversed
     static final int HEADER_KEYS_WRONG = 0x4b43484f;
 
-    static long roundUpTo8(long val)
-    {
-        long rem = val & 7;
-        if (rem != 0)
-            val += 8L - rem;
-        return val;
-    }
 
     static long allocLen(long keyLen, long valueLen)
     {
-        //TODO: remove roundup to 8.
-        return ENTRY_OFF_DATA + roundUpTo8(keyLen) + valueLen;
-    }
-
-    static void writeFully(WritableByteChannel channel, ByteBuffer buffer) throws IOException
-    {
-        while (buffer.remaining() > 0)
-            channel.write(buffer);
-    }
-
-    static boolean readFully(ReadableByteChannel channel, ByteBuffer buffer) throws IOException
-    {
-        while (buffer.remaining() > 0)
-        {
-            int rd = channel.read(buffer);
-            if (rd == -1)
-                return false;
-        }
-        return true;
+        return HashEntries.ENTRY_OFF_DATA + keyLen + valueLen;
     }
 
     static int bitNum(long val)

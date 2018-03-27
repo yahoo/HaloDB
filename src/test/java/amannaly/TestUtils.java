@@ -68,7 +68,7 @@ public class TestUtils {
         return records;
     }
 
-    static List<Record> generateRandomData(int noOfRecords) {
+    public static List<Record> generateRandomData(int noOfRecords) {
         List<Record> records = new ArrayList<>();
         Set<ByteBuffer> keySet = new HashSet<>();
 
@@ -186,15 +186,15 @@ public class TestUtils {
         return builder.toString();
     }
 
-    static byte[] generateRandomByteArray(int length) {
+    public static byte[] generateRandomByteArray(int length) {
         byte[] array = new byte[length];
         random.nextBytes(array);
 
         return array;
     }
 
-    static byte[] generateRandomByteArray() {
-        int length = random.nextInt(20) + 1;
+    public static byte[] generateRandomByteArray() {
+        int length = random.nextInt(127) + 1;
         byte[] array = new byte[length];
         random.nextBytes(array);
 

@@ -37,26 +37,19 @@ public class HashEntriesTest
     public void testInit() throws Exception
     {
         long adr = Uns.allocate(MIN_ALLOC_LEN);
-        boolean ok = false;
         try
         {
-            HashEntries.init(0x98765432abcddeafL, 5, adr);
+            HashEntries.init(5, adr);
 
-            assertEquals(Uns.getLong(adr, Util.ENTRY_OFF_NEXT), 0L);
-            assertEquals(Uns.getInt(adr, Util.ENTRY_OFF_REFCOUNT), 1);
-            assertEquals(Uns.getLong(adr, Util.ENTRY_OFF_HASH), 0x98765432abcddeafL);
-            assertEquals(Uns.getByte(adr, Util.ENTRY_OFF_KEY_LENGTH), 5);
+            assertEquals(Uns.getLong(adr, HashEntries.ENTRY_OFF_NEXT), 0L);
+            assertEquals(Uns.getByte(adr, HashEntries.ENTRY_OFF_KEY_LENGTH), 5);
 
-            assertEquals(HashEntries.getHash(adr), 0x98765432abcddeafL);
             assertEquals(HashEntries.getNext(adr), 0L);
             assertEquals(HashEntries.getKeyLen(adr), 5L);
-            assertTrue(HashEntries.dereference(adr));
-            ok = true;
         }
         finally
         {
-            if (!ok)
-                Uns.free(adr);
+            Uns.free(adr);
         }
     }
 
@@ -67,7 +60,7 @@ public class HashEntriesTest
         KeyBuffer key = new KeyBuffer(11);
         try
         {
-            HashEntries.init(0L, 11, adr);
+            HashEntries.init(11, adr);
 
             ByteBuffer keyBuffer = key.byteBuffer();
             keyBuffer.putInt(0x98765432);
@@ -77,33 +70,14 @@ public class HashEntriesTest
             keyBuffer.put((byte)(0x88 & 0xff));
             key.finish(Hasher.create(HashAlgorithm.MURMUR3));
 
-            Uns.setMemory(adr, Util.ENTRY_OFF_DATA, 11, (byte) 0);
+            Uns.setMemory(adr, HashEntries.ENTRY_OFF_DATA, 11, (byte) 0);
 
             assertFalse(key.sameKey(adr));
 
-            Uns.copyMemory(key.buffer, 0, adr, Util.ENTRY_OFF_DATA, 11);
-            HashEntries.init(key.hash(), 11, adr);
+            Uns.copyMemory(key.buffer, 0, adr, HashEntries.ENTRY_OFF_DATA, 11);
+            HashEntries.init(11, adr);
 
             assertTrue(key.sameKey(adr));
-        }
-        finally
-        {
-            Uns.free(adr);
-        }
-    }
-
-    @Test
-    public void testGetHash() throws Exception
-    {
-        long adr = Uns.allocate(MIN_ALLOC_LEN);
-        try
-        {
-            Uns.setMemory(adr, 0, MIN_ALLOC_LEN, (byte) 0);
-            HashEntries.init(0x98765432abcddeafL, 5, adr);
-
-            assertEquals(HashEntries.getHash(adr), 0x98765432abcddeafL);
-
-            assertEquals(Uns.getLong(adr, Util.ENTRY_OFF_HASH), 0x98765432abcddeafL);
         }
         finally
         {
@@ -118,65 +92,17 @@ public class HashEntriesTest
         try
         {
             Uns.setMemory(adr, 0, MIN_ALLOC_LEN, (byte) 0);
-            HashEntries.init(0x98765432abcddeafL, 5, adr);
+            HashEntries.init(5, adr);
 
-            Uns.putLong(adr, Util.ENTRY_OFF_NEXT, 0x98765432abdffeedL);
+            Uns.putLong(adr, HashEntries.ENTRY_OFF_NEXT, 0x98765432abdffeedL);
             assertEquals(HashEntries.getNext(adr), 0x98765432abdffeedL);
 
             HashEntries.setNext(adr, 0xfafefcfb23242526L);
-            assertEquals(Uns.getLong(adr, Util.ENTRY_OFF_NEXT), 0xfafefcfb23242526L);
+            assertEquals(Uns.getLong(adr, HashEntries.ENTRY_OFF_NEXT), 0xfafefcfb23242526L);
         }
         finally
         {
             Uns.free(adr);
-        }
-    }
-
-    @Test
-    public void testReferenceDereference() throws Exception
-    {
-        long adr = Uns.allocate(MIN_ALLOC_LEN);
-        boolean ok = false;
-        try
-        {
-            HashEntries.init(0x98765432abcddeafL, 0, adr);
-
-            HashEntries.reference(adr); // to 2
-            HashEntries.reference(adr); // to 3
-            HashEntries.reference(adr); // to 4
-            assertEquals(Uns.getInt(adr, Util.ENTRY_OFF_REFCOUNT), 4);
-            assertFalse(HashEntries.dereference(adr)); // to 3
-            assertFalse(HashEntries.dereference(adr)); // to 2
-            assertFalse(HashEntries.dereference(adr)); // to 1
-            assertTrue(HashEntries.dereference(adr)); // to 0
-            ok = true;
-        }
-        finally
-        {
-            if (!ok)
-                Uns.free(adr);
-        }
-    }
-
-    @Test
-    public void testDereferenceFail() throws Exception
-    {
-        long adr = Uns.allocate(MIN_ALLOC_LEN);
-        boolean ok = false;
-        try
-        {
-            HashEntries.init(0x98765432abcddeafL, 0, adr);
-
-            assertTrue(HashEntries.dereference(adr)); // to 0
-            ok = true;
-
-            // must NOT dereference another time - memory has been free()'d !!!!
-            //HashEntries.dereference(adr);
-        }
-        finally
-        {
-            if (!ok)
-                Uns.free(adr);
         }
     }
 }

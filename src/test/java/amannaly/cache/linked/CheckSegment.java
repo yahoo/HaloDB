@@ -15,9 +15,13 @@
  */
 package amannaly.cache.linked;
 
-import amannaly.cache.Eviction;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -28,7 +32,6 @@ final class CheckSegment
     private final Map<HeapKeyBuffer, byte[]> map;
     private final LinkedList<HeapKeyBuffer> lru = new LinkedList<>();
     private final AtomicLong freeCapacity;
-    private final Eviction eviction;
 
     long hitCount;
     long missCount;
@@ -37,11 +40,10 @@ final class CheckSegment
     long removeCount;
     long evictedEntries;
 
-    public CheckSegment(int initialCapacity, float loadFactor, AtomicLong freeCapacity, Eviction eviction)
+    public CheckSegment(int initialCapacity, float loadFactor, AtomicLong freeCapacity)
     {
         this.map = new HashMap<>(initialCapacity, loadFactor);
         this.freeCapacity = freeCapacity;
-        this.eviction = eviction;
     }
 
     synchronized void clear()
@@ -71,9 +73,7 @@ final class CheckSegment
     synchronized boolean put(HeapKeyBuffer keyBuffer, byte[] data, boolean ifAbsent, byte[] old)
     {
         long sz = sizeOf(keyBuffer, data);
-        while (freeCapacity.get() < sz)
-            if (!evictOne())
-            {
+        while (freeCapacity.get() < sz) {
                 remove(keyBuffer);
                 return false;
             }
@@ -137,24 +137,10 @@ final class CheckSegment
 
     //
 
-    private boolean evictOne()
-    {
-        if (eviction == Eviction.NONE)
-            return false;
-
-        HeapKeyBuffer last = lru.pollLast();
-        if (last == null)
-            return false;
-        byte[] old = map.remove(last);
-        freeCapacity.addAndGet(sizeOf(last, old));
-        evictedEntries++;
-        return true;
-    }
-
     static long sizeOf(HeapKeyBuffer key, byte[] value)
     {
         // calculate the same value as the original impl would do
-        return Util.ENTRY_OFF_DATA + Util.roundUpTo8(key.size()) + value.length;
+        return HashEntries.ENTRY_OFF_DATA + key.size() + value.length;
     }
 
     void resetStatistics()

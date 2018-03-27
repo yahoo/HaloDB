@@ -25,77 +25,33 @@ package amannaly.cache.linked;
  */
 final class HashEntries
 {
-    static void init(long hash, int keyLen, long hashEntryAdr)
-    {
+
+    // offset of next hash entry in a hash bucket (8 bytes, long)
+    static final long ENTRY_OFF_NEXT = 0;
+    
+    // offset of key length (1 bytes, byte)
+    static final long ENTRY_OFF_KEY_LENGTH = 8;
+
+    // offset of data in first block
+    static final long ENTRY_OFF_DATA = 9;
+
+    static void init(int keyLen, long hashEntryAdr) {
         setNext(hashEntryAdr, 0L);
-        Uns.putInt(hashEntryAdr, Util.ENTRY_OFF_REFCOUNT, 1);
-        Uns.putLong(hashEntryAdr, Util.ENTRY_OFF_HASH, hash);
-        Uns.putByte(hashEntryAdr, Util.ENTRY_OFF_KEY_LENGTH, (byte)keyLen);
+        Uns.putByte(hashEntryAdr, ENTRY_OFF_KEY_LENGTH, (byte)keyLen);
     }
 
-    static boolean compare(long hashEntryAdr, long offset, long otherHashEntryAdr, long otherOffset, long len)
-    {
-        if (hashEntryAdr == 0L)
-            return false;
-
-        if (hashEntryAdr == otherHashEntryAdr)
-        {
-            assert offset == otherOffset;
-            return true;
-        }
-
-        int p = 0;
-        for (; p <= len - 8; p += 8, offset += 8, otherOffset += 8)
-            if (Uns.getLong(hashEntryAdr, offset) != Uns.getLong(otherHashEntryAdr, otherOffset))
-                return false;
-        for (; p <= len - 4; p += 4, offset += 4, otherOffset += 4)
-            if (Uns.getInt(hashEntryAdr, offset) != Uns.getInt(otherHashEntryAdr, otherOffset))
-                return false;
-        for (; p <= len - 2; p += 2, offset += 2, otherOffset += 2)
-            if (Uns.getShort(hashEntryAdr, offset) != Uns.getShort(otherHashEntryAdr, otherOffset))
-                return false;
-        for (; p < len; p++, offset++, otherOffset++)
-            if (Uns.getByte(hashEntryAdr, offset) != Uns.getByte(otherHashEntryAdr, otherOffset))
-                return false;
-
-        return true;
+    static long getNext(long hashEntryAdr) {
+        return hashEntryAdr != 0L ? Uns.getLong(hashEntryAdr, ENTRY_OFF_NEXT) : 0L;
     }
 
-    static long getHash(long hashEntryAdr)
-    {
-        return Uns.getLong(hashEntryAdr, Util.ENTRY_OFF_HASH);
-    }
-
-    static long getNext(long hashEntryAdr)
-    {
-        return hashEntryAdr != 0L ? Uns.getLong(hashEntryAdr, Util.ENTRY_OFF_NEXT) : 0L;
-    }
-
-    static void setNext(long hashEntryAdr, long nextAdr)
-    {
+    static void setNext(long hashEntryAdr, long nextAdr) {
         if (hashEntryAdr == nextAdr)
             throw new IllegalArgumentException();
         if (hashEntryAdr != 0L)
-            Uns.putLong(hashEntryAdr, Util.ENTRY_OFF_NEXT, nextAdr);
+            Uns.putLong(hashEntryAdr, ENTRY_OFF_NEXT, nextAdr);
     }
 
-    static int getKeyLen(long hashEntryAdr)
-    {
-        return Uns.getByte(hashEntryAdr, Util.ENTRY_OFF_KEY_LENGTH);
-    }
-
-    static void reference(long hashEntryAdr)
-    {
-        Uns.increment(hashEntryAdr, Util.ENTRY_OFF_REFCOUNT);
-    }
-
-    static boolean dereference(long hashEntryAdr)
-    {
-        if (hashEntryAdr != 0L && Uns.decrement(hashEntryAdr, Util.ENTRY_OFF_REFCOUNT))
-        {
-            Uns.free(hashEntryAdr);
-            return true;
-        }
-        return false;
+    static int getKeyLen(long hashEntryAdr) {
+        return Uns.getByte(hashEntryAdr, ENTRY_OFF_KEY_LENGTH);
     }
 }

@@ -24,141 +24,6 @@ import amannaly.cache.linked.OHCacheLinkedImpl;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-/**
- * Configures and builds OHC instance.
- * <table summary="Configuration parameters">
- *     <tr>
- *         <th>Field</th>
- *         <th>Meaning</th>
- *         <th>Default</th>
- *     </tr>
- *     <tr>
- *         <td>{@code keySerializer}</td>
- *         <td>Serializer implementation used for keys</td>
- *         <td>Must be configured</td>
- *     </tr>
- *     <tr>
- *         <td>{@code valueSerializer}</td>
- *         <td>Serializer implementation used for values</td>
- *         <td>Must be configured</td>
- *     </tr>
- *     <tr>
- *         <td>{@code segmentCount}</td>
- *         <td>Number of segments</td>
- *         <td>2 * number of CPUs ({@code java.lang.Runtime.availableProcessors()})</td>
- *     </tr>
- *     <tr>
- *         <td>{@code hashTableSize}</td>
- *         <td>Initial size of each segment's hash table</td>
- *         <td>{@code 8192}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code loadFactor}</td>
- *         <td>Hash table load factor. I.e. determines when rehashing occurs.</td>
- *         <td>{@code .75f}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code capacity}</td>
- *         <td>Capacity of the cache in bytes</td>
- *         <td>16 MB * number of CPUs ({@code java.lang.Runtime.availableProcessors()}), minimum 64 MB</td>
- *     </tr>
- *     <tr>
- *         <td>{@code chunkSize}</td>
- *         <td>If set and positive, the <i>chunked</i> implementation will be used and each segment
- *         will be divided into this amount of chunks.</td>
- *         <td>{@code 0} - i.e. <i>linked</i> implementation will be used</td>
- *     </tr>
- *     <tr>
- *         <td>{@code fixedEntrySize}</td>
- *         <td>If set and positive, the <i>chunked</i> implementation with fixed sized entries
- *         will be used. The parameter {@code chunkSize} must be set for fixed-sized entries.</td>
- *         <td>{@code 0} - i.e. <i>linked</i> implementation will be used,
- *         if {@code chunkSize} is also {@code 0}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code maxEntrySize}</td>
- *         <td>Maximum size of a hash entry (including header, serialized key + serialized value)</td>
- *         <td>(not set, defaults to capacity divided by number of segments)</td>
- *     </tr>
- *     <tr>
- *         <td>{@code throwOOME}</td>
- *         <td>Throw {@code OutOfMemoryError} if off-heap allocation fails</td>
- *         <td>{@code false}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code hashAlgorighm}</td>
- *         <td>Hash algorithm to use internally. Valid options are: {@code XX} for xx-hash, {@code MURMUR3} or {@code CRC32}
- *         Note: this setting does may only help to improve throughput in rare situations - i.e. if the key is
- *         very long and you've proven that it really improves performace</td>
- *         <td>{@code MURMUR3}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code unlocked}</td>
- *         <td>If set to {@code true}, implementations will not perform any locking. The calling code has to take
- *         care of synchronized access. In order to create an instance for a thread-per-core implementation,
- *         set {@code segmentCount=1}, too.</td>
- *         <td>{@code false}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code defaultTTLmillis}</td>
- *         <td>If set to a value {@code > 0}, implementations supporting TTLs will tag all entries with
- *         the given TTL in <b>milliseconds</b>.</td>
- *         <td>{@code 0}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code timeoutsSlots}</td>
- *         <td>The number of timeouts slots for each segment - compare with hashed wheel timer.</td>
- *         <td>{@code 64}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code timeoutsPrecision}</td>
- *         <td>The amount of time in milliseconds for each timeouts-slot.</td>
- *         <td>{@code 128}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code ticker}</td>
- *         <td>Indirection for current time - used for unit tests.</td>
- *         <td>Default ticker using {@code System.nanoTime()} and {@code System.currentTimeMillis()}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code capacity}</td>
- *         <td>Expected number of elements in the cache</td>
- *         <td>No default value, recommended to provide a default value.</td>
- *     </tr>
- *     <tr>
- *         <td>{@code eviction}</td>
- *         <td>Choose the eviction algorithm to use. Available are:
- *         <ul>
- *             <li>{@link Eviction#LRU LRU}: Plain LRU - least used entry is subject to eviction</li>
- *             <li>{@link Eviction#W_TINY_LFU W-WinyLFU}: Enable use of Window Tiny-LFU. The size of the
- *             frequency sketch ("admission filter") is set to the value of {@code hashTableSize}.
- *             See <a href="http://highscalability.com/blog/2016/1/25/design-of-a-modern-cache.html">this article</a>
- *             for a description.</li>
- *             <li>{@link Eviction#NONE None}: No entries will be evicted - this effectively provides a
- *             capacity-bounded off-heap map.</li>
- *         </ul>
- *         </td>
- *         <td>{@code LRU}</td>
- *     </tr>
- *     <tr>
- *         <td>{@code frequencySketchSize}</td>
- *         <td>Size of the frequency sketch used by {@link Eviction#W_TINY_LFU W-WinyLFU}</td>
- *         <td>Defaults to {@code hashTableSize}.</td>
- *     </tr>
- *     <tr>
- *         <td>{@code edenSize}</td>
- *         <td>Size of the eden generation used by {@link Eviction#W_TINY_LFU W-WinyLFU} relative to a segment's size</td>
- *         <td>{@code 0.2}</td>
- *     </tr>
- * </table>
- * <p>
- *     You may also use system properties prefixed with {@code org.caffinitas.org.} to other defaults.
- *     E.g. the system property {@code org.caffinitas.org.segmentCount} configures the default of the number of segments.
- * </p>
- *
- * @param <K> cache key type
- * @param <V> cache value type
- */
 public class OHCacheBuilder<K, V>
 {
     private int segmentCount;
@@ -179,7 +44,6 @@ public class OHCacheBuilder<K, V>
     private boolean timeouts;
     private int timeoutsSlots;
     private int timeoutsPrecision;
-    private Eviction eviction = Eviction.NONE;
     private int frequencySketchSize;
     private double edenSize = 0.2d;
 
@@ -203,7 +67,6 @@ public class OHCacheBuilder<K, V>
         timeouts = fromSystemProperties("timeouts", timeouts);
         timeoutsSlots = fromSystemProperties("timeoutsSlots", timeoutsSlots);
         timeoutsPrecision = fromSystemProperties("timeoutsPrecision", timeoutsPrecision);
-        eviction = fromSystemProperties("eviction", eviction, Eviction.class);
         frequencySketchSize = fromSystemProperties("frequencySketchSize", frequencySketchSize);
         edenSize = fromSystemProperties("edenSize", edenSize);
     }
@@ -521,11 +384,6 @@ public class OHCacheBuilder<K, V>
             this.timeouts = true;
         this.timeoutsPrecision = timeoutsPrecision;
         return this;
-    }
-
-    public Eviction getEviction()
-    {
-        return eviction;
     }
 
     public int getFrequencySketchSize()

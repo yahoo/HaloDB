@@ -130,25 +130,6 @@ public interface OHCache<K, V> extends Closeable
      */
     boolean containsKey(K key);
 
-    /**
-     * Returns a closeable byte buffer.
-     * You must close the returned {@link DirectValueAccess} instance after use.
-     * After closing, you must not call any of the methods of the {@link ByteBuffer}
-     * returned by {@link DirectValueAccess#buffer()}.
-     *
-     * @return reference-counted byte buffer or {@code null} if key does not exist.
-     */
-    DirectValueAccess getDirect(K key);
-
-    /**
-     * Like {@link OHCache#getDirect(Object)}, but allows skipping the update of LRU stats when {@code updateLRU}
-     * is {@code false}.
-     *
-     * @return reference-counted byte buffer or {@code null} if key does not exist.
-     */
-    DirectValueAccess getDirect(K key, boolean updateLRU);
-
-
     // iterators
 
     /**

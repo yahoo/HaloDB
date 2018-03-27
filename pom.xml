@@ -117,7 +117,7 @@
                     <properties>
                         <property>
                             <name>listener</name>
-                            <value>amannaly.TestListener</value>
+                            <value>com.oath.halodb.TestListener</value>
                         </property>
                     </properties>
                 </configuration>

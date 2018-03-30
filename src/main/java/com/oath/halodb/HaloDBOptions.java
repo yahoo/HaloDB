@@ -1,9 +1,11 @@
 package com.oath.halodb;
 
+import com.google.common.base.MoreObjects;
+
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBOptions {
+public class HaloDBOptions implements Cloneable {
 
     //TODO; convert to private with get+set.
 
@@ -29,4 +31,25 @@ public class HaloDBOptions {
 
     public boolean cleanUpKeyCacheOnClose = false;
 
+    // Just to avoid clients having to deal with CloneNotSupportedException
+    public HaloDBOptions clone() {
+        try {
+            return (HaloDBOptions) super.clone();
+        } catch (CloneNotSupportedException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("mergeThresholdPerFile", mergeThresholdPerFile)
+            .add("maxFileSize", maxFileSize)
+            .add("flushDataSizeBytes", flushDataSizeBytes)
+            .add("isCompactionDisabled", isCompactionDisabled)
+            .add("numberOfRecords", numberOfRecords)
+            .add("compactionJobRate", compactionJobRate)
+            .add("cleanUpKeyCacheOnClose", cleanUpKeyCacheOnClose)
+            .toString();
+    }
 }

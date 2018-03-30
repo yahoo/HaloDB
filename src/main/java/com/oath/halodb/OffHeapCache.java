@@ -3,6 +3,7 @@ package com.oath.halodb;
 import com.oath.halodb.cache.OHCache;
 import com.oath.halodb.cache.OHCacheBuilder;
 import com.google.common.primitives.Ints;
+import com.oath.halodb.cache.OHCacheStats;
 
 import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
@@ -19,41 +20,33 @@ import java.util.concurrent.TimeUnit;
 class OffHeapCache implements KeyCache {
     private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 
-    private static final Histogram putLatencyHistogram = new Histogram(TimeUnit.SECONDS.toNanos(5), 3);
-
     private final OHCache<byte[], RecordMetaDataForCache> ohCache;
 
+    private final int noOfSegments;
+    private final int maxSizeOfEachSegment;
+
     OffHeapCache(int numberOfKeys) {
-        this.ohCache = initializeCache(numberOfKeys);
-    }
-
-    private OHCache<byte[], RecordMetaDataForCache> initializeCache(int numberOfKeys) {
-
-        int noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
-        int hashTableSize = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
+        noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
+        maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
 
         long start = System.currentTimeMillis();
-        OHCache<byte[], RecordMetaDataForCache> ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
+        this.ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
             .keySerializer(new ByteArraySerializer())
             .valueSerializer(new RecordMetaDataSerializer())
             .capacity(Long.MAX_VALUE)
             .segmentCount(noOfSegments)
-            .hashTableSize(hashTableSize)  // recordSize per segment.
+            .hashTableSize(maxSizeOfEachSegment)  
             .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
             .loadFactor(1)   // to make sure that we don't rehash.
             .throwOOME(true)
             .build();
 
         logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
-
-        return ohCache;
     }
 
     @Override
     public boolean put(byte[] key, RecordMetaDataForCache metaData) {
-        long start = System.nanoTime();
         ohCache.put(key, metaData);
-        putLatencyHistogram.recordValue(System.nanoTime() - start);
         return true;
     }
 
@@ -78,20 +71,6 @@ class OffHeapCache implements KeyCache {
     }
 
     @Override
-    public void printPutLatency() {
-        System.out.printf("Keycache Put latency mean %f\n", putLatencyHistogram.getMean());
-        System.out.printf("Keycache Put latency max %d\n", putLatencyHistogram.getMaxValue());
-        System.out.printf("Keycache Put latency 99 %d\n", putLatencyHistogram.getValueAtPercentile(99.0));
-        System.out.printf("Keycache Put latency total count %d\n", putLatencyHistogram.getTotalCount());
-
-    }
-
-    @Override
-    public void printGetLatency() {
-
-    }
-
-    @Override
     public void close() {
         try {
             ohCache.close();
@@ -105,9 +84,20 @@ class OffHeapCache implements KeyCache {
         return ohCache.size();
     }
 
-    //TODO: remove only for testing.
     @Override
-    public String stats() {
-        return ohCache.stats().toString();
+    public OHCacheStats stats() {
+        return ohCache.stats();
+    }
+
+    public void resetStats() {
+        ohCache.resetStatistics();
+    }
+
+    public int getNoOfSegments() {
+        return noOfSegments;
+    }
+
+    public int getMaxSizeOfEachSegment() {
+        return maxSizeOfEachSegment;
     }
 }

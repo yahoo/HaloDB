@@ -1,5 +1,7 @@
 package com.oath.halodb;
 
+import com.oath.halodb.cache.OHCacheStats;
+
 public interface KeyCache {
 
     boolean put(byte[] key, RecordMetaDataForCache metaData);
@@ -16,13 +18,11 @@ public interface KeyCache {
 
     long size();
 
-    String stats();
+    OHCacheStats stats();
 
-    /********************************
-     * FOR TESTING.
-     ********************************/
+    void resetStats();
 
-    void printPutLatency();
+    int getNoOfSegments();
 
-    void printGetLatency();
+    int getMaxSizeOfEachSegment();
 }

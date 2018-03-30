@@ -2,6 +2,8 @@ package com.oath.halodb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
+import com.oath.halodb.cache.OHCacheStats;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +40,8 @@ class HaloDBInternal {
     private AtomicInteger nextFileId;
 
     private volatile boolean isClosing = false;
+
+    private volatile long statsResetTime = System.currentTimeMillis();
 
     private HaloDBInternal() {}
 
@@ -468,10 +472,6 @@ class HaloDBInternal {
             metaData.getValueOffset() == metaDataFromCache.getValueOffset();
     }
 
-    String stats() {
-        return keyCache.stats().toString();
-    }
-
     private long getNextSequenceNumber() {
         return System.nanoTime();
     }
@@ -494,6 +494,45 @@ class HaloDBInternal {
 
     boolean isClosing() {
         return isClosing;
+    }
+
+    HaloDBStats stats() {
+        OHCacheStats cacheStats = keyCache.stats();
+        return new HaloDBStats(
+            statsResetTime,
+            compactionManager.noOfFilesPendingCompaction(),
+            computeStaleDataMapForStats(),
+            cacheStats.getRehashCount(),
+            keyCache.getNoOfSegments(),
+            cacheStats.getSegmentSizes(),
+            keyCache.getMaxSizeOfEachSegment(),
+            compactionManager.getNumberOfRecordsCopied(),
+            compactionManager.getNumberOfRecordsReplaced(),
+            compactionManager.getNumberOfRecordsScanned(),
+            compactionManager.getSizeOfRecordsCopied(),
+            compactionManager.getSizeOfFilesDeleted(),
+            compactionManager.getSizeOfFilesDeleted()-compactionManager.getSizeOfRecordsCopied(),
+            options.clone()
+        );
+    }
+
+    synchronized void resetStats() {
+        keyCache.resetStats();
+        compactionManager.resetStats();
+        statsResetTime = System.currentTimeMillis();
+    }
+
+    private Map<Integer, Double> computeStaleDataMapForStats() {
+        Map<Integer, Double> stats = new HashMap<>();
+        staleDataPerFileMap.forEach((fileId, staleData) -> {
+            HaloDBFile file = readFileMap.get(fileId);
+            if (file != null && file.getSize() > 0) {
+                double stalePercent = (1.0*staleData/file.getSize()) * 100;
+                stats.put(fileId, stalePercent);
+            }
+        });
+
+        return stats;
     }
 
     // Used only in tests.

@@ -53,8 +53,12 @@ public class HaloDB {
         return dbInternal.size();
     }
 
-    public String stats() {
+    public HaloDBStats stats() {
         return dbInternal.stats();
+    }
+
+    public void resetStats() {
+        dbInternal.resetStats();
     }
 
     public HaloDBIterator newIterator() throws IOException {

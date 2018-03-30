@@ -29,6 +29,12 @@ class CompactionManager {
 
     private CompactionThread compactionThread;
 
+    private volatile long numberOfRecordsCopied = 0;
+    private volatile long numberOfRecordsReplaced = 0;
+    private volatile long numberOfRecordsScanned = 0;
+    private volatile long sizeOfRecordsCopied = 0;
+    private volatile long sizeOfFilesDeleted = 0;
+
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
         this.compactionRateLimiter = RateLimiter.create(dbInternal.options.compactionJobRate);
@@ -68,6 +74,35 @@ class CompactionManager {
 
     boolean submitFileForCompaction(int fileId) {
         return compactionQueue.offer(fileId);
+    }
+
+    int noOfFilesPendingCompaction() {
+        return compactionQueue.size();
+    }
+
+    long getNumberOfRecordsCopied() {
+        return numberOfRecordsCopied;
+    }
+
+    long getNumberOfRecordsReplaced() {
+        return numberOfRecordsReplaced;
+    }
+
+    long getNumberOfRecordsScanned() {
+        return numberOfRecordsScanned;
+    }
+
+    long getSizeOfRecordsCopied() {
+        return sizeOfRecordsCopied;
+    }
+
+    long getSizeOfFilesDeleted() {
+        return sizeOfFilesDeleted;
+    }
+
+    void resetStats() {
+        numberOfRecordsCopied = numberOfRecordsReplaced
+            = numberOfRecordsScanned = sizeOfRecordsCopied = sizeOfFilesDeleted = 0;
     }
 
     private class CompactionThread extends Thread {
@@ -163,6 +198,7 @@ class CompactionManager {
                     recordsCopied++;
                     compactionRateLimiter.acquire(recordSize);
                     rollOverCurrentWriteFile(recordSize);
+                    sizeOfRecordsCopied += recordSize;
 
                     // fresh record, copy to merged file.
                     long transferred = readFrom.transferTo(recordOffset, recordSize, currentWriteFile.getChannel());
@@ -185,7 +221,10 @@ class CompactionManager {
                     RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(currentWriteFile.getFileId(), valueOffset, currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber());
 
                     boolean updated = dbInternal.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
-                    if (!updated) {
+                    if (updated) {
+                        numberOfRecordsReplaced++;
+                    }
+                    else {
                         // write thread wrote a new version while this version was being compacted.
                         // therefore, this version is stale.
                         dbInternal.addFileToCompactionQueueIfThresholdCrossed(currentWriteFile.getFileId(), recordSize);
@@ -200,6 +239,10 @@ class CompactionManager {
                 // To prevent data loss in the event of a crash we need to ensure that copied data has hit the disk.
                 currentWriteFile.flushToDisk();
             }
+
+            numberOfRecordsCopied += recordsCopied;
+            numberOfRecordsScanned += recordsScanned;
+            sizeOfFilesDeleted += fileToCompact.getSize();
 
             logger.debug("Scanned {} records in file {} and copied {} records to {}.datac", recordsScanned, idOfFileToCompact, recordsCopied, getCurrentWriteFileId());
         }

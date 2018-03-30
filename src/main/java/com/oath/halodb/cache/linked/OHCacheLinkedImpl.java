@@ -57,6 +57,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
     private final long defaultTTL;
 
     private long capacity;
+    private final int segmentCount;
 
     private volatile long putFailCount;
 
@@ -83,16 +84,15 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         this.fixedValueLength = builder.getFixedValueSize();
 
         // build segments
-        int segments = builder.getSegmentCount();
-        if (segments <= 0)
-            segments = Runtime.getRuntime().availableProcessors() * 2;
-        segments = Ints.checkedCast(Util.roundUpToPowerOf2(segments, 1 << 30));
-        maps = new ArrayList<>(segments);
-        for (int i = 0; i < segments; i++)
+        if (builder.getSegmentCount() <= 0)
+            throw new IllegalArgumentException("Segment count should be > 0");
+        segmentCount = Ints.checkedCast(Util.roundUpToPowerOf2(builder.getSegmentCount(), 1 << 30));
+        maps = new ArrayList<>(segmentCount);
+        for (int i = 0; i < segmentCount; i++)
         {
             try
             {
-                maps.add(makeMap(builder, capacity / segments));
+                maps.add(makeMap(builder, capacity / segmentCount));
             }
             catch (RuntimeException e)
             {
@@ -104,16 +104,16 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         }
 
         // bit-mask for segment part of hash
-        int bitNum = Util.bitNum(segments) - 1;
+        int bitNum = Util.bitNum(segmentCount) - 1;
         this.segmentShift = 64 - bitNum;
-        this.segmentMask = ((long) segments - 1) << segmentShift;
+        this.segmentMask = ((long) segmentCount - 1) << segmentShift;
 
         // calculate max entry size
         long maxEntrySize = builder.getMaxEntrySize();
-        if (maxEntrySize > capacity / segments)
+        if (maxEntrySize > capacity / segmentCount)
             throw new IllegalArgumentException("Illegal max entry size " + maxEntrySize);
         else if (maxEntrySize <= 0)
-            maxEntrySize = capacity / segments;
+            maxEntrySize = capacity / segmentCount;
         this.maxEntrySize = maxEntrySize;
 
         this.keySerializer = builder.getKeySerializer();
@@ -126,7 +126,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         this.executorService = builder.getExecutorService();
 
         if (LOGGER.isDebugEnabled())
-            LOGGER.debug("OHC linked instance with {} segments and capacity of {} created.", segments, capacity);
+            LOGGER.debug("OHC linked instance with {} segments and capacity of {} created.", segmentCount, capacity);
     }
 
     private OffHeapLinkedMap<V> makeMap(OHCacheBuilder<K, V> builder, long perMapCapacity) {
@@ -369,65 +369,36 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
 
     public OHCacheStats stats()
     {
-        long rehashes = 0L;
-        for (OffHeapLinkedMap map : maps)
+        long hitCount=0, missCount=0, evictedEntries=0, expiredEntries=0, size =0,
+            freeCapacity=0, rehashes=0, putAddCount=0, putReplaceCount=0, removeCount=0;
+        for (OffHeapLinkedMap map : maps) {
+            hitCount += map.hitCount();
+            missCount += map.missCount();
+            evictedEntries += map.evictedEntries();
+            expiredEntries += map.expiredEntries();
+            size += map.size();
             rehashes += map.rehashes();
+            putAddCount += map.putAddCount();
+            putReplaceCount += map.putReplaceCount();
+            removeCount += map.removeCount();
+        }
+
         return new OHCacheStats(
-                               hitCount(),
-                               missCount(),
-                               evictedEntries(),
-                               expiredEntries(),
+                               hitCount,
+                               missCount,
+                               evictedEntries,
+                               expiredEntries,
                                perSegmentSizes(),
-                               size(),
+                               size,
                                capacity(),
-                               freeCapacity(),
+                               freeCapacity,
                                rehashes,
-                               putAddCount(),
-                               putReplaceCount(),
+                               putAddCount,
+                               putReplaceCount,
                                putFailCount,
-                               removeCount(),
+                               removeCount,
                                Uns.getTotalAllocated(),
                                0L);
-    }
-
-    private long putAddCount()
-    {
-        long putAddCount = 0L;
-        for (OffHeapLinkedMap map : maps)
-            putAddCount += map.putAddCount();
-        return putAddCount;
-    }
-
-    private long putReplaceCount()
-    {
-        long putReplaceCount = 0L;
-        for (OffHeapLinkedMap map : maps)
-            putReplaceCount += map.putReplaceCount();
-        return putReplaceCount;
-    }
-
-    private long removeCount()
-    {
-        long removeCount = 0L;
-        for (OffHeapLinkedMap map : maps)
-            removeCount += map.removeCount();
-        return removeCount;
-    }
-
-    private long hitCount()
-    {
-        long hitCount = 0L;
-        for (OffHeapLinkedMap map : maps)
-            hitCount += map.hitCount();
-        return hitCount;
-    }
-
-    private long missCount()
-    {
-        long missCount = 0L;
-        for (OffHeapLinkedMap map : maps)
-            missCount += map.missCount();
-        return missCount;
     }
 
     public long capacity()
@@ -440,22 +411,6 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
     {
         long freeCapacity = 0L;
         return freeCapacity;
-    }
-
-    private long evictedEntries()
-    {
-        long evictedEntries = 0L;
-        for (OffHeapLinkedMap map : maps)
-            evictedEntries += map.evictedEntries();
-        return evictedEntries;
-    }
-
-    private long expiredEntries()
-    {
-        long expiredEntries = 0L;
-        for (OffHeapLinkedMap map : maps)
-            expiredEntries += map.expiredEntries();
-        return expiredEntries;
     }
 
     public long size()

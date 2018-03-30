@@ -12,6 +12,8 @@ public class HaloDBStats {
 
     private final long statsResetTime;
 
+    private final long size;
+
     private final int numberOfFilesPendingCompaction;
     private final Map<Integer, Double> staleDataPercentPerFile;
 
@@ -29,12 +31,13 @@ public class HaloDBStats {
 
     private final HaloDBOptions options;
 
-    public HaloDBStats(long statsResetTime, int numberOfFilesPendingCompaction,
+    public HaloDBStats(long statsResetTime, long size, int numberOfFilesPendingCompaction,
                        Map<Integer, Double> staleDataPercentPerFile, long rehashCount, long numberOfSegments,
                        long[] countPerSegment, long maxSizePerSegment, long numberOfRecordsCopied,
                        long numberOfRecordsReplaced, long numberOfRecordsScanned, long sizeOfRecordsCopied,
                        long sizeOfFilesDeleted, long sizeReclaimed, HaloDBOptions options) {
         this.statsResetTime = statsResetTime;
+        this.size = size;
         this.numberOfFilesPendingCompaction = numberOfFilesPendingCompaction;
         this.staleDataPercentPerFile = staleDataPercentPerFile;
         this.rehashCount = rehashCount;
@@ -48,6 +51,10 @@ public class HaloDBStats {
         this.sizeOfFilesDeleted = sizeOfFilesDeleted;
         this.sizeReclaimed = sizeReclaimed;
         this.options = options;
+    }
+
+    public long getSize() {
+        return size;
     }
 
     public int getNumberOfFilesPendingCompaction() {
@@ -105,6 +112,8 @@ public class HaloDBStats {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
+            .add("statsResetTime", statsResetTime)
+            .add("size", size)
             .add("numberOfFilesPendingCompaction", numberOfFilesPendingCompaction)
             .add("numberOfRecordsCopied", numberOfRecordsCopied)
             .add("numberOfRecordsReplaced", numberOfRecordsReplaced)

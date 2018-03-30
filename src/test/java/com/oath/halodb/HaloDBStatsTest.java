@@ -27,7 +27,8 @@ public class HaloDBStatsTest extends TestBase {
 
         HaloDB db = getTestDB(dir, options);
 
-        HaloDBOptions actual = db.stats().getOptions();
+        HaloDBStats stats = db.stats();
+        HaloDBOptions actual = stats.getOptions();
 
         Assert.assertEquals(actual.maxFileSize, options.maxFileSize);
         Assert.assertEquals(actual.isCompactionDisabled, options.isCompactionDisabled);
@@ -36,12 +37,13 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(actual.compactionJobRate, options.compactionJobRate);
         Assert.assertEquals(actual.numberOfRecords, options.numberOfRecords);
         Assert.assertEquals(actual.cleanUpKeyCacheOnClose, options.cleanUpKeyCacheOnClose);
+        Assert.assertEquals(stats.getSize(), 0);
     }
 
     @Test
     public void testStaleMap() throws IOException {
 
-        String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testOptions");
+        String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testStaleMap");
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
@@ -66,6 +68,8 @@ public class HaloDBStatsTest extends TestBase {
         db.stats().getStaleDataPercentPerFile().forEach((k, v) -> {
             Assert.assertEquals(v, 10.0);
         });
+
+        Assert.assertEquals(db.stats().getSize(), 100);
     }
 
     @Test
@@ -108,6 +112,7 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSizeOfRecordsCopied(), noOfRecords / 2 * 1024);
         Assert.assertEquals(stats.getSizeOfFilesDeleted(), options.maxFileSize * 10);
         Assert.assertEquals(stats.getSizeReclaimed(), options.maxFileSize * 10 / 2);
+        Assert.assertEquals(stats.getSize(), noOfRecords);
 
         db.resetStats();
         stats = db.stats();
@@ -118,6 +123,7 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSizeOfRecordsCopied(), 0);
         Assert.assertEquals(stats.getSizeOfFilesDeleted(), 0);
         Assert.assertEquals(stats.getSizeReclaimed(), 0);
+        Assert.assertEquals(stats.getSize(), noOfRecords);
     }
 
     @Test

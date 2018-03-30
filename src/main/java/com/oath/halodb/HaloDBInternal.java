@@ -500,6 +500,7 @@ class HaloDBInternal {
         OHCacheStats cacheStats = keyCache.stats();
         return new HaloDBStats(
             statsResetTime,
+            keyCache.size(),
             compactionManager.noOfFilesPendingCompaction(),
             computeStaleDataMapForStats(),
             cacheStats.getRehashCount(),

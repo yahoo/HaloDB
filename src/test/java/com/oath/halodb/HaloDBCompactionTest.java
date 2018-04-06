@@ -29,7 +29,7 @@ public class HaloDBCompactionTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
         options.isCompactionDisabled = false;
         options.flushDataSizeBytes = 2048;
 
@@ -68,7 +68,7 @@ public class HaloDBCompactionTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = recordsPerFile * recordSize;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
         options.isCompactionDisabled = false;
 
         HaloDB db = getTestDB(directory, options);

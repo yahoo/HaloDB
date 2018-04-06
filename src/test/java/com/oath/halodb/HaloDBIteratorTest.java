@@ -102,7 +102,7 @@ public class HaloDBIteratorTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.isCompactionDisabled = false;
         options.maxFileSize = 10*1024;
-        options.mergeThresholdPerFile = 0.50;
+        options.compactionThresholdPerFile = 0.50;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -126,7 +126,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 1024*1024;
-        options.mergeThresholdPerFile = 0.1;
+        options.compactionThresholdPerFile = 0.1;
 
         final HaloDB db = getTestDB(directory, options);
 
@@ -173,7 +173,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 2*1024;
-        options.mergeThresholdPerFile = 0.1;
+        options.compactionThresholdPerFile = 0.1;
 
         final HaloDB db = getTestDB(directory, options);
 
@@ -218,7 +218,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10*1024;
-        options.mergeThresholdPerFile = 0.6;
+        options.compactionThresholdPerFile = 0.6;
 
         final HaloDB db = getTestDB(directory, options);
 

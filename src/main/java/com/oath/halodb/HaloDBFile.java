@@ -259,6 +259,9 @@ class HaloDBFile {
         if (channel != null) {
             channel.close();
         }
+        if (indexFile != null) {
+            indexFile.close();
+        }
     }
 
     void delete() throws IOException {

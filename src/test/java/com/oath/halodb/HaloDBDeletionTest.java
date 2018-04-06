@@ -164,7 +164,7 @@ public class HaloDBDeletionTest extends TestBase {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndMerge";
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.10;
+        options.compactionThresholdPerFile = 0.10;
 
         HaloDB db = getTestDB(directory, options);
 
@@ -217,7 +217,7 @@ public class HaloDBDeletionTest extends TestBase {
         String directory = Paths.get("tmp", "HaloDBDeletionTest", "testDeleteAllRecords").toString();
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 1;
+        options.compactionThresholdPerFile = 1;
 
         HaloDB db = getTestDB(directory, options);
 

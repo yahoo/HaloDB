@@ -10,7 +10,7 @@ public class HaloDBOptions implements Cloneable {
     //TODO; convert to private with get+set.
 
     // threshold of stale data at which file needs to be compacted.
-    public double mergeThresholdPerFile = 0.75;
+    public double compactionThresholdPerFile = 0.75;
 
     public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
@@ -43,7 +43,7 @@ public class HaloDBOptions implements Cloneable {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("mergeThresholdPerFile", mergeThresholdPerFile)
+            .add("compactionThresholdPerFile", compactionThresholdPerFile)
             .add("maxFileSize", maxFileSize)
             .add("flushDataSizeBytes", flushDataSizeBytes)
             .add("isCompactionDisabled", isCompactionDisabled)

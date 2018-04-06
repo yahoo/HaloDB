@@ -19,7 +19,7 @@ public class HaloDBStatsTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
         options.isCompactionDisabled = true;
-        options.mergeThresholdPerFile = 0.9;
+        options.compactionThresholdPerFile = 0.9;
         options.flushDataSizeBytes = 1024;
         options.compactionJobRate = 2048;
         options.numberOfRecords = 100;
@@ -32,7 +32,7 @@ public class HaloDBStatsTest extends TestBase {
 
         Assert.assertEquals(actual.maxFileSize, options.maxFileSize);
         Assert.assertEquals(actual.isCompactionDisabled, options.isCompactionDisabled);
-        Assert.assertEquals(actual.mergeThresholdPerFile, options.mergeThresholdPerFile);
+        Assert.assertEquals(actual.compactionThresholdPerFile, options.compactionThresholdPerFile);
         Assert.assertEquals(actual.flushDataSizeBytes, options.flushDataSizeBytes);
         Assert.assertEquals(actual.compactionJobRate, options.compactionJobRate);
         Assert.assertEquals(actual.numberOfRecords, options.numberOfRecords);
@@ -47,7 +47,7 @@ public class HaloDBStatsTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.50;
+        options.compactionThresholdPerFile = 0.50;
 
         HaloDB db = getTestDB(dir, options);
 
@@ -79,7 +79,7 @@ public class HaloDBStatsTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.50;
+        options.compactionThresholdPerFile = 0.50;
         options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(dir, options);
@@ -136,7 +136,7 @@ public class HaloDBStatsTest extends TestBase {
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
         options.numberOfRecords = numberOfRecords;
-        options.mergeThresholdPerFile = 0.50;
+        options.compactionThresholdPerFile = 0.50;
         options.isCompactionDisabled = true;
 
         HaloDB db = getTestDB(dir, options);

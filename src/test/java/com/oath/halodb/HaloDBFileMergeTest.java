@@ -24,7 +24,7 @@ public class HaloDBFileMergeTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * recordSize; // 10 records per data file.
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
 
         HaloDB db = getTestDB(directory, options);
 

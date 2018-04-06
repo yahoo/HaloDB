@@ -50,7 +50,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 20; // three files.
@@ -92,7 +92,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 30; // three files.
@@ -145,7 +145,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 30; // three files, 10 record in each.

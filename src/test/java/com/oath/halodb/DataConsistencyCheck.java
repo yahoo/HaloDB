@@ -16,7 +16,7 @@ public class DataConsistencyCheck extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.maxFileSize = 10 * 1024;
-        options.mergeThresholdPerFile = 0.5;
+        options.compactionThresholdPerFile = 0.5;
 
         int noOfRecords = 10_000;
         int noOfTransactions = 100_000;

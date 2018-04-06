@@ -75,7 +75,7 @@ class HaloDBInternal {
         logger.info("Opened HaloDB {}", directory.getName());
         logger.info("isCompactionDisabled - {}", options.isCompactionDisabled);
         logger.info("maxFileSize - {}", options.maxFileSize);
-        logger.info("mergeThresholdPerFile - {}", options.mergeThresholdPerFile);
+        logger.info("compactionThresholdPerFile - {}", options.compactionThresholdPerFile);
 
         return dbInternal;
     }
@@ -94,12 +94,6 @@ class HaloDBInternal {
         if (options.cleanUpKeyCacheOnClose)
             keyCache.close();
 
-        for (HaloDBFile file : readFileMap.values()) {
-            file.close();
-        }
-
-        readFileMap.clear();
-
         if (currentWriteFile != null) {
             currentWriteFile.flushToDisk();
             currentWriteFile.getIndexFile().flushToDisk();
@@ -108,6 +102,10 @@ class HaloDBInternal {
         if (tombstoneFile != null) {
             tombstoneFile.flushToDisk();
             tombstoneFile.close();
+        }
+
+        for (HaloDBFile file : readFileMap.values()) {
+            file.close();
         }
 
         DBMetaData metaData = new DBMetaData(dbDirectory.getPath());
@@ -165,7 +163,7 @@ class HaloDBInternal {
 
         HaloDBFile readFile = readFileMap.get(metaData.getFileId());
         if (readFile == null) {
-            logger.debug("File {} not present. Merge job would have deleted it. Retrying ...", metaData.getFileId());
+            logger.debug("File {} not present. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
             return get(key, buffer);
         }
 
@@ -259,7 +257,7 @@ class HaloDBInternal {
             return;
 
         int staleSizeInFile = updateStaleDataMap(fileId, staleRecordSize);
-        if (staleSizeInFile >= file.getSize() * options.mergeThresholdPerFile) {
+        if (staleSizeInFile >= file.getSize() * options.compactionThresholdPerFile) {
 
             // We don't want to compact the files the writer thread and the compaction thread is currently writing to.
             if (getCurrentWriteFileId() != fileId && compactionManager.getCurrentWriteFileId() != fileId) {

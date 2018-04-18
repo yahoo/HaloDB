@@ -35,6 +35,8 @@ class CompactionManager {
     private volatile long sizeOfRecordsCopied = 0;
     private volatile long sizeOfFilesDeleted = 0;
 
+    private static final int STOP_SIGNAL = -10101;
+
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
         this.compactionRateLimiter = RateLimiter.create(dbInternal.options.compactionJobRate);
@@ -48,10 +50,11 @@ class CompactionManager {
                 // We don't want to call interrupt on compaction thread as it
                 // may interrupt IO operations and leave files in an inconsistent state.
                 // instead we use -10101 as a stop signal.
-                compactionQueue.put(-10101);
+                compactionQueue.put(STOP_SIGNAL);
                 compactionThread.join();
                 if (currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
+                    currentWriteFile.close();
                 }
             } catch (InterruptedException e) {
                 logger.error("Error while waiting for compaction thread to stop", e);
@@ -147,7 +150,7 @@ class CompactionManager {
             while (isRunning && !dbInternal.options.isCompactionDisabled) {
                 try {
                     fileToCompact = compactionQueue.take();
-                    if (fileToCompact == -10101) {
+                    if (fileToCompact == STOP_SIGNAL) {
                         logger.debug("Received a stop signal.");
                         break;
                     }
@@ -267,12 +270,13 @@ class CompactionManager {
 
 
     // Used only for tests. 
-    boolean isMergeComplete() {
+    boolean isCompactionComplete() {
         if (compactionQueue.isEmpty()) {
             try {
-                stopCompactionThread();
-            } catch (IOException e) {
-                logger.error("Error in isMergeComplete", e);
+                submitFileForCompaction(STOP_SIGNAL);
+                compactionThread.join();
+            } catch (InterruptedException e) {
+                logger.error("Error in isCompactionComplete", e);
             }
 
             return true;

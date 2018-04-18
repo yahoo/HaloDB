@@ -25,7 +25,7 @@ public class HaloDB {
     }
 
     public byte[] get(byte[] key) throws IOException {
-        return dbInternal.get(key);
+        return dbInternal.get(key, 1);
     }
 
     /**

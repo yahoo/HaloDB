@@ -13,11 +13,11 @@ import java.util.List;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDBFileMergeTest extends TestBase {
+public class HaloDBFileCompactionTest extends TestBase {
 
     @Test
-    public void testMerge() throws Exception {
-        String directory = "/tmp/HaloDBFileMergeTest/testMerge";
+    public void testCompaction() throws Exception {
+        String directory = TestUtils.getTestDirectory("HaloDBFileCompactionTest", "testCompaction");
 
         int recordSize = 1024;
         int recordNumber = 20;

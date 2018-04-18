@@ -43,6 +43,8 @@ class HaloDBInternal {
 
     private volatile long statsResetTime = System.currentTimeMillis();
 
+    private static final int maxReadAttempts = 5;
+
     private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
@@ -129,7 +131,11 @@ class HaloDBInternal {
         keyCache.put(key, entry);
     }
 
-    byte[] get(byte[] key) throws IOException {
+    byte[] get(byte[] key, int attemptNumber) throws IOException {
+        if (attemptNumber > maxReadAttempts) {
+            logger.error("Tried {} attempts but read failed", attemptNumber);
+            throw new IOException("Tried " + attemptNumber + " attempts but failed.");
+        }
         RecordMetaDataForCache metaData = keyCache.get(key);
         if (metaData == null) {
             return null;
@@ -138,7 +144,7 @@ class HaloDBInternal {
         HaloDBFile readFile = readFileMap.get(metaData.getFileId());
         if (readFile == null) {
             logger.debug("File {} not present. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
-            return get(key);
+            return get(key, attemptNumber+1);
         }
 
         try {
@@ -147,7 +153,7 @@ class HaloDBInternal {
         catch (ClosedChannelException e) {
             if (!isClosing) {
                 logger.debug("File {} was closed. Compaction job would have deleted it. Retrying ...", metaData.getFileId());
-                return get(key);
+                return get(key, attemptNumber+1);
             }
 
             // trying to read after HaloDB.close() method called. 
@@ -537,6 +543,6 @@ class HaloDBInternal {
     // Used only in tests.
     @VisibleForTesting
     boolean isMergeComplete() {
-        return compactionManager.isMergeComplete();
+        return compactionManager.isCompactionComplete();
     }
 }

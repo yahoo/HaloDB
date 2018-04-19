@@ -8,7 +8,9 @@ for this specific use case.
 
 HaloDB comprises of two main components: a cache in memory which stores all the keys, and files on
 the persistent layer which stores all the data. To reduce Java garbage collection pressure the cache 
-is allocated in native memory, outside the Java heap. 
+is allocated in native memory, outside the Java heap.
+
+https://docs.google.com/presentation/d/1MckR3WnRgrCO5ekf7n-RmOpbuF6OeqHD3dAIXO4Y8Aw/edit?usp=sharing 
 
 //TODO: more documentation in the works. 
 

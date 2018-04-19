@@ -385,4 +385,14 @@ public class HaloDBTest extends TestBase {
         Assert.assertFalse(metaData.isOpen());
         Assert.assertFalse(metaData.isIOError());
     }
+
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Another process already holds a lock for this db.")
+    public void testLock() throws IOException {
+        String directory = Paths.get("tmp", "HaloDBTest", "testLock").toString();
+
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        db.resetStats();
+        HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
+        anotherDB.resetStats();
+    }
 }

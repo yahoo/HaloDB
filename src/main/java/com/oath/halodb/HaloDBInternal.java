@@ -11,6 +11,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +48,8 @@ class HaloDBInternal {
 
     private volatile long statsResetTime = System.currentTimeMillis();
 
+    private FileLock dbLock;
+
     private static final int maxReadAttempts = 5;
 
     private HaloDBInternal() {}
@@ -52,6 +59,9 @@ class HaloDBInternal {
 
         FileUtils.createDirectoryIfNotExists(directory);
         dbInternal.dbDirectory = directory;
+
+        dbInternal.dbLock = dbInternal.getLock();
+
         dbInternal.options = options;
 
         int maxFileId = dbInternal.buildReadFileMap();
@@ -114,6 +124,10 @@ class HaloDBInternal {
         metaData.loadFromFileIfExists();
         metaData.setOpen(false);
         metaData.storeToFile();
+
+        if (dbLock != null) {
+            dbLock.close();
+        }
     }
 
     void put(byte[] key, byte[] value) throws IOException {
@@ -457,6 +471,26 @@ class HaloDBInternal {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
             }
         });
+    }
+
+    private FileLock getLock() throws IOException {
+        try {
+            FileLock lock = FileChannel.open(Paths.get(dbDirectory.getPath(), "LOCK"), StandardOpenOption.CREATE, StandardOpenOption.WRITE).tryLock();
+            if (lock == null) {
+                logger.error("Error while opening db. Another process already holds a lock to this db.");
+                throw new IOException("Another process already holds a lock for this db.");
+            }
+
+            return lock;
+        }
+        catch (OverlappingFileLockException e) {
+            logger.error("Error while opening db. Another process already holds a lock to this db.");
+            throw new IOException("Another process already holds a lock for this db.");
+        }
+        catch (IOException e) {
+            logger.error("Error while trying to get a lock on the db.", e);
+            throw e;
+        }
     }
 
     Set<Integer> listDataFileIds() {

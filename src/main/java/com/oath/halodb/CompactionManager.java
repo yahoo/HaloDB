@@ -54,6 +54,7 @@ class CompactionManager {
                 compactionThread.join();
                 if (currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
+                    currentWriteFile.getIndexFile().flushToDisk();
                     currentWriteFile.close();
                 }
             } catch (InterruptedException e) {
@@ -117,7 +118,7 @@ class CompactionManager {
 
             setUncaughtExceptionHandler((t, e) -> {
                 if (e instanceof RuntimeException && e.getCause() instanceof IOException) {
-                    logger.error("IOException in Compaction thread. This is probably non-recoverable. Hence shutting down compaction");
+                    logger.error("IOException in Compaction thread. This is probably non-recoverable. Hence shutting down compaction", e.getCause());
                     isRunning = false;
                     try {
                         dbInternal.setIOErrorFlag();
@@ -164,7 +165,7 @@ class CompactionManager {
                     logger.error("Compaction thread interrupted", e);
                 }
                 catch (IOException e) {
-                    logger.error("IO error while compacting file {} to {}", fileToCompact, getCurrentWriteFileId());
+                    logger.error(String.format("IO error while compacting file %d to %d", fileToCompact, getCurrentWriteFileId()), e);
                     // IO errors are usually non-recoverable; problem with disk, lack of space etc.
                     throw new RuntimeException(e);
                 }

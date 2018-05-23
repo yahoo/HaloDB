@@ -21,7 +21,7 @@ import mockit.MockUp;
 public class HaloDBIteratorTest extends TestBase {
 
     @Test(expectedExceptions = NoSuchElementException.class)
-    public void testWithEmptyDB() throws IOException {
+    public void testWithEmptyDB() throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
@@ -31,7 +31,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testWithDelete() throws IOException {
+    public void testWithDelete() throws HaloDBException {
         String directory =  TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -57,7 +57,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testPutAndGetDB() throws IOException {
+    public void testPutAndGetDB() throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -76,7 +76,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testPutUpdateAndGetDB() throws IOException {
+    public void testPutUpdateAndGetDB() throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -96,7 +96,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testPutUpdateCompactAndGetDB() throws IOException, InterruptedException {
+    public void testPutUpdateCompactAndGetDB() throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateMergeAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -121,7 +121,7 @@ public class HaloDBIteratorTest extends TestBase {
     // Test to make sure that no exceptions are thrown when files are being deleted by
     // compaction thread and db is being iterated. 
     @Test
-    public void testConcurrentCompactionAndIterator() throws IOException, InterruptedException {
+    public void testConcurrentCompactionAndIterator() throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -152,13 +152,13 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testConcurrentCompactionAndIteratorWhenFileIsClosed() throws IOException {
+    public void testConcurrentCompactionAndIteratorWhenFileIsClosed() throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
 
         new MockUp<HaloDBFile>() {
 
             @Mock
-            byte[] readFromFile(Invocation invocation, int offset, int length) throws IOException {
+            byte[] readFromFile(Invocation invocation, int offset, int length) throws HaloDBException {
                 try {
                     // In the iterator after reading from keyCache pause for a while
                     // to increase the chance of file being closed by compaction thread.
@@ -198,7 +198,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     @Test
-    public void testConcurrentCompactionAndIteratorWithMockedException() throws IOException {
+    public void testConcurrentCompactionAndIteratorWithMockedException() throws HaloDBException {
         // Previous tests are not guaranteed to throw ClosedChannelException. Here we throw a mock exception
         // to make sure that iterator gracefully handles files being closed and delete by compaction thread. 
 

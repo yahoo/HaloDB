@@ -13,7 +13,7 @@ import java.util.List;
 public class HaloDBStatsTest extends TestBase {
 
     @Test
-    public void testOptions() throws IOException {
+    public void testOptions() throws HaloDBException {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testOptions");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -41,7 +41,7 @@ public class HaloDBStatsTest extends TestBase {
     }
 
     @Test
-    public void testStaleMap() throws IOException {
+    public void testStaleMap() throws HaloDBException {
 
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testStaleMap");
 
@@ -73,7 +73,7 @@ public class HaloDBStatsTest extends TestBase {
     }
 
     @Test
-    public void testCompactionStats() throws IOException {
+    public void testCompactionStats() throws HaloDBException {
 
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testCompactionStats");
 
@@ -127,7 +127,7 @@ public class HaloDBStatsTest extends TestBase {
     }
 
     @Test
-    public void testKeyCacheStats() throws IOException {
+    public void testKeyCacheStats() throws HaloDBException {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testKeyCacheStats");
 
         int numberOfSegments = (int)Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2);

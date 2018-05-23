@@ -25,7 +25,7 @@ import mockit.VerificationsInOrder;
 public class CompactionWithErrorsTest extends TestBase {
 
     @Test
-    public void testCompactionWithIOException(@Mocked CompactionManager compactionManager) throws IOException, InterruptedException {
+    public void testCompactionWithIOException(@Mocked CompactionManager compactionManager) throws HaloDBException, InterruptedException, IOException {
         new Expectations(CompactionManager.class) {{
             // nothing mocked. call the real implementation.
             // this is used only for verifications later.
@@ -73,7 +73,7 @@ public class CompactionWithErrorsTest extends TestBase {
     }
 
     @Test
-    public void testCompactionWithException() throws IOException, InterruptedException {
+    public void testCompactionWithException() throws HaloDBException, InterruptedException {
 
         new MockUp<RateLimiter>() {
             private int callCount = 0;
@@ -121,7 +121,7 @@ public class CompactionWithErrorsTest extends TestBase {
     }
 
     @Test
-    public void testRestartCompactionThreadAfterCrash(@Mocked CompactionManager compactionManager) throws IOException, InterruptedException  {
+    public void testRestartCompactionThreadAfterCrash(@Mocked CompactionManager compactionManager) throws HaloDBException, InterruptedException, IOException {
 
         new Expectations(CompactionManager.class) {{
             // nothing mocked. call the real implementation.
@@ -194,7 +194,7 @@ public class CompactionWithErrorsTest extends TestBase {
         Assert.assertFalse(dbMetaData.isIOError());
     }
 
-    private List<Record> insertAndUpdate(HaloDB db, int numberOfRecords) throws IOException {
+    private List<Record> insertAndUpdate(HaloDB db, int numberOfRecords) throws HaloDBException {
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, numberOfRecords, 1024 - Record.Header.HEADER_SIZE);
 
         // Update first 5 records in each file.

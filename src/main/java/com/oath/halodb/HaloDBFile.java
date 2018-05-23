@@ -73,27 +73,27 @@ class HaloDBFile {
         return (int)(currentPosition - position);
     }
 
-    private Record readRecord(int offset) throws IOException {
+    private Record readRecord(int offset) throws HaloDBException, IOException {
         long tempOffset = offset;
 
         // read the header from disk.
         ByteBuffer headerBuf = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
         int readSize = readFromFile(offset, headerBuf);
         if (readSize != Record.Header.HEADER_SIZE) {
-            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+            throw new HaloDBException("Corrupted header at " + offset + " in file " + fileId);
         }
         tempOffset += readSize;
 
         Record.Header header = Record.Header.deserialize(headerBuf);
         if (!Record.Header.verifyHeader(header)) {
-            throw new IOException("Corrupted header at " + offset + " in file " + fileId);
+            throw new HaloDBException("Corrupted header at " + offset + " in file " + fileId);
         }
 
         // read key-value from disk.
         ByteBuffer recordBuf = ByteBuffer.allocate(header.getKeySize() + header.getValueSize());
         readSize = readFromFile(tempOffset, recordBuf);
         if (readSize != recordBuf.capacity()) {
-            throw new IOException("Corrupted record at " + offset + " in file " + fileId);
+            throw new HaloDBException("Corrupted record at " + offset + " in file " + fileId);
         }
 
         Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
@@ -317,7 +317,7 @@ class HaloDBFile {
             Record record;
             try {
                 record = readRecord(currentOffset);
-            } catch (IOException e) {
+            } catch (IOException | HaloDBException e) {
                 // we have encountered an error, probably because record is corrupted.
                 // we skip rest of the file and return null.
                 logger.error("Error in iterator", e);

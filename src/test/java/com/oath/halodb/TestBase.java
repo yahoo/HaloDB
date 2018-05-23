@@ -14,15 +14,19 @@ public class TestBase {
 
     private HaloDB db;
 
-    HaloDB getTestDB(String directory, HaloDBOptions options) throws IOException {
+    HaloDB getTestDB(String directory, HaloDBOptions options) throws HaloDBException {
         this.directory = directory;
         File dir = new File(directory);
-        TestUtils.deleteDirectory(dir);
+        try {
+            TestUtils.deleteDirectory(dir);
+        } catch (IOException e) {
+            throw new HaloDBException(e);
+        }
         db = HaloDB.open(dir, options);
         return db;
     }
 
-    HaloDB getTestDBWithoutDeletingFiles(String directory, HaloDBOptions options) throws IOException {
+    HaloDB getTestDBWithoutDeletingFiles(String directory, HaloDBOptions options) throws HaloDBException {
         this.directory = directory;
         File dir = new File(directory);
         db = HaloDB.open(dir, options);
@@ -30,7 +34,7 @@ public class TestBase {
     }
 
     @AfterMethod(alwaysRun = true)
-    public void closeDB() throws IOException {
+    public void closeDB() throws HaloDBException, IOException {
         if (db != null) {
             db.close();
             File dir = new File(directory);

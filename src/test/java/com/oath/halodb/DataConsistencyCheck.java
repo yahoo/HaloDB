@@ -11,7 +11,7 @@ import java.util.Random;
 public class DataConsistencyCheck extends TestBase {
 
     @Test
-    public void testConcurrentReadAndUpdates() throws IOException, InterruptedException {
+    public void testConcurrentReadAndUpdates() throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("DataConsistencyCheck", "testConcurrentReadAndUpdates");
 
         HaloDBOptions options = new HaloDBOptions();
@@ -66,7 +66,7 @@ public class DataConsistencyCheck extends TestBase {
             for (int i = 0; i < noOfRecords; i++) {
                 try {
                     db.put(i, TestUtils.generateRandomByteArray());
-                } catch (IOException e) {
+                } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -80,7 +80,7 @@ public class DataConsistencyCheck extends TestBase {
                 int k = random.nextInt(noOfRecords);
                 try {
                     db.put(k, TestUtils.generateRandomByteArray());
-                } catch (IOException e) {
+                } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -105,7 +105,7 @@ public class DataConsistencyCheck extends TestBase {
                 int i = random.nextInt(noOfRecords);
                 try {
                     db.get(i);
-                } catch (IOException e) {
+                } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
             }

@@ -13,7 +13,7 @@ import java.util.*;
 public class HaloDBDeletionTest extends TestBase {
 
     @Test
-    public void testSimpleDelete() throws IOException {
+    public void testSimpleDelete() throws HaloDBException {
         String directory = "/tmp/HaloDBDeletionTest/testSimpleDelete";
         HaloDBOptions options = new HaloDBOptions();
         options.isCompactionDisabled = true;
@@ -43,7 +43,7 @@ public class HaloDBDeletionTest extends TestBase {
     }
 
     @Test
-    public void testDeleteWithIterator() throws IOException {
+    public void testDeleteWithIterator() throws HaloDBException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteWithIterator";
         HaloDBOptions options = new HaloDBOptions();
         options.isCompactionDisabled = true;
@@ -71,7 +71,7 @@ public class HaloDBDeletionTest extends TestBase {
     }
 
     @Test
-    public void testDeleteAndInsert() throws IOException {
+    public void testDeleteAndInsert() throws HaloDBException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndInsert";
         HaloDBOptions options = new HaloDBOptions();
         options.isCompactionDisabled = true;
@@ -113,7 +113,7 @@ public class HaloDBDeletionTest extends TestBase {
             try {
                 byte[] value = db.get(record.getKey());
                 Assert.assertEquals(record.getValue(), value);
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -126,7 +126,7 @@ public class HaloDBDeletionTest extends TestBase {
     }
 
     @Test
-    public void testDeleteAndOpen() throws IOException {
+    public void testDeleteAndOpen() throws HaloDBException {
         String directory = "/tmp/HaloDBDeletionTest/testDeleteAndOpen";
         HaloDBOptions options = new HaloDBOptions();
         options.isCompactionDisabled = true;

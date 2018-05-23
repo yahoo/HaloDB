@@ -35,7 +35,7 @@ class DataConsistencyDB {
         }
     }
 
-    void put(int key, byte[] value) throws IOException {
+    void put(int key, byte[] value) throws HaloDBException {
         ReentrantReadWriteLock lock = locks[key%numberOfLocks];
         try {
             lock.writeLock().lock();
@@ -47,7 +47,7 @@ class DataConsistencyDB {
         }
     }
 
-    byte[] get(int key) throws IOException {
+    byte[] get(int key) throws HaloDBException {
         ReentrantReadWriteLock lock = locks[key%numberOfLocks];
         try {
             lock.readLock().lock();
@@ -61,7 +61,7 @@ class DataConsistencyDB {
         }
     }
 
-    void delete(int key) throws IOException {
+    void delete(int key) throws HaloDBException {
         ReentrantReadWriteLock lock = locks[key%numberOfLocks];
         try {
             lock.writeLock().lock();

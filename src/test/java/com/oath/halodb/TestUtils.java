@@ -31,11 +31,11 @@ public class TestUtils {
         return Paths.get("tmp", path).toString();
     }
 
-    static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws IOException {
+    static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws HaloDBException {
         return insertRandomRecordsOfSize(db, noOfRecords, -1);
     }
 
-    static List<Record> insertRandomRecordsOfSize(HaloDB db, int noOfRecords, int size) throws IOException {
+    static List<Record> insertRandomRecordsOfSize(HaloDB db, int noOfRecords, int size) throws HaloDBException {
         List<Record> records = new ArrayList<>();
         Set<ByteBuffer> keySet = new HashSet<>();
 
@@ -96,7 +96,7 @@ public class TestUtils {
                 byte[] value = TestUtils.generateRandomByteArray();
                 db.put(record.getKey(), value);
                 updated.add(new Record(record.getKey(), value));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -112,7 +112,7 @@ public class TestUtils {
                 byte[] value = TestUtils.generateRandomByteArray(size-record.getKey().length-Record.Header.HEADER_SIZE);
                 db.put(record.getKey(), value);
                 updated.add(new Record(record.getKey(), value));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -124,7 +124,7 @@ public class TestUtils {
         records.forEach(r -> {
             try {
                 db.delete(r.getKey());
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });

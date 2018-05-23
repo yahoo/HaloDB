@@ -54,7 +54,7 @@ class HaloDBInternal {
 
     private HaloDBInternal() {}
 
-    static HaloDBInternal open(File directory, HaloDBOptions options) throws IOException {
+    static HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
         HaloDBInternal dbInternal = new HaloDBInternal();
 
         FileUtils.createDirectoryIfNotExists(directory);
@@ -130,9 +130,9 @@ class HaloDBInternal {
         }
     }
 
-    void put(byte[] key, byte[] value) throws IOException {
+    void put(byte[] key, byte[] value) throws IOException, HaloDBException {
         if (key.length > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException("key length cannot exceed " + Byte.MAX_VALUE);
+            throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
 
         Record record = new Record(key, value);
@@ -145,10 +145,10 @@ class HaloDBInternal {
         keyCache.put(key, entry);
     }
 
-    byte[] get(byte[] key, int attemptNumber) throws IOException {
+    byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
         if (attemptNumber > maxReadAttempts) {
-            logger.error("Tried {} attempts but read failed", attemptNumber);
-            throw new IOException("Tried " + attemptNumber + " attempts but failed.");
+            logger.error("Tried {} attempts but read failed", attemptNumber-1);
+            throw new HaloDBException("Tried " + attemptNumber + " attempts but failed.");
         }
         RecordMetaDataForCache metaData = keyCache.get(key);
         if (metaData == null) {
@@ -229,12 +229,12 @@ class HaloDBInternal {
         metaData.storeToFile();
     }
 
-    private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException {
+    private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException, HaloDBException {
         rollOverCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);
     }
 
-    private void rollOverCurrentWriteFile(Record record) throws IOException {
+    private void rollOverCurrentWriteFile(Record record) throws IOException, HaloDBException {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
         if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
@@ -323,13 +323,13 @@ class HaloDBInternal {
      * Also returns the latest file id in the directory which is then used
      * to determine the next file id.
      */
-    private int buildReadFileMap() throws IOException {
+    private int buildReadFileMap() throws HaloDBException, IOException {
         int maxFileId = Integer.MIN_VALUE;
 
         for (HaloDBFile file : openDataFilesForReading()) {
             if (readFileMap.putIfAbsent(file.getFileId(), file) != null) {
                 // There should only be a single file with a given file id.
-                throw new IOException("Found duplicate file with id " + file.getFileId());
+                throw new HaloDBException("Found duplicate file with id " + file.getFileId());
             }
             maxFileId = Math.max(maxFileId, file.getFileId());
         }
@@ -473,23 +473,23 @@ class HaloDBInternal {
         });
     }
 
-    private FileLock getLock() throws IOException {
+    private FileLock getLock() throws HaloDBException {
         try {
             FileLock lock = FileChannel.open(Paths.get(dbDirectory.getPath(), "LOCK"), StandardOpenOption.CREATE, StandardOpenOption.WRITE).tryLock();
             if (lock == null) {
                 logger.error("Error while opening db. Another process already holds a lock to this db.");
-                throw new IOException("Another process already holds a lock for this db.");
+                throw new HaloDBException("Another process already holds a lock for this db.");
             }
 
             return lock;
         }
         catch (OverlappingFileLockException e) {
             logger.error("Error while opening db. Another process already holds a lock to this db.");
-            throw new IOException("Another process already holds a lock for this db.");
+            throw new HaloDBException("Another process already holds a lock for this db.");
         }
         catch (IOException e) {
             logger.error("Error while trying to get a lock on the db.", e);
-            throw e;
+            throw new HaloDBException("Error while trying to get a lock on the db.", e);
         }
     }
 

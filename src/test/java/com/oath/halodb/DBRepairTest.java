@@ -14,7 +14,7 @@ import java.util.List;
 public class DBRepairTest extends TestBase {
 
     @Test
-    public void testRepairDB() throws IOException {
+    public void testRepairDB() throws HaloDBException, IOException {
         String directory = Paths.get("tmp", "DBRepairTest", "testRepairDB").toString();
 
         HaloDBOptions options = new HaloDBOptions();
@@ -46,7 +46,7 @@ public class DBRepairTest extends TestBase {
     }
 
     @Test
-    public void testRepairDBWithCompaction() throws IOException, InterruptedException {
+    public void testRepairDBWithCompaction() throws HaloDBException, InterruptedException, IOException {
         String directory = Paths.get("tmp", "DBRepairTest", "testRepairDBWithCompaction").toString();
 
         HaloDBOptions options = new HaloDBOptions();

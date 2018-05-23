@@ -15,7 +15,7 @@ import java.util.List;
 public class HaloDBTest extends TestBase {
 
     @Test
-    public void testPutAndGetDB() throws IOException {
+    public void testPutAndGetDB() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testPutAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -35,14 +35,14 @@ public class HaloDBTest extends TestBase {
             try {
                 byte[] value = db.get(record.getKey());
                 Assert.assertEquals(record.getValue(), value);
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testPutAndGetDBWithByteBuffer() throws IOException {
+    public void testPutAndGetDBWithByteBuffer() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -66,14 +66,14 @@ public class HaloDBTest extends TestBase {
                 buffer.get(array);
                 Assert.assertEquals(record.getValue(), array);
                 Assert.assertEquals(record.getValue().length, read);
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testPutUpdateAndGetDB() throws IOException {
+    public void testPutUpdateAndGetDB() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testPutUpdateAndGetDB";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -96,14 +96,14 @@ public class HaloDBTest extends TestBase {
             try {
                 byte[] value = db.get(record.getKey());
                 Assert.assertEquals(record.getValue(), value);
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testCreateCloseAndOpenDB() throws IOException {
+    public void testCreateCloseAndOpenDB() throws HaloDBException {
 
         String directory = "/tmp/HaloDBTest/testCreateCloseAndOpenDB";
 
@@ -124,7 +124,7 @@ public class HaloDBTest extends TestBase {
                     byte[] value = TestUtils.generateRandomByteArray();
                     db.put(record.getKey(), value);
                     records.set(i, new Record(record.getKey(), value));
-                } catch (IOException e) {
+                } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -145,14 +145,14 @@ public class HaloDBTest extends TestBase {
             try {
                 byte[] value = openAgainDB.get(record.getKey());
                 Assert.assertEquals(record.getValue(), value);
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws IOException {
+    public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws HaloDBException {
 
         String directory = "/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen";
 
@@ -189,7 +189,7 @@ public class HaloDBTest extends TestBase {
     }
 
     @Test
-    public void testToCheckDelete() throws IOException {
+    public void testToCheckDelete() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testToCheckDelete";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -216,14 +216,14 @@ public class HaloDBTest extends TestBase {
         deleted.forEach(r -> {
             try {
                 Assert.assertNull(db.get(r.getKey()));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testDeleteCloseAndOpen() throws IOException {
+    public void testDeleteCloseAndOpen() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testDeleteCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -254,14 +254,14 @@ public class HaloDBTest extends TestBase {
         deleted.forEach(r -> {
             try {
                 Assert.assertNull(openAgainDB.get(r.getKey()));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testDeleteAndInsert() throws IOException {
+    public void testDeleteAndInsert() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testDeleteAndInsert";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -286,7 +286,7 @@ public class HaloDBTest extends TestBase {
                 byte[] value = TestUtils.generateRandomByteArray();
                 db.put(r.getKey(), value);
                 deleteAndInsert.add(new Record(r.getKey(), value));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -300,14 +300,14 @@ public class HaloDBTest extends TestBase {
         deleteAndInsert.forEach(r -> {
             try {
                 Assert.assertEquals(r.getValue(), db.get(r.getKey()));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testDeleteInsertCloseAndOpen() throws IOException {
+    public void testDeleteInsertCloseAndOpen() throws HaloDBException {
         String directory = "/tmp/HaloDBTest/testDeleteInsertCloseAndOpen";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -333,7 +333,7 @@ public class HaloDBTest extends TestBase {
                 byte[] value = TestUtils.generateRandomByteArray();
                 db.put(r.getKey(), value);
                 deleteAndInsert.add(new Record(r.getKey(), value));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -350,14 +350,14 @@ public class HaloDBTest extends TestBase {
         deleteAndInsert.forEach(r -> {
             try {
                 Assert.assertEquals(r.getValue(), openAgainDB.get(r.getKey()));
-            } catch (IOException e) {
+            } catch (HaloDBException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     @Test
-    public void testDBMetaFile() throws IOException {
+    public void testDBMetaFile() throws HaloDBException, IOException {
         String directory = Paths.get("tmp", "HaloDBTest", "testDBClose").toString();
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
@@ -386,13 +386,17 @@ public class HaloDBTest extends TestBase {
         Assert.assertFalse(metaData.isIOError());
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Another process already holds a lock for this db.")
-    public void testLock() throws IOException {
+    @Test(expectedExceptions = HaloDBException.class, expectedExceptionsMessageRegExp = "Another process already holds a lock for this db.")
+    public void testLock() throws Throwable {
         String directory = Paths.get("tmp", "HaloDBTest", "testLock").toString();
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
         db.resetStats();
-        HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
-        anotherDB.resetStats();
+        try {
+            HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
+            anotherDB.resetStats();
+        } catch (HaloDBException e) {
+            throw e.getCause();
+        }
     }
 }

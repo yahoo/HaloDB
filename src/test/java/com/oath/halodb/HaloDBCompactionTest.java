@@ -63,7 +63,7 @@ public class HaloDBCompactionTest extends TestBase {
     }
 
     @Test
-    public void testReOpenDBAfterMerge() throws IOException {
+    public void testReOpenDBAfterMerge() throws HaloDBException {
         String directory = "/tmp/HaloDBCompactionTest/testReOpenDBAfterMerge";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -88,7 +88,7 @@ public class HaloDBCompactionTest extends TestBase {
     }
 
     @Test
-    public void testReOpenDBWithoutMerge() throws IOException {
+    public void testReOpenDBWithoutMerge() throws HaloDBException {
         String directory ="/tmp/HaloDBCompactionTest/testReOpenAndUpdatesAndWithoutMerge";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -110,7 +110,7 @@ public class HaloDBCompactionTest extends TestBase {
     }
 
     @Test
-    public void testUpdatesToSameFile() throws IOException {
+    public void testUpdatesToSameFile() throws HaloDBException {
         String directory ="/tmp/HaloDBCompactionTest/testUpdatesToSameFile";
 
         HaloDBOptions options = new HaloDBOptions();
@@ -132,7 +132,7 @@ public class HaloDBCompactionTest extends TestBase {
     }
 
     @Test
-    public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws IOException, InterruptedException {
+    public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws HaloDBException, InterruptedException {
         String directory = Paths.get("tmp", "HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
 
         HaloDBOptions options = new HaloDBOptions();
@@ -199,7 +199,7 @@ public class HaloDBCompactionTest extends TestBase {
         }
     }
 
-    private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws IOException {
+    private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws HaloDBException {
         int valueSize = recordSize - Record.Header.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];
@@ -225,7 +225,7 @@ public class HaloDBCompactionTest extends TestBase {
         return records;
     }
 
-    private Record[] insertAndUpdateRecordsToSameFile(int numberOfRecords, HaloDB db) throws IOException {
+    private Record[] insertAndUpdateRecordsToSameFile(int numberOfRecords, HaloDB db) throws HaloDBException {
         int valueSize = recordSize - Record.Header.HEADER_SIZE - 8; // 8 is the key size.
 
         Record[] records = new Record[numberOfRecords];

@@ -22,9 +22,8 @@ public class IndexFileEntryTest {
         int recordOffset = 10240;
         byte keySize = (byte) key.length;
         long sequenceNumber = 100;
-        byte flags = 0;
 
-        IndexFileEntry entry = new IndexFileEntry(key, recordSize, recordOffset, sequenceNumber, flags);
+        IndexFileEntry entry = new IndexFileEntry(key, recordSize, recordOffset, sequenceNumber);
         ByteBuffer[] buffers = entry.serialize();
 
         ByteBuffer header = ByteBuffer.allocate(IndexFileEntry.INDEX_FILE_HEADER_SIZE);
@@ -32,7 +31,6 @@ public class IndexFileEntryTest {
         header.putInt(recordSize);
         header.putInt(recordOffset);
         header.putLong(sequenceNumber);
-        header.put(flags);
         header.flip();
 
         Assert.assertEquals(header, buffers[0]);

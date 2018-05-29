@@ -22,15 +22,13 @@ public class RecordTest {
         byte keySize = 8;
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
-        byte flag = 0;
 
-        Record.Header header = new Record.Header(0, keySize, valueSize, sequenceNumber, flag);
+        Record.Header header = new Record.Header(0, keySize, valueSize, sequenceNumber);
         ByteBuffer serialized = header.serialize();
 
         Assert.assertEquals(keySize, serialized.get(Record.Header.KEY_SIZE_OFFSET));
         Assert.assertEquals(valueSize, serialized.getInt(Record.Header.VALUE_SIZE_OFFSET));
         Assert.assertEquals(sequenceNumber, serialized.getLong(Record.Header.SEQUENCE_NUMBER_OFFSET));
-        Assert.assertEquals(flag, serialized.get(Record.Header.FLAGS_OFFSET));
     }
 
     @Test
@@ -40,14 +38,12 @@ public class RecordTest {
         byte keySize = 8;
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
-        byte flag = 0;
 
         ByteBuffer buffer = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
         buffer.putLong(checkSum);
         buffer.put(keySize);
         buffer.putInt(valueSize);
         buffer.putLong(sequenceNumber);
-        buffer.put(flag);
         buffer.flip();
 
         Record.Header header = Record.Header.deserialize(buffer);
@@ -56,17 +52,7 @@ public class RecordTest {
         Assert.assertEquals(keySize, header.getKeySize());
         Assert.assertEquals(valueSize, header.getValueSize());
         Assert.assertEquals(sequenceNumber, header.getSequenceNumber());
-        Assert.assertEquals(flag, header.getFlags());
         Assert.assertEquals(keySize + valueSize + Record.Header.HEADER_SIZE, header.getRecordSize());
-    }
-
-    @Test
-    public void testTombstone() {
-        Record record = new Record(TestUtils.generateRandomByteArray(), Record.TOMBSTONE_VALUE);
-        record.markAsTombStone();
-
-        Assert.assertEquals((byte)1, record.getFlags());
-        Assert.assertTrue(record.isTombStone());
     }
 
     @Test
@@ -84,7 +70,7 @@ public class RecordTest {
         crc32.update(key);
         crc32.update(value);
 
-        Record.Header header = new Record.Header(0, (byte)key.length, value.length, sequenceNumber, (byte)0);
+        Record.Header header = new Record.Header(0, (byte)key.length, value.length, sequenceNumber);
         ByteBuffer headerBuf = header.serialize();
         headerBuf.putLong(Record.Header.CHECKSUM_OFFSET, crc32.getValue());
 

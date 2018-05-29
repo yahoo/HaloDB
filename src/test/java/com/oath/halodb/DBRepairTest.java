@@ -23,7 +23,7 @@ public class DBRepairTest extends TestBase {
         String directory = Paths.get("tmp", "DBRepairTest", "testRepairDB").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 1024 * 1024;
+        options.setMaxFileSize(1024 * 1024);
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 5 * 1024 + 512; // 5 files with 1024 records and 1 with 512 records. 
@@ -55,7 +55,7 @@ public class DBRepairTest extends TestBase {
         String directory = Paths.get("tmp", "DBRepairTest", "testRepairDBWithCompaction").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 1024 * 1024;
+        options.setMaxFileSize(1024 * 1024);
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10 * 1024 + 512;

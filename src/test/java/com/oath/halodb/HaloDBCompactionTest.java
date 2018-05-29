@@ -10,7 +10,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,10 +32,10 @@ public class HaloDBCompactionTest extends TestBase {
         String directory = "/tmp/HaloDBCompactionTest/testMerge";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = recordsPerFile * recordSize;
-        options.compactionThresholdPerFile = 0.5;
-        options.isCompactionDisabled = false;
-        options.flushDataSizeBytes = 2048;
+        options.setMaxFileSize(recordsPerFile * recordSize);
+        options.setCompactionThresholdPerFile(0.5);
+        options.setCompactionDisabled(false);
+        options.setFlushDataSizeBytes(2048);
 
         HaloDB db =  getTestDB(directory, options);
 
@@ -72,9 +71,9 @@ public class HaloDBCompactionTest extends TestBase {
         String directory = "/tmp/HaloDBCompactionTest/testReOpenDBAfterMerge";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = recordsPerFile * recordSize;
-        options.compactionThresholdPerFile = 0.5;
-        options.isCompactionDisabled = false;
+        options.setMaxFileSize(recordsPerFile * recordSize);
+        options.setCompactionThresholdPerFile(0.5);
+        options.setCompactionDisabled(false);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -97,8 +96,8 @@ public class HaloDBCompactionTest extends TestBase {
         String directory ="/tmp/HaloDBCompactionTest/testReOpenAndUpdatesAndWithoutMerge";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = recordsPerFile * recordSize;
-        options.isCompactionDisabled = true;
+        options.setMaxFileSize(recordsPerFile * recordSize);
+        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -119,8 +118,8 @@ public class HaloDBCompactionTest extends TestBase {
         String directory ="/tmp/HaloDBCompactionTest/testUpdatesToSameFile";
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = recordsPerFile * recordSize;
-        options.isCompactionDisabled = true;
+        options.setMaxFileSize(recordsPerFile * recordSize);
+        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -141,8 +140,8 @@ public class HaloDBCompactionTest extends TestBase {
         String directory = Paths.get("tmp", "HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isCompactionDisabled = true;
-        options.maxFileSize = 10 * 1024;
+        options.setCompactionDisabled(true);
+        options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -159,7 +158,7 @@ public class HaloDBCompactionTest extends TestBase {
 
         // open the db withe compaction enabled. 
         options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
+        options.setMaxFileSize(10 * 1024);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
@@ -173,8 +172,8 @@ public class HaloDBCompactionTest extends TestBase {
 
         // open the db with compaction disabled.
         options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.isCompactionDisabled = true;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionDisabled(true);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
@@ -189,7 +188,7 @@ public class HaloDBCompactionTest extends TestBase {
 
         // Open db again with compaction enabled. 
         options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
+        options.setMaxFileSize(10 * 1024);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
         TestUtils.waitForCompactionToComplete(db);

@@ -85,14 +85,14 @@ class HaloDBInternal {
 
         dbInternal.compactionManager = new CompactionManager(dbInternal);
 
-        dbInternal.keyCache = new OffHeapCache(options.numberOfRecords);
+        dbInternal.keyCache = new OffHeapCache(options.getNumberOfRecords());
         dbInternal.buildKeyCache(options);
         dbInternal.compactionManager.startCompactionThread();
 
         logger.info("Opened HaloDB {}", directory.getName());
-        logger.info("isCompactionDisabled - {}", options.isCompactionDisabled);
-        logger.info("maxFileSize - {}", options.maxFileSize);
-        logger.info("compactionThresholdPerFile - {}", options.compactionThresholdPerFile);
+        logger.info("isCompactionDisabled - {}", options.isCompactionDisabled());
+        logger.info("maxFileSize - {}", options.getMaxFileSize());
+        logger.info("compactionThresholdPerFile - {}", options.getCompactionThresholdPerFile());
 
         return dbInternal;
     }
@@ -108,7 +108,7 @@ class HaloDBInternal {
             setIOErrorFlag();
         }
 
-        if (options.cleanUpKeyCacheOnClose)
+        if (options.isCleanUpKeyCacheOnClose())
             keyCache.close();
 
         if (currentWriteFile != null) {
@@ -242,7 +242,7 @@ class HaloDBInternal {
     private void rollOverCurrentWriteFile(Record record) throws IOException, HaloDBException {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
-        if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.maxFileSize) {
+        if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.getMaxFileSize()) {
             if (currentWriteFile != null) {
                 currentWriteFile.flushToDisk();
                 currentWriteFile.getIndexFile().flushToDisk();
@@ -254,7 +254,7 @@ class HaloDBInternal {
     private void rollOverCurrentTombstoneFile(TombstoneEntry entry) throws IOException {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
 
-        if (tombstoneFile == null ||  tombstoneFile.getWriteOffset() + size > options.maxFileSize) {
+        if (tombstoneFile == null ||  tombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) {
             if (tombstoneFile != null) {
                 tombstoneFile.flushToDisk();
                 tombstoneFile.close();
@@ -282,7 +282,7 @@ class HaloDBInternal {
             return;
 
         int staleSizeInFile = updateStaleDataMap(fileId, staleRecordSize);
-        if (staleSizeInFile >= file.getSize() * options.compactionThresholdPerFile) {
+        if (staleSizeInFile >= file.getSize() * options.getCompactionThresholdPerFile()) {
 
             // We don't want to compact the files the writer thread and the compaction thread is currently writing to.
             if (getCurrentWriteFileId() != fileId && compactionManager.getCurrentWriteFileId() != fileId) {

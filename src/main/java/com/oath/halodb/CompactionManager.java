@@ -44,7 +44,7 @@ class CompactionManager {
 
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
-        this.compactionRateLimiter = RateLimiter.create(dbInternal.options.compactionJobRate);
+        this.compactionRateLimiter = RateLimiter.create(dbInternal.options.getCompactionJobRate());
         this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
@@ -153,7 +153,7 @@ class CompactionManager {
             logger.info("Starting compaction thread ...");
             int fileToCompact = -1;
 
-            while (isRunning && !dbInternal.options.isCompactionDisabled) {
+            while (isRunning && !dbInternal.options.isCompactionDisabled()) {
                 try {
                     fileToCompact = compactionQueue.take();
                     if (fileToCompact == STOP_SIGNAL) {
@@ -218,7 +218,8 @@ class CompactionManager {
                     }
 
                     unFlushedData += transferred;
-                    if (dbInternal.options.flushDataSizeBytes != -1 && unFlushedData > dbInternal.options.flushDataSizeBytes) {
+                    if (dbInternal.options.getFlushDataSizeBytes() != -1 &&
+                        unFlushedData > dbInternal.options.getFlushDataSizeBytes()) {
                         currentWriteFile.getChannel().force(false);
                         unFlushedData = 0;
                     }
@@ -263,7 +264,7 @@ class CompactionManager {
         }
 
         private void rollOverCurrentWriteFile(int recordSize) throws IOException {
-            if (currentWriteFile == null ||  currentWriteFileOffset + recordSize > dbInternal.options.maxFileSize) {
+            if (currentWriteFile == null ||  currentWriteFileOffset + recordSize > dbInternal.options.getMaxFileSize()) {
                 if (currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
                     currentWriteFile.getIndexFile().flushToDisk();

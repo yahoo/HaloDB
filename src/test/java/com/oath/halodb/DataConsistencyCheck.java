@@ -7,7 +7,6 @@ package com.oath.halodb;
 
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.Random;
 
 /**
@@ -20,8 +19,8 @@ public class DataConsistencyCheck extends TestBase {
         String directory = TestUtils.getTestDirectory("DataConsistencyCheck", "testConcurrentReadAndUpdates");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.5;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
 
         int noOfRecords = 10_000;
         int noOfTransactions = 100_000;

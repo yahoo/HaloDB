@@ -12,29 +12,24 @@ import com.google.common.base.MoreObjects;
  */
 public class HaloDBOptions implements Cloneable {
 
-    //TODO; convert to private with get+set.
-
     // threshold of stale data at which file needs to be compacted.
-    public double compactionThresholdPerFile = 0.75;
+    private double compactionThresholdPerFile = 0.75;
 
-    public long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
+    private long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
-
-    /**
-     * Data will be flushed to disk after flushDataSizeBytes have been written.
-     * -1 disables explicit flushing and let the kernel handle it.
-     */
-    public long flushDataSizeBytes = -1;
+     // Data will be flushed to disk after flushDataSizeBytes have been written.
+     // -1 disables explicit flushing and let the kernel handle it.
+    private long flushDataSizeBytes = -1;
 
     // used for testing.
-    public boolean isCompactionDisabled = false;
+    private boolean isCompactionDisabled = false;
 
-    public int numberOfRecords = 1_000_000;
+    private int numberOfRecords = 1_000_000;
 
     // MB of data to be compacted per second.
-    public int compactionJobRate = 1024 * 1024 * 1024;
+    private int compactionJobRate = 1024 * 1024 * 1024;
 
-    public boolean cleanUpKeyCacheOnClose = false;
+    private boolean cleanUpKeyCacheOnClose = false;
 
     // Just to avoid clients having to deal with CloneNotSupportedException
     public HaloDBOptions clone() {
@@ -56,5 +51,62 @@ public class HaloDBOptions implements Cloneable {
             .add("compactionJobRate", compactionJobRate)
             .add("cleanUpKeyCacheOnClose", cleanUpKeyCacheOnClose)
             .toString();
+    }
+
+    public void setCompactionThresholdPerFile(double compactionThresholdPerFile) {
+        this.compactionThresholdPerFile = compactionThresholdPerFile;
+    }
+
+    public void setMaxFileSize(long maxFileSize) {
+        this.maxFileSize = maxFileSize;
+    }
+
+    public void setFlushDataSizeBytes(long flushDataSizeBytes) {
+        this.flushDataSizeBytes = flushDataSizeBytes;
+    }
+
+    public void setCompactionDisabled(boolean compactionDisabled) {
+        isCompactionDisabled = compactionDisabled;
+    }
+
+    public void setNumberOfRecords(int numberOfRecords) {
+        this.numberOfRecords = numberOfRecords;
+    }
+
+    public void setCompactionJobRate(int compactionJobRate) {
+        this.compactionJobRate = compactionJobRate;
+    }
+
+    public void setCleanUpKeyCacheOnClose(boolean cleanUpKeyCacheOnClose) {
+        this.cleanUpKeyCacheOnClose = cleanUpKeyCacheOnClose;
+    }
+
+    public double getCompactionThresholdPerFile() {
+        return compactionThresholdPerFile;
+    }
+
+    public long getMaxFileSize() {
+        return maxFileSize;
+    }
+
+
+    public long getFlushDataSizeBytes() {
+        return flushDataSizeBytes;
+    }
+
+    public boolean isCompactionDisabled() {
+        return isCompactionDisabled;
+    }
+
+    public int getNumberOfRecords() {
+        return numberOfRecords;
+    }
+
+    public int getCompactionJobRate() {
+        return compactionJobRate;
+    }
+
+    public boolean isCleanUpKeyCacheOnClose() {
+        return cleanUpKeyCacheOnClose;
     }
 }

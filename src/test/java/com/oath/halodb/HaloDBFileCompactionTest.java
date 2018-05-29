@@ -28,8 +28,8 @@ public class HaloDBFileCompactionTest extends TestBase {
         int recordNumber = 20;
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * recordSize; // 10 records per data file.
-        options.compactionThresholdPerFile = 0.5;
+        options.setMaxFileSize(10 * recordSize); // 10 records per data file.
+        options.setCompactionThresholdPerFile(0.5);
 
         HaloDB db = getTestDB(directory, options);
 

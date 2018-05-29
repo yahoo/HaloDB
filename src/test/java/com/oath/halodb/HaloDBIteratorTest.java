@@ -40,7 +40,7 @@ public class HaloDBIteratorTest extends TestBase {
         String directory =  TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isCompactionDisabled = true;
+        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10_000;
@@ -66,8 +66,8 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isCompactionDisabled = true;
-        options.maxFileSize = 10*1024;
+        options.setCompactionDisabled(true);
+        options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -85,8 +85,8 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isCompactionDisabled = true;
-        options.maxFileSize = 10*1024;
+        options.setCompactionDisabled(true);
+        options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -105,9 +105,9 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateMergeAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.isCompactionDisabled = false;
-        options.maxFileSize = 10*1024;
-        options.compactionThresholdPerFile = 0.50;
+        options.setCompactionDisabled(false);
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.50);
 
         HaloDB db = getTestDB(directory, options);
 
@@ -130,8 +130,8 @@ public class HaloDBIteratorTest extends TestBase {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 1024*1024;
-        options.compactionThresholdPerFile = 0.1;
+        options.setMaxFileSize(1024 * 1024);
+        options.setCompactionThresholdPerFile(0.1);
 
         final HaloDB db = getTestDB(directory, options);
 
@@ -177,8 +177,8 @@ public class HaloDBIteratorTest extends TestBase {
         };
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 2*1024;
-        options.compactionThresholdPerFile = 0.1;
+        options.setMaxFileSize(2 * 1024);
+        options.setCompactionThresholdPerFile(0.1);
 
         final HaloDB db = getTestDB(directory, options);
 
@@ -222,8 +222,8 @@ public class HaloDBIteratorTest extends TestBase {
         };
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10*1024;
-        options.compactionThresholdPerFile = 0.6;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.6);
 
         final HaloDB db = getTestDB(directory, options);
 

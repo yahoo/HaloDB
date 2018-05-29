@@ -54,8 +54,8 @@ public class CompactionWithErrorsTest extends TestBase {
         String directory = Paths.get("tmp", "CompactionManagerTest", "testCompactionWithIOException").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.5;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 20; // three files.
@@ -96,8 +96,8 @@ public class CompactionWithErrorsTest extends TestBase {
         String directory = Paths.get("tmp", "CompactionManagerTest", "testCompactionWithException").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.5;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 30; // three files.
@@ -149,8 +149,8 @@ public class CompactionWithErrorsTest extends TestBase {
         String directory = Paths.get("tmp", "CompactionManagerTest", "testRestartCompactionThreadAfterCrash").toString();
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.5;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
 
         HaloDB db = getTestDB(directory, options);
         int numberOfRecords = 30; // three files, 10 record in each.

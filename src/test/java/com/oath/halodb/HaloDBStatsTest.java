@@ -8,7 +8,6 @@ package com.oath.halodb;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,26 +21,26 @@ public class HaloDBStatsTest extends TestBase {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testOptions");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.isCompactionDisabled = true;
-        options.compactionThresholdPerFile = 0.9;
-        options.flushDataSizeBytes = 1024;
-        options.compactionJobRate = 2048;
-        options.numberOfRecords = 100;
-        options.cleanUpKeyCacheOnClose = true;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionDisabled(true);
+        options.setCompactionThresholdPerFile(0.9);
+        options.setFlushDataSizeBytes(1024);
+        options.setCompactionJobRate(2048);
+        options.setNumberOfRecords(100);
+        options.setCleanUpKeyCacheOnClose(true);
 
         HaloDB db = getTestDB(dir, options);
 
         HaloDBStats stats = db.stats();
         HaloDBOptions actual = stats.getOptions();
 
-        Assert.assertEquals(actual.maxFileSize, options.maxFileSize);
-        Assert.assertEquals(actual.isCompactionDisabled, options.isCompactionDisabled);
-        Assert.assertEquals(actual.compactionThresholdPerFile, options.compactionThresholdPerFile);
-        Assert.assertEquals(actual.flushDataSizeBytes, options.flushDataSizeBytes);
-        Assert.assertEquals(actual.compactionJobRate, options.compactionJobRate);
-        Assert.assertEquals(actual.numberOfRecords, options.numberOfRecords);
-        Assert.assertEquals(actual.cleanUpKeyCacheOnClose, options.cleanUpKeyCacheOnClose);
+        Assert.assertEquals(actual.getMaxFileSize(), options.getMaxFileSize());
+        Assert.assertEquals(actual.isCompactionDisabled(), options.isCompactionDisabled());
+        Assert.assertEquals(actual.getCompactionThresholdPerFile(), options.getCompactionThresholdPerFile());
+        Assert.assertEquals(actual.getFlushDataSizeBytes(), options.getFlushDataSizeBytes());
+        Assert.assertEquals(actual.getCompactionJobRate(), options.getCompactionJobRate());
+        Assert.assertEquals(actual.getNumberOfRecords(), options.getNumberOfRecords());
+        Assert.assertEquals(actual.isCleanUpKeyCacheOnClose(), options.isCleanUpKeyCacheOnClose());
         Assert.assertEquals(stats.getSize(), 0);
     }
 
@@ -51,8 +50,8 @@ public class HaloDBStatsTest extends TestBase {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testStaleMap");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.50;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.50);
 
         HaloDB db = getTestDB(dir, options);
 
@@ -83,9 +82,9 @@ public class HaloDBStatsTest extends TestBase {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testCompactionStats");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.compactionThresholdPerFile = 0.50;
-        options.isCompactionDisabled = true;
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.50);
+        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(dir, options);
         // will create 10 files with 10 records each.
@@ -101,7 +100,7 @@ public class HaloDBStatsTest extends TestBase {
 
         db.close();
 
-        options.isCompactionDisabled = false;
+        options.setCompactionDisabled(false);
         db = getTestDBWithoutDeletingFiles(dir, options);
 
         TestUtils.waitForCompactionToComplete(db);
@@ -115,8 +114,8 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getNumberOfRecordsReplaced(), noOfRecords / 2);
         Assert.assertEquals(stats.getNumberOfRecordsScanned(), noOfRecords);
         Assert.assertEquals(stats.getSizeOfRecordsCopied(), noOfRecords / 2 * 1024);
-        Assert.assertEquals(stats.getSizeOfFilesDeleted(), options.maxFileSize * 10);
-        Assert.assertEquals(stats.getSizeReclaimed(), options.maxFileSize * 10 / 2);
+        Assert.assertEquals(stats.getSizeOfFilesDeleted(), options.getMaxFileSize() * 10);
+        Assert.assertEquals(stats.getSizeReclaimed(), options.getMaxFileSize() * 10 / 2);
         Assert.assertEquals(stats.getSize(), noOfRecords);
 
         db.resetStats();
@@ -139,10 +138,10 @@ public class HaloDBStatsTest extends TestBase {
         int numberOfRecords = numberOfSegments * 1024;
 
         HaloDBOptions options = new HaloDBOptions();
-        options.maxFileSize = 10 * 1024;
-        options.numberOfRecords = numberOfRecords;
-        options.compactionThresholdPerFile = 0.50;
-        options.isCompactionDisabled = true;
+        options.setMaxFileSize(10 * 1024);
+        options.setNumberOfRecords(numberOfRecords);
+        options.setCompactionThresholdPerFile(0.50);
+        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(dir, options);
         HaloDBStats stats = db.stats();

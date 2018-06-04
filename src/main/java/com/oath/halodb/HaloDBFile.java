@@ -278,6 +278,10 @@ class HaloDBFile {
             indexFile.delete();
     }
 
+    String getName() {
+        return backingFile.getName();
+    }
+
     private static File getDataFile(File haloDBDirectory, int fileId) {
         return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
     }

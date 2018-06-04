@@ -31,6 +31,8 @@ public class HaloDBOptions implements Cloneable {
 
     private boolean cleanUpKeyCacheOnClose = false;
 
+    private boolean cleanUpTombstonesDuringOpen = false;
+
     // Just to avoid clients having to deal with CloneNotSupportedException
     public HaloDBOptions clone() {
         try {
@@ -108,5 +110,13 @@ public class HaloDBOptions implements Cloneable {
 
     public boolean isCleanUpKeyCacheOnClose() {
         return cleanUpKeyCacheOnClose;
+    }
+
+    public boolean isCleanUpTombstonesDuringOpen() {
+        return cleanUpTombstonesDuringOpen;
+    }
+
+    public void setCleanUpTombstonesDuringOpen(boolean cleanUpTombstonesDuringOpen) {
+        this.cleanUpTombstonesDuringOpen = cleanUpTombstonesDuringOpen;
     }
 }

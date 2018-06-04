@@ -43,11 +43,12 @@ public class TestUtils {
     static List<Record> insertRandomRecordsOfSize(HaloDB db, int noOfRecords, int size) throws HaloDBException {
         List<Record> records = new ArrayList<>();
         Set<ByteBuffer> keySet = new HashSet<>();
+        Random random = new Random();
 
         for (int i = 0; i < noOfRecords; i++) {
             byte[] key;
             if (size > 0) {
-             key = TestUtils.generateRandomByteArray(Math.min(Byte.MAX_VALUE, size));
+             key = TestUtils.generateRandomByteArray(random.nextInt(Math.min(Byte.MAX_VALUE-1, size))+1);
             }
             else {
                 key = TestUtils.generateRandomByteArray();
@@ -73,7 +74,7 @@ public class TestUtils {
         return records;
     }
 
-    public static List<Record> generateRandomData(int noOfRecords) {
+    static List<Record> generateRandomData(int noOfRecords) {
         List<Record> records = new ArrayList<>();
         Set<ByteBuffer> keySet = new HashSet<>();
 
@@ -199,7 +200,7 @@ public class TestUtils {
     }
 
     public static byte[] generateRandomByteArray() {
-        int length = random.nextInt(127) + 1;
+        int length = random.nextInt(Byte.MAX_VALUE) + 1;
         byte[] array = new byte[length];
         random.nextBytes(array);
 

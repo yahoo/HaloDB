@@ -8,6 +8,8 @@ package com.oath.halodb;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,8 @@ class FileUtils {
 
     static List<Integer> listIndexFiles(File directory) {
         File[] files = directory.listFiles(file -> Constants.INDEX_FILE_PATTERN.matcher(file.getName()).matches());
+        if (files == null)
+            return Collections.emptyList();
 
         // sort in ascending order. we want the earliest index files to be processed first.
         return
@@ -46,7 +50,12 @@ class FileUtils {
      * Returns all *.tombstone files in the given directory.
      */
     static File[] listTombstoneFiles(File directory) {
-        return directory.listFiles(file -> Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches());
+        File[] files = directory.listFiles(file -> Constants.TOMBSTONE_FILE_PATTERN.matcher(file.getName()).matches());
+        if (files == null) {
+            return new File[0];
+        }
+        Arrays.sort(files, Comparator.comparing(File::getName));
+        return files;
     }
 
     /**

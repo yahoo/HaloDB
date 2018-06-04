@@ -35,7 +35,7 @@ class HaloDBInternal {
 
     private volatile HaloDBFile currentWriteFile;
 
-    private TombstoneFile tombstoneFile;
+    private TombstoneFile currentTombstoneFile;
 
     private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
@@ -56,6 +56,9 @@ class HaloDBInternal {
     private FileLock dbLock;
 
     private static final int maxReadAttempts = 5;
+
+    private volatile long noOfTombstonesCopiedDuringOpen = 0;
+    private volatile long noOfTombstonesFoundDuringOpen = 0;
 
     private HaloDBInternal() {}
 
@@ -116,9 +119,9 @@ class HaloDBInternal {
             currentWriteFile.getIndexFile().flushToDisk();
             currentWriteFile.close();
         }
-        if (tombstoneFile != null) {
-            tombstoneFile.flushToDisk();
-            tombstoneFile.close();
+        if (currentTombstoneFile != null) {
+            currentTombstoneFile.flushToDisk();
+            currentTombstoneFile.close();
         }
 
         for (HaloDBFile file : readFileMap.values()) {
@@ -218,7 +221,7 @@ class HaloDBInternal {
             keyCache.remove(key);
             TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber());
             rollOverCurrentTombstoneFile(entry);
-            tombstoneFile.write(entry);
+            currentTombstoneFile.write(entry);
             markPreviousVersionAsStale(key, metaData);
         }
     }
@@ -254,13 +257,14 @@ class HaloDBInternal {
     private void rollOverCurrentTombstoneFile(TombstoneEntry entry) throws IOException {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
 
-        if (tombstoneFile == null ||  tombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) {
-            if (tombstoneFile != null) {
-                tombstoneFile.flushToDisk();
-                tombstoneFile.close();
+
+        if (currentTombstoneFile == null || currentTombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) {
+            if (currentTombstoneFile != null) {
+                currentTombstoneFile.flushToDisk();
+                currentTombstoneFile.close();
             }
 
-            tombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
+            currentTombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
         }
     }
 
@@ -307,7 +311,9 @@ class HaloDBInternal {
 
     HaloDBFile createHaloDBFile(HaloDBFile.FileType fileType) throws IOException {
         HaloDBFile file = HaloDBFile.create(dbDirectory, getNextFileId(), options, fileType);
-        readFileMap.put(file.getFileId(), file);
+        if(readFileMap.putIfAbsent(file.getFileId(), file) != null) {
+            throw new IOException("Error while trying to create file " + file.getName() + " file with the given id already exists in the map");
+        }
         return file;
     }
 
@@ -406,7 +412,7 @@ class HaloDBInternal {
             indexFile.close();
         }
 
-        // Scan all the tombstone files and remove records from cache. 
+        // Scan all the tombstone files and remove records from cache.
         File[] tombStoneFiles = FileUtils.listTombstoneFiles(dbDirectory);
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
@@ -414,7 +420,7 @@ class HaloDBInternal {
             tombstoneFile.open();
             TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
-            int count = 0, deleted = 0;
+            int count = 0, deleted = 0, copied = 0;
             while (iterator.hasNext()) {
                 TombstoneEntry entry = iterator.next();
                 byte[] key = entry.getKey();
@@ -429,10 +435,25 @@ class HaloDBInternal {
                     // update stale data map for the previous version.
                     addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
                     deleted++;
+
+                    if (options.isCleanUpTombstonesDuringOpen()) {
+                        rollOverCurrentTombstoneFile(entry);
+                        currentTombstoneFile.write(entry);
+                        copied++;
+                    }
                 }
             }
             logger.debug("Completed scanning tombstone file {}. Found {} tombstones, deleted {} records", file.getName(), count, deleted);
             tombstoneFile.close();
+
+            if (options.isCleanUpTombstonesDuringOpen()) {
+                logger.info("Copied {} tombstones from {}. Deleting the file", copied, tombstoneFile.getName());
+                if (currentTombstoneFile != null)
+                    currentTombstoneFile.flushToDisk();
+                tombstoneFile.delete();
+            }
+            noOfTombstonesCopiedDuringOpen += copied;
+            noOfTombstonesFoundDuringOpen += count;
         }
 
         logger.info("Completed scanning all key files in {}", (System.currentTimeMillis() - start)/1000);
@@ -550,6 +571,8 @@ class HaloDBInternal {
             keyCache.getNoOfSegments(),
             cacheStats.getSegmentSizes(),
             keyCache.getMaxSizeOfEachSegment(),
+            noOfTombstonesFoundDuringOpen,
+            options.isCleanUpTombstonesDuringOpen() ? noOfTombstonesFoundDuringOpen - noOfTombstonesCopiedDuringOpen : 0,
             compactionManager.getNumberOfRecordsCopied(),
             compactionManager.getNumberOfRecordsReplaced(),
             compactionManager.getNumberOfRecordsScanned(),

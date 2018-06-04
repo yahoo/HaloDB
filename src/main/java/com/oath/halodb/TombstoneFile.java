@@ -54,9 +54,16 @@ class TombstoneFile {
         channel = new RandomAccessFile(backingFile, "rw").getChannel();
     }
 
-    public void close() throws IOException {
+    void close() throws IOException {
         if (channel != null) {
             channel.close();
+        }
+    }
+
+    void delete() throws IOException {
+        close();
+        if (backingFile != null) {
+            backingFile.delete();
         }
     }
 
@@ -88,6 +95,10 @@ class TombstoneFile {
     void flushToDisk() throws IOException {
         if (channel != null && channel.isOpen())
             channel.force(true);
+    }
+
+    String getName() {
+        return backingFile.getName();
     }
 
     TombstoneFile.TombstoneFileIterator newIterator() throws IOException {

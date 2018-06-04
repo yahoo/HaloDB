@@ -27,6 +27,9 @@ public class HaloDBStats {
     private final long[] countPerSegment;
     private final long maxSizePerSegment;
 
+    private final long numberOfTombstonesFoundDuringOpen;
+    private final long numberOfTombstonesCleanedUpDuringOpen;
+
     private final long numberOfRecordsCopied;
     private final long numberOfRecordsReplaced;
     private final long numberOfRecordsScanned;
@@ -38,7 +41,8 @@ public class HaloDBStats {
 
     public HaloDBStats(long statsResetTime, long size, int numberOfFilesPendingCompaction,
                        Map<Integer, Double> staleDataPercentPerFile, long rehashCount, long numberOfSegments,
-                       long[] countPerSegment, long maxSizePerSegment, long numberOfRecordsCopied,
+                       long[] countPerSegment, long maxSizePerSegment, long numberOfTombstonesFoundDuringOpen,
+                       long numberOfTombstonesCleanedUpDuringOpen, long numberOfRecordsCopied,
                        long numberOfRecordsReplaced, long numberOfRecordsScanned, long sizeOfRecordsCopied,
                        long sizeOfFilesDeleted, long sizeReclaimed, HaloDBOptions options) {
         this.statsResetTime = statsResetTime;
@@ -49,6 +53,8 @@ public class HaloDBStats {
         this.numberOfSegments = numberOfSegments;
         this.countPerSegment = countPerSegment;
         this.maxSizePerSegment = maxSizePerSegment;
+        this.numberOfTombstonesFoundDuringOpen = numberOfTombstonesFoundDuringOpen;
+        this.numberOfTombstonesCleanedUpDuringOpen = numberOfTombstonesCleanedUpDuringOpen;
         this.numberOfRecordsCopied = numberOfRecordsCopied;
         this.numberOfRecordsReplaced = numberOfRecordsReplaced;
         this.numberOfRecordsScanned = numberOfRecordsScanned;
@@ -114,6 +120,14 @@ public class HaloDBStats {
         return options;
     }
 
+    public long getNumberOfTombstonesFoundDuringOpen() {
+        return numberOfTombstonesFoundDuringOpen;
+    }
+
+    public long getNumberOfTombstonesCleanedUpDuringOpen() {
+        return numberOfTombstonesCleanedUpDuringOpen;
+    }
+
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
@@ -130,6 +144,8 @@ public class HaloDBStats {
             .add("numberOfSegments", numberOfSegments)
             .add("countPerSegment", Arrays.toString(countPerSegment))
             .add("maxSizePerSegment", maxSizePerSegment)
+            .add("numberOfTombstonesFoundDuringOpen", numberOfTombstonesFoundDuringOpen)
+            .add("numberOfTombstonesCleanedUpDuringOpen", numberOfTombstonesCleanedUpDuringOpen)
             .add("Options", options)
             .add("staleDataPercentPerFile", staleDataMapToString())
             .toString();

@@ -289,14 +289,6 @@ class CompactionManager {
             return true;
         }
 
-        for (int fileId : compactionQueue) {
-            // current write file and current compaction file will not be compacted.
-            // if there are any other pending files return false.
-            if (fileId != dbInternal.getCurrentWriteFileId() && fileId != getCurrentWriteFileId()) {
-                return false;
-            }
-        }
-
-        return true;
+        return false;
     }
 }

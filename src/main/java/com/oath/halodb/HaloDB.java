@@ -8,7 +8,6 @@ package com.oath.halodb;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Set;
 
@@ -100,8 +99,8 @@ public class HaloDB {
     // methods used in tests.
 
     @VisibleForTesting
-    boolean isMergeComplete() {
-        return dbInternal.isMergeComplete();
+    boolean isCompactionComplete() {
+        return dbInternal.isCompactionComplete();
     }
 
     Set<Integer> listDataFileIds() {

@@ -604,7 +604,7 @@ class HaloDBInternal {
 
     // Used only in tests.
     @VisibleForTesting
-    boolean isMergeComplete() {
+    boolean isCompactionComplete() {
         return compactionManager.isCompactionComplete();
     }
 }

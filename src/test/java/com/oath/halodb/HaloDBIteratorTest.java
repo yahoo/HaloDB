@@ -120,6 +120,8 @@ public class HaloDBIteratorTest extends TestBase {
 
         List<Record> actual = new ArrayList<>();
         db.newIterator().forEachRemaining(actual::add);
+
+        Assert.assertEquals(actual.size(), updated.size());
         MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(updated.toArray()));
     }
 

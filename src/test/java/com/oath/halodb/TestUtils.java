@@ -207,8 +207,11 @@ public class TestUtils {
         return array;
     }
 
+    /**
+     * This method will work correctly only after all the writes to the db have been completed.
+     */
     static void waitForCompactionToComplete(HaloDB db) {
-        while (!db.isMergeComplete()) {
+        while (!db.isCompactionComplete()) {
             try {
                 Thread.sleep(1_000);
             } catch (InterruptedException e) {

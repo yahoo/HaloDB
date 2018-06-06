@@ -28,8 +28,8 @@ public class HaloDBCompactionTest extends TestBase {
     private final int numberOfRecords = numberOfFiles * recordsPerFile;
 
     @Test
-    public void testMerge() throws Exception {
-        String directory = "/tmp/HaloDBCompactionTest/testMerge";
+    public void testCompaction() throws Exception {
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testCompaction");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
@@ -68,7 +68,7 @@ public class HaloDBCompactionTest extends TestBase {
 
     @Test
     public void testReOpenDBAfterMerge() throws HaloDBException {
-        String directory = "/tmp/HaloDBCompactionTest/testReOpenDBAfterMerge";
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenDBAfterMerge");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
@@ -93,7 +93,7 @@ public class HaloDBCompactionTest extends TestBase {
 
     @Test
     public void testReOpenDBWithoutMerge() throws HaloDBException {
-        String directory ="/tmp/HaloDBCompactionTest/testReOpenAndUpdatesAndWithoutMerge";
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenAndUpdatesAndWithoutMerge");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
@@ -115,7 +115,7 @@ public class HaloDBCompactionTest extends TestBase {
 
     @Test
     public void testUpdatesToSameFile() throws HaloDBException {
-        String directory ="/tmp/HaloDBCompactionTest/testUpdatesToSameFile";
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testUpdatesToSameFile");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
@@ -137,7 +137,7 @@ public class HaloDBCompactionTest extends TestBase {
 
     @Test
     public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws HaloDBException, InterruptedException {
-        String directory = Paths.get("tmp", "HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen").toString();
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);

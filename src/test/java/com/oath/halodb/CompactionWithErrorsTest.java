@@ -30,54 +30,6 @@ import mockit.VerificationsInOrder;
 public class CompactionWithErrorsTest extends TestBase {
 
     @Test
-    public void testCompactionWithIOException(@Mocked CompactionManager compactionManager) throws HaloDBException, InterruptedException, IOException {
-        new Expectations(CompactionManager.class) {{
-            // nothing mocked. call the real implementation.
-            // this is used only for verifications later.
-        }};
-
-        // Throw an IOException during IO operation.
-        // IOExceptions are usually not recoverable hence we don't restart the compaction thread.
-        new MockUp<FileChannelImpl>() {
-            private int callCount = 0;
-
-            @Mock
-            public long transferTo(Invocation invocation, long position, long count, WritableByteChannel target) throws IOException {
-                if (++callCount == 3) {
-                    throw new IOException("Throwing mock IOException form compaction thread.");
-                }
-
-                return invocation.proceed(position, count, target);
-            }
-        };
-
-        String directory = Paths.get("tmp", "CompactionManagerTest", "testCompactionWithIOException").toString();
-
-        HaloDBOptions options = new HaloDBOptions();
-        options.setMaxFileSize(10 * 1024);
-        options.setCompactionThresholdPerFile(0.5);
-
-        HaloDB db = getTestDB(directory, options);
-        int numberOfRecords = 20; // three files.
-
-        List<Record> records = insertAndUpdate(db, numberOfRecords);
-
-        // Wait for the the compaction thread to crash. 
-        Thread.sleep(2000);
-
-        new VerificationsInOrder() {{
-            // only called once when db.open(). Since an IOException is thrown the thread is not restarted.
-            compactionManager.startCompactionThread(); times = 1;
-        }};
-
-        DBMetaData dbMetaData = new DBMetaData(directory);
-        dbMetaData.loadFromFileIfExists();
-
-        // Since compaction thread crashed with an IOException IOError flag must be set.
-        Assert.assertTrue(dbMetaData.isIOError());
-    }
-
-    @Test
     public void testCompactionWithException() throws HaloDBException, InterruptedException {
 
         new MockUp<RateLimiter>() {
@@ -93,7 +45,7 @@ public class CompactionWithErrorsTest extends TestBase {
             }
         };
 
-        String directory = Paths.get("tmp", "CompactionManagerTest", "testCompactionWithException").toString();
+        String directory = TestUtils.getTestDirectory("CompactionManagerTest", "testCompactionWithException");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
@@ -146,7 +98,7 @@ public class CompactionWithErrorsTest extends TestBase {
             }
         };
 
-        String directory = Paths.get("tmp", "CompactionManagerTest", "testRestartCompactionThreadAfterCrash").toString();
+        String directory = TestUtils.getTestDirectory("CompactionManagerTest", "testRestartCompactionThreadAfterCrash");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
@@ -197,6 +149,38 @@ public class CompactionWithErrorsTest extends TestBase {
 
         // Since compaction thread was restarted after it crashed IOError flag must not be set.
         Assert.assertFalse(dbMetaData.isIOError());
+    }
+
+    @Test
+    public void testCompactionThreadStopWithIOException() throws HaloDBException, InterruptedException, IOException {
+        // Throw an IOException while stopping compaction thread.
+        new MockUp<CompactionManager>() {
+
+            @Mock
+            boolean stopCompactionThread() throws IOException {
+                throw new IOException("Throwing mock IOException while stopping compaction thread.");
+
+            }
+        };
+
+        String directory = TestUtils.getTestDirectory("CompactionManagerTest", "testCompactionThreadStopWithIOException");
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.setMaxFileSize(10 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
+
+        HaloDB db = getTestDB(directory, options);
+        int numberOfRecords = 20; // three files.
+
+        insertAndUpdate(db, numberOfRecords);
+        TestUtils.waitForCompactionToComplete(db);
+        db.close();
+
+        DBMetaData dbMetaData = new DBMetaData(directory);
+        dbMetaData.loadFromFileIfExists();
+
+        // Since there was an IOException while stopping compaction IOError flag must have been set. 
+        Assert.assertTrue(dbMetaData.isIOError());
     }
 
     private List<Record> insertAndUpdate(HaloDB db, int numberOfRecords) throws HaloDBException {

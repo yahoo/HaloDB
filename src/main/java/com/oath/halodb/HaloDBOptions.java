@@ -52,6 +52,7 @@ public class HaloDBOptions implements Cloneable {
             .add("numberOfRecords", numberOfRecords)
             .add("compactionJobRate", compactionJobRate)
             .add("cleanUpKeyCacheOnClose", cleanUpKeyCacheOnClose)
+            .add("cleanUpTombstonesDuringOpen", cleanUpTombstonesDuringOpen)
             .toString();
     }
 

@@ -18,7 +18,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testSimpleDelete() throws HaloDBException {
-        String directory = "/tmp/HaloDBDeletionTest/testSimpleDelete";
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testSimpleDelete");
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
@@ -48,7 +48,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testDeleteWithIterator() throws HaloDBException {
-        String directory = "/tmp/HaloDBDeletionTest/testDeleteWithIterator";
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
@@ -76,7 +76,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testDeleteAndInsert() throws HaloDBException {
-        String directory = "/tmp/HaloDBDeletionTest/testDeleteAndInsert";
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
@@ -131,7 +131,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testDeleteAndOpen() throws HaloDBException {
-        String directory = "/tmp/HaloDBDeletionTest/testDeleteAndOpen";
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndOpen");
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
@@ -165,7 +165,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testDeleteAndMerge() throws Exception {
-        String directory = "/tmp/HaloDBDeletionTest/testDeleteAndMerge";
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndMerge");
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.10);
@@ -218,7 +218,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test
     public void testDeleteAllRecords() throws Exception {
-        String directory = Paths.get("tmp", "HaloDBDeletionTest", "testDeleteAllRecords").toString();
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAllRecords");
         HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(1);

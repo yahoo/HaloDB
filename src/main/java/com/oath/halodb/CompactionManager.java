@@ -122,17 +122,6 @@ class CompactionManager {
             super("CompactionThread");
 
             setUncaughtExceptionHandler((t, e) -> {
-                if (e instanceof RuntimeException && e.getCause() instanceof IOException) {
-                    logger.error("IOException in Compaction thread. This is probably non-recoverable. Hence shutting down compaction", e.getCause());
-                    isRunning = false;
-                    try {
-                        dbInternal.setIOErrorFlag();
-                    } catch (IOException e1) {
-                        logger.error("Error while setting IOError flag", e1);
-                    }
-                    return;
-                }
-
                 logger.error("Compaction thread crashed. Creating and running another thread. ", e);
                 compactionThread = null;
                 if (currentWriteFile != null) {
@@ -166,16 +155,8 @@ class CompactionManager {
                     dbInternal.markFileAsCompacted(fileToCompact);
                     dbInternal.deleteHaloDBFile(fileToCompact);
                 }
-                catch (InterruptedException e) {
-                    logger.error("Compaction thread interrupted", e);
-                }
-                catch (IOException e) {
-                    logger.error(String.format("IO error while compacting file %d to %d", fileToCompact, getCurrentWriteFileId()), e);
-                    // IO errors are usually non-recoverable; problem with disk, lack of space etc.
-                    throw new RuntimeException(e);
-                }
-                catch (Exception e){
-                    logger.error("Error while compacting " + fileToCompact, e);
+                catch (Exception e) {
+                    logger.error(String.format("Error while compacting file %d to %d", fileToCompact, getCurrentWriteFileId()), e);
                 }
             }
 

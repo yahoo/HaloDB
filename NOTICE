@@ -1,0 +1,23 @@
+=========================================================================
+NOTICE file for use with, and corresponding to Section 4 of, 
+the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0) 
+in this case for the HaloDB project 
+=========================================================================
+
+This project contains software developed by Robert Stupp.
+
+OHC (https://github.com/snazy/ohc)
+Java Off-Heap-Cache, licensed under APLv2
+Copyright (C) 2014 Robert Stupp, Koeln, Germany, robert-stupp.de
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

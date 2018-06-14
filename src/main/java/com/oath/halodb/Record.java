@@ -195,7 +195,7 @@ public class Record {
             return sequenceNumber;
         }
 
-        public long getCheckSum() {
+        long getCheckSum() {
             return checkSum;
         }
     }

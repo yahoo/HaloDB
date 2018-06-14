@@ -23,7 +23,7 @@ import java.util.stream.Stream;
 
 public class FileUtilsTest {
 
-    private String directory = Paths.get("tmp", "FileUtilsTest").toString();
+    private String directory = TestUtils.getTestDirectory("FileUtilsTest");
 
     private Integer[] fileIds = {7, 12, 1, 8, 10};
 
@@ -39,6 +39,12 @@ public class FileUtilsTest {
             .collect(Collectors.toList());
 
 
+    private List<String> tombstoneFileNames =
+        Stream.of(fileIds)
+            .map(i -> Paths.get(directory).resolve(i + TombstoneFile.TOMBSTONE_FILE_NAME).toString())
+            .collect(Collectors.toList());
+
+
     @BeforeMethod
     public void createDirectory() throws IOException {
         TestUtils.deleteDirectory(new File(directory));
@@ -51,6 +57,12 @@ public class FileUtilsTest {
         }
 
         for (String f : dataFileNames) {
+            try(PrintWriter writer = new PrintWriter(new FileWriter(f))) {
+                writer.append("test");
+            }
+        }
+
+        for (String f : tombstoneFileNames) {
             try(PrintWriter writer = new PrintWriter(new FileWriter(f))) {
                 writer.append("test");
             }
@@ -76,6 +88,15 @@ public class FileUtilsTest {
         List<String> actual = Stream.of(files).map(File::getName).collect(Collectors.toList());
         List<String> expected = Stream.of(fileIds).map(i -> i + HaloDBFile.DATA_FILE_NAME).collect(Collectors.toList());
         MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(expected.toArray()));
+    }
+
+    @Test
+    public void testListTombstoneFiles() {
+        File[] files = FileUtils.listTombstoneFiles(new File(directory));
+        List<String> actual = Stream.of(files).map(File::getName).collect(Collectors.toList());
+        List<String> expected = Stream.of(fileIds).sorted().map(i -> i + TombstoneFile.TOMBSTONE_FILE_NAME).collect(Collectors.toList());
+
+        Assert.assertEquals(actual, expected);
     }
 
 }

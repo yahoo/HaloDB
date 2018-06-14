@@ -218,8 +218,8 @@ public class TombstoneFileCleanUpTest extends TestBase {
         int noOfFiles = 8;
         int noOfRecords = noOfRecordsPerFile * noOfFiles;
 
-        int keyLength = 23;
-        int valueLength = 20;
+        int keyLength = 19;
+        int valueLength = 24;
 
         List<Record> records = new ArrayList<>();
         for (int i = 0; i < noOfRecords; i++) {
@@ -237,8 +237,8 @@ public class TombstoneFileCleanUpTest extends TestBase {
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // Since keyLength was 23 tombstone entry is 32 bytes.
-        // Since file size is 512 there would be two tombstone both of which should be copied. 
+        // Since keyLength was 19 tombstone entry is 32 bytes.
+        // Since file size is 512 there would be two tombstone files both of which should be copied.
         File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
         List<TombstoneEntry> tombstones = new ArrayList<>();
         Assert.assertEquals(tombstoneFiles.length, 2);

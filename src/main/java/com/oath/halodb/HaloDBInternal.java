@@ -219,7 +219,7 @@ class HaloDBInternal {
         if (metaData != null) {
             //TODO: implement a getAndRemove method in keyCache. 
             keyCache.remove(key);
-            TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber());
+            TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber(), -1);
             rollOverCurrentTombstoneFile(entry);
             currentTombstoneFile.write(entry);
             markPreviousVersionAsStale(key, metaData);
@@ -497,6 +497,19 @@ class HaloDBInternal {
                 throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
             }
         });
+
+        File[] tombstoneFiles = FileUtils.listTombstoneFiles(dbDirectory);
+        if (tombstoneFiles != null && tombstoneFiles.length > 0) {
+            TombstoneFile lastFile = new TombstoneFile(tombstoneFiles[tombstoneFiles.length-1], options);
+            try {
+                logger.info("Repairing {} file", lastFile.getName());
+                lastFile.open();
+                TombstoneFile newFile = lastFile.repairFile(getNextFileId());
+                newFile.close();
+            } catch (IOException e) {
+                throw new RuntimeException("Exception while rebuilding index file " + lastFile.getName() + " which might be corrupted", e);
+            }
+        }
     }
 
     private FileLock getLock() throws HaloDBException {

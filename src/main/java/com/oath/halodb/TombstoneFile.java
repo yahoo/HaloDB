@@ -5,6 +5,9 @@
 
 package com.oath.halodb;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -18,6 +21,7 @@ import java.util.Objects;
  * @author Arjun Mannaly
  */
 class TombstoneFile {
+    private static final Logger logger = LoggerFactory.getLogger(TombstoneFile.class);
 
     private final File backingFile;
     private FileChannel channel;
@@ -97,12 +101,49 @@ class TombstoneFile {
             channel.force(true);
     }
 
+    /**
+     * Copies to a new file those entries whose computed checksum matches the stored one.
+     * Records in the file which occur after a corrupted record are discarded.
+     * Current file is deleted after copy.
+     * This method is called if we detect an unclean shutdown.
+     */
+    TombstoneFile repairFile(int newFileId) throws IOException {
+        TombstoneFile newFile = create(backingFile.getParentFile(), newFileId, options);
+
+        logger.info("Repairing tombstone file {}. Records with the correct checksum will be copied to {}", getName(), newFile.getName());
+
+        TombstoneFileIterator iterator = newIteratorWithCheckForDataCorruption();
+        int count = 0;
+        while (iterator.hasNext()) {
+            TombstoneEntry entry = iterator.next();
+            if (entry == null) {
+                logger.info("Found a corrupted entry in tombstone file {} after copying {} entries.", getName(), count);
+                break;
+            }
+            count++;
+            newFile.write(entry);
+        }
+        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, getName(), getSize(), newFile.getName(), newFile.getSize());
+        newFile.flushToDisk();
+        delete();
+        return newFile;
+    }
+
     String getName() {
         return backingFile.getName();
     }
 
+    private long getSize() {
+        return backingFile.length();
+    }
+
     TombstoneFile.TombstoneFileIterator newIterator() throws IOException {
-        return new TombstoneFile.TombstoneFileIterator();
+        return new TombstoneFile.TombstoneFileIterator(false);
+    }
+
+    // Returns null when it finds a corrupted entry.
+    TombstoneFile.TombstoneFileIterator newIteratorWithCheckForDataCorruption() throws IOException {
+        return new TombstoneFile.TombstoneFileIterator(true);
     }
 
     private static File getTombstoneFile(File dbDirectory, int fileId) {
@@ -112,9 +153,11 @@ class TombstoneFile {
     class TombstoneFileIterator implements Iterator<TombstoneEntry> {
 
         private final ByteBuffer buffer;
+        private final boolean discardCorruptedRecords;
 
-        public TombstoneFileIterator() throws IOException {
+        TombstoneFileIterator(boolean discardCorruptedRecords) throws IOException {
             buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+            this.discardCorruptedRecords = discardCorruptedRecords;
         }
 
         @Override
@@ -125,9 +168,9 @@ class TombstoneFile {
         @Override
         public TombstoneEntry next() {
             if (hasNext()) {
-                // TODO:
-                // this can throw an error if the process crashed
-                // and only part of the tombstone entry was written.
+                if (discardCorruptedRecords)
+                    return TombstoneEntry.deserializeIfNotCorrupted(buffer);
+                
                 return TombstoneEntry.deserialize(buffer);
             }
 

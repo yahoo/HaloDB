@@ -29,4 +29,12 @@ class Utils {
     static RecordMetaDataForCache getMetaData(IndexFileEntry entry, int fileId) {
         return new RecordMetaDataForCache(fileId, Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()), Utils.getValueSize(entry.getRecordSize(), entry.getKey()), entry.getSequenceNumber());
     }
+
+    static long toUnsignedIntFromInt(int value) {
+        return value & 0xffffffffL;
+    }
+
+    static int toSignedIntFromLong(long value) {
+        return (int)(value & 0xffffffffL);
+    }
 }

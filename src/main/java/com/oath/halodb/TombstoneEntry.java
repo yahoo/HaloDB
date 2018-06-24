@@ -51,12 +51,12 @@ class TombstoneEntry {
         header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
         header.put(KEY_SIZE_OFFSET, keySize);
         long crc32 = computeCheckSum(header.array());
-        header.putInt(CHECK_SUM_OFFSET, (int)(crc32 & 0xffffffffL));
+        header.putInt(CHECK_SUM_OFFSET, Utils.toSignedIntFromLong(crc32));
         return new ByteBuffer[] {header, ByteBuffer.wrap(key)};
     }
 
     static TombstoneEntry deserialize(ByteBuffer buffer) {
-        long crc32 = getUnsignedInt(buffer.getInt());
+        long crc32 = Utils.toUnsignedIntFromInt(buffer.getInt());
         long sequenceNumber = buffer.getLong();
         int keySize = (int)buffer.get();
         byte[] key = new byte[keySize];
@@ -71,7 +71,7 @@ class TombstoneEntry {
             return null;
         }
 
-        long crc32 = getUnsignedInt(buffer.getInt());
+        long crc32 = Utils.toUnsignedIntFromInt(buffer.getInt());
         long sequenceNumber = buffer.getLong();
         int keySize = (int)buffer.get();
         if (sequenceNumber < 0 || keySize <= 0 || buffer.remaining() < keySize)
@@ -100,9 +100,5 @@ class TombstoneEntry {
         header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
         header.put(KEY_SIZE_OFFSET, (byte)key.length);
         return computeCheckSum(header.array());
-    }
-
-    private static long getUnsignedInt(int value) {
-        return value & 0xffffffffL;
     }
 }

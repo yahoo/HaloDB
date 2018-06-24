@@ -40,7 +40,7 @@ public class RecordTest {
         long sequenceNumber = 34543434343L;
 
         ByteBuffer buffer = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
-        buffer.putLong(checkSum);
+        buffer.putInt(Utils.toSignedIntFromLong(checkSum));
         buffer.put(keySize);
         buffer.putInt(valueSize);
         buffer.putLong(sequenceNumber);
@@ -72,7 +72,7 @@ public class RecordTest {
 
         Record.Header header = new Record.Header(0, (byte)key.length, value.length, sequenceNumber);
         ByteBuffer headerBuf = header.serialize();
-        headerBuf.putLong(Record.Header.CHECKSUM_OFFSET, crc32.getValue());
+        headerBuf.putInt(Record.Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32.getValue()));
 
         Assert.assertEquals(headerBuf, buffers[0]);
         Assert.assertEquals(ByteBuffer.wrap(key), buffers[1]);

@@ -16,8 +16,6 @@ public class Record {
 
     private final byte[] key, value;
 
-    static final byte[] TOMBSTONE_VALUE = new byte[0];
-
     private RecordMetaDataForCache recordMetaData;
 
     private Header header;
@@ -84,7 +82,7 @@ public class Record {
     private ByteBuffer serializeHeaderAndComputeChecksum() {
         ByteBuffer headerBuf = header.serialize();
         long checkSum = computeCheckSum(headerBuf.array());
-        headerBuf.putLong(Header.CHECKSUM_OFFSET, checkSum);
+        headerBuf.putInt(Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(checkSum));
         return headerBuf;
     }
 
@@ -107,6 +105,8 @@ public class Record {
 
     @Override
     public boolean equals(Object obj) {
+        // to be used in tests as we don't check if the headers are the same. 
+
         if (this == obj) {
             return true;
         }
@@ -115,29 +115,22 @@ public class Record {
         }
 
         Record record = (Record)obj;
-        if (getKey() == null || record.getKey() == null)
-            return false;
-        if (getValue() == null || record.getValue() == null)
-            return false;
-
         return Arrays.equals(getKey(), record.getKey()) && Arrays.equals(getValue(), record.getValue());
     }
 
-    //TODO: override hash code.
-    //TODO: remove flags if not required.
     static class Header {
         /**
-         * crc              - 8 bytes.
+         * crc              - 4 bytes.
          * key size         - 1 bytes.
          * value size       - 4 bytes.
          * sequence number  - 8 bytes.
          */
         static final int CHECKSUM_OFFSET = 0;
-        static final int KEY_SIZE_OFFSET = 8;
-        static final int VALUE_SIZE_OFFSET = 9;
-        static final int SEQUENCE_NUMBER_OFFSET = 13;
+        static final int KEY_SIZE_OFFSET = 4;
+        static final int VALUE_SIZE_OFFSET = 5;
+        static final int SEQUENCE_NUMBER_OFFSET = 9;
 
-        static final int HEADER_SIZE = 21;
+        static final int HEADER_SIZE = 17;
 
         private long checkSum;
         private byte keySize;
@@ -156,7 +149,7 @@ public class Record {
 
         static Header deserialize(ByteBuffer buffer) {
 
-            long checkSum = buffer.getLong(CHECKSUM_OFFSET);
+            long checkSum = Utils.toUnsignedIntFromInt(buffer.getInt(CHECKSUM_OFFSET));
             byte keySize = buffer.get(KEY_SIZE_OFFSET);
             int valueSize = buffer.getInt(VALUE_SIZE_OFFSET);
             long sequenceNumber = buffer.getLong(SEQUENCE_NUMBER_OFFSET);

@@ -84,8 +84,7 @@ public class HaloDBFileTest extends TestBase {
         byte[] value = "corrupted value".getBytes();
         Record corrupted = new Record(key, value);
         // value length is corrupted. 
-        corrupted.setHeader(new Record.Header(0, (byte)key.length, -345445, 1234));
-        corrupted.setSequenceNumber(1234);
+        corrupted.setHeader(new Record.Header(0, 0, (byte)key.length, -345445, 1234));
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             channel.write(corrupted.serialize());
         }
@@ -127,8 +126,7 @@ public class HaloDBFileTest extends TestBase {
         byte[] key = "corrupted key".getBytes();
         byte[] value = "corrupted value".getBytes();
         Record record = new Record(key, value);
-        record.setHeader(new Record.Header(0, (byte)key.length, value.length, 1234));
-        record.setSequenceNumber(1234);
+        record.setHeader(new Record.Header(0, 2, (byte)key.length, value.length, 1234));
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
            ByteBuffer[] data = record.serialize();
            data[2] = ByteBuffer.wrap("value corrupted".getBytes());
@@ -152,8 +150,7 @@ public class HaloDBFileTest extends TestBase {
         byte[] key = "corrupted key".getBytes();
         byte[] value = "corrupted value".getBytes();
         Record record = new Record(key, value);
-        record.setHeader(new Record.Header(0, (byte)key.length, value.length, 1234));
-        record.setSequenceNumber(1234);
+        record.setHeader(new Record.Header(0, 100, (byte)key.length, value.length, 1234));
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = record.serialize();
             data[2] = ByteBuffer.wrap("missing".getBytes());
@@ -195,8 +192,7 @@ public class HaloDBFileTest extends TestBase {
         byte[] value = "corrupted value".getBytes();
         Record record = new Record(key, value);
         // header is valid but the value size is incorrect. 
-        record.setHeader(new Record.Header(0, (byte)key.length, 5, 1234));
-        record.setSequenceNumber(1234);
+        record.setHeader(new Record.Header(0,101,  (byte)key.length, 5, 1234));
         try(FileChannel channel = FileChannel.open(Paths.get(directory.getCanonicalPath(), fileId + HaloDBFile.DATA_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = record.serialize();
             channel.write(data);

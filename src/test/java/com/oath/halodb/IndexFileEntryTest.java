@@ -22,11 +22,13 @@ public class IndexFileEntryTest {
         int recordOffset = 10240;
         byte keySize = (byte) key.length;
         long sequenceNumber = 100;
+        int version = 200;
 
-        IndexFileEntry entry = new IndexFileEntry(key, recordSize, recordOffset, sequenceNumber);
+        IndexFileEntry entry = new IndexFileEntry(key, recordSize, recordOffset, sequenceNumber, version);
         ByteBuffer[] buffers = entry.serialize();
 
         ByteBuffer header = ByteBuffer.allocate(IndexFileEntry.INDEX_FILE_HEADER_SIZE);
+        header.put((byte)version);
         header.put(keySize);
         header.putInt(recordSize);
         header.putInt(recordOffset);
@@ -35,5 +37,32 @@ public class IndexFileEntryTest {
 
         Assert.assertEquals(header, buffers[0]);
         Assert.assertEquals(ByteBuffer.wrap(key), buffers[1]);
+    }
+
+    @Test
+    public void deserializeIndexFileEntry() {
+        byte[] key = TestUtils.generateRandomByteArray(8);
+        int recordSize = 1024;
+        int recordOffset = 10240;
+        byte keySize = (byte) key.length;
+        long sequenceNumber = 100;
+        int version = 10;
+
+        ByteBuffer header = ByteBuffer.allocate(IndexFileEntry.INDEX_FILE_HEADER_SIZE + keySize);
+        header.put((byte)version);
+        header.put(keySize);
+        header.putInt(recordSize);
+        header.putInt(recordOffset);
+        header.putLong(sequenceNumber);
+        header.put(key);
+        header.flip();
+
+        IndexFileEntry entry = IndexFileEntry.deserialize(header);
+
+        Assert.assertEquals(entry.getVersion(), version);
+        Assert.assertEquals(entry.getRecordSize(), recordSize);
+        Assert.assertEquals(entry.getRecordOffset(), recordOffset);
+        Assert.assertEquals(entry.getSequenceNumber(), sequenceNumber);
+        Assert.assertEquals(entry.getKey(), key);
     }
 }

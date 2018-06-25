@@ -23,7 +23,7 @@ public class Record {
     public Record(byte[] key, byte[] value) {
         this.key = key;
         this.value = value;
-        header = new Header(0, (byte)key.length, value.length, -1);
+        header = new Header(0, Versions.CURRENT_DATA_FILE_VERSION, (byte)key.length, value.length, -1);
     }
 
     ByteBuffer[] serialize() {
@@ -71,6 +71,17 @@ public class Record {
         return header.getSequenceNumber();
     }
 
+    void setVersion(int version) {
+        if (version < 0 || version > 255) {
+            throw new IllegalArgumentException("Got version " + version + ". Record version must be in range [0,255]");
+        }
+        header.version = version;
+    }
+
+    int getVersion() {
+        return header.version;
+    }
+
     Header getHeader() {
         return header;
     }
@@ -97,7 +108,7 @@ public class Record {
         CRC32 crc32 = new CRC32();
 
         // compute checksum with all but the first header element, key and value.
-        crc32.update(header, Header.KEY_SIZE_OFFSET, Header.HEADER_SIZE-Header.KEY_SIZE_OFFSET);
+        crc32.update(header, Header.CHECKSUM_OFFSET + Header.CHECKSUM_SIZE, Header.HEADER_SIZE-Header.CHECKSUM_SIZE);
         crc32.update(key);
         crc32.update(value);
         return crc32.getValue();
@@ -121,26 +132,31 @@ public class Record {
     static class Header {
         /**
          * crc              - 4 bytes.
+         * version          - 1 byte.
          * key size         - 1 bytes.
          * value size       - 4 bytes.
          * sequence number  - 8 bytes.
          */
         static final int CHECKSUM_OFFSET = 0;
-        static final int KEY_SIZE_OFFSET = 4;
-        static final int VALUE_SIZE_OFFSET = 5;
-        static final int SEQUENCE_NUMBER_OFFSET = 9;
+        static final int VERSION_OFFSET = 4;
+        static final int KEY_SIZE_OFFSET = 5;
+        static final int VALUE_SIZE_OFFSET = 6;
+        static final int SEQUENCE_NUMBER_OFFSET = 10;
 
-        static final int HEADER_SIZE = 17;
+        static final int HEADER_SIZE = 18;
+        static final int CHECKSUM_SIZE = 4;
 
         private long checkSum;
+        private int version;
         private byte keySize;
         private int valueSize;
         private long sequenceNumber;
 
         private int recordSize;
 
-        Header(long checkSum, byte keySize, int valueSize, long sequenceNumber) {
+        Header(long checkSum, int version, byte keySize, int valueSize, long sequenceNumber) {
             this.checkSum = checkSum;
+            this.version = version;
             this.keySize = keySize;
             this.valueSize = valueSize;
             this.sequenceNumber = sequenceNumber;
@@ -150,17 +166,19 @@ public class Record {
         static Header deserialize(ByteBuffer buffer) {
 
             long checkSum = Utils.toUnsignedIntFromInt(buffer.getInt(CHECKSUM_OFFSET));
+            int version = Utils.toUnsignedByte(buffer.get(VERSION_OFFSET));
             byte keySize = buffer.get(KEY_SIZE_OFFSET);
             int valueSize = buffer.getInt(VALUE_SIZE_OFFSET);
             long sequenceNumber = buffer.getLong(SEQUENCE_NUMBER_OFFSET);
 
-            return new Header(checkSum, keySize, valueSize, sequenceNumber);
+            return new Header(checkSum, version, keySize, valueSize, sequenceNumber);
         }
 
         // checksum value can be computed only with record key and value. 
         ByteBuffer serialize() {
             byte[] header = new byte[HEADER_SIZE];
             ByteBuffer headerBuffer = ByteBuffer.wrap(header);
+            headerBuffer.put(VERSION_OFFSET, (byte)version);
             headerBuffer.put(KEY_SIZE_OFFSET, keySize);
             headerBuffer.putInt(VALUE_SIZE_OFFSET, valueSize);
             headerBuffer.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
@@ -169,7 +187,9 @@ public class Record {
         }
 
         static boolean verifyHeader(Record.Header header) {
-            return header.keySize > 0 && header.valueSize > 0 && header.recordSize > 0 && header.sequenceNumber > 0;
+            return header.version >= 0 && header.version < 256
+                   &&  header.keySize > 0 && header.valueSize > 0
+                   && header.recordSize > 0 && header.sequenceNumber > 0;
         }
 
         byte getKeySize() {
@@ -190,6 +210,10 @@ public class Record {
 
         long getCheckSum() {
             return checkSum;
+        }
+
+        int getVersion() {
+            return version;
         }
     }
 }

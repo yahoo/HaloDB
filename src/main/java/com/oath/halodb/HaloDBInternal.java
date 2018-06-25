@@ -145,6 +145,7 @@ class HaloDBInternal {
 
         Record record = new Record(key, value);
         record.setSequenceNumber(getNextSequenceNumber());
+        record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
         RecordMetaDataForCache entry = writeRecordToFile(record);
         markPreviousVersionAsStale(key);
 
@@ -219,7 +220,8 @@ class HaloDBInternal {
         if (metaData != null) {
             //TODO: implement a getAndRemove method in keyCache. 
             keyCache.remove(key);
-            TombstoneEntry entry = new TombstoneEntry(key, getNextSequenceNumber(), -1);
+            TombstoneEntry entry =
+                new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
             rollOverCurrentTombstoneFile(entry);
             currentTombstoneFile.write(entry);
             markPreviousVersionAsStale(key, metaData);

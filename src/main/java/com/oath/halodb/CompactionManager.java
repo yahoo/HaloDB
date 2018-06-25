@@ -205,7 +205,7 @@ class CompactionManager {
                         unFlushedData = 0;
                     }
 
-                    IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, currentWriteFileOffset, indexFileEntry.getSequenceNumber());
+                    IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, currentWriteFileOffset, indexFileEntry.getSequenceNumber(), indexFileEntry.getVersion());
                     currentWriteFile.getIndexFile().write(newEntry);
 
                     int valueOffset = Utils.getValueOffset(currentWriteFileOffset, key);

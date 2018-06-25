@@ -50,7 +50,7 @@ public class TombstoneFileTest {
 
         // add a corrupted entry to the file. 
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 21);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -74,7 +74,7 @@ public class TombstoneFileTest {
 
         // add a corrupted entry to the file.
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 13);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -98,7 +98,7 @@ public class TombstoneFileTest {
 
         // add a corrupted entry to the file.
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 17);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -123,6 +123,8 @@ public class TombstoneFileTest {
             TombstoneEntry actual = iterator.next();
             Assert.assertEquals(actual.getKey(), records.get(count).getKey());
             Assert.assertEquals(actual.getSequenceNumber(), records.get(count).getSequenceNumber());
+            Assert.assertEquals(actual.getVersion(), records.get(count).getVersion());
+            Assert.assertEquals(actual.getCheckSum(), records.get(count).getCheckSum());
             count++;
         }
 
@@ -133,9 +135,9 @@ public class TombstoneFileTest {
     private List<TombstoneEntry> insertTestRecords(int number) throws IOException {
         List<TombstoneEntry> records = new ArrayList<>();
         for (int i = 0; i < number; i++) {
-            TombstoneEntry entry = new TombstoneEntry(TestUtils.generateRandomByteArray(), i, -1);
-            file.write(entry);
-            records.add(entry);
+            TombstoneEntry e = new TombstoneEntry(TestUtils.generateRandomByteArray(), i, -1, 1);
+            file.write(e);
+            records.add(new TombstoneEntry(e.getKey(), e.getSequenceNumber(), e.computeCheckSum(), e.getVersion()));
         }
         return records;
     }

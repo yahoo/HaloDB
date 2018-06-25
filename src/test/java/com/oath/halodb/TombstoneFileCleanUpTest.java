@@ -218,7 +218,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         int noOfFiles = 8;
         int noOfRecords = noOfRecordsPerFile * noOfFiles;
 
-        int keyLength = 19;
+        int keyLength = 18;
         int valueLength = 24;
 
         List<Record> records = new ArrayList<>();

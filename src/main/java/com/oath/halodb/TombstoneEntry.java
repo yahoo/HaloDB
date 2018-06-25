@@ -23,7 +23,7 @@ class TombstoneEntry {
     static final int TOMBSTONE_ENTRY_HEADER_SIZE = 4 + 1 + 1 + 8;
     static final int CHECKSUM_SIZE = 4;
 
-    static final int CHECK_SUM_OFFSET = 0;
+    static final int CHECKSUM_OFFSET = 0;
     static final int VERSION_OFFSET = 4;
     static final int SEQUENCE_NUMBER_OFFSET = 5;
     static final int KEY_SIZE_OFFSET = 13;
@@ -63,7 +63,7 @@ class TombstoneEntry {
         header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
         header.put(KEY_SIZE_OFFSET, keySize);
         long crc32 = computeCheckSum(header.array());
-        header.putInt(CHECK_SUM_OFFSET, Utils.toSignedIntFromLong(crc32));
+        header.putInt(CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32));
         return new ByteBuffer[] {header, ByteBuffer.wrap(key)};
     }
 
@@ -104,7 +104,7 @@ class TombstoneEntry {
 
     private long computeCheckSum(byte[] header) {
         CRC32 crc32 = new CRC32();
-        crc32.update(header, CHECK_SUM_OFFSET + CHECKSUM_SIZE, TOMBSTONE_ENTRY_HEADER_SIZE - CHECKSUM_SIZE);
+        crc32.update(header, CHECKSUM_OFFSET + CHECKSUM_SIZE, TOMBSTONE_ENTRY_HEADER_SIZE - CHECKSUM_SIZE);
         crc32.update(key);
         return crc32.getValue();
     }

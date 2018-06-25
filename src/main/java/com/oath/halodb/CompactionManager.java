@@ -205,11 +205,17 @@ class CompactionManager {
                         unFlushedData = 0;
                     }
 
-                    IndexFileEntry newEntry = new IndexFileEntry(key, recordSize, currentWriteFileOffset, indexFileEntry.getSequenceNumber(), indexFileEntry.getVersion());
+                    IndexFileEntry newEntry = new IndexFileEntry(
+                        key, recordSize, currentWriteFileOffset,
+                        indexFileEntry.getSequenceNumber(), indexFileEntry.getVersion(), -1
+                    );
                     currentWriteFile.getIndexFile().write(newEntry);
 
                     int valueOffset = Utils.getValueOffset(currentWriteFileOffset, key);
-                    RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(currentWriteFile.getFileId(), valueOffset, currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber());
+                    RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(
+                        currentWriteFile.getFileId(), valueOffset,
+                        currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber()
+                    );
 
                     boolean updated = dbInternal.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
                     if (updated) {

@@ -115,7 +115,11 @@ class HaloDBFile {
         int recordOffset = writeOffset;
         writeOffset += recordSize;
 
-        IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), recordSize, recordOffset, record.getSequenceNumber(), Versions.CURRENT_INDEX_FILE_VERSION);
+        IndexFileEntry indexFileEntry = new IndexFileEntry(
+            record.getKey(), recordSize,
+            recordOffset, record.getSequenceNumber(),
+            Versions.CURRENT_INDEX_FILE_VERSION, -1
+        );
         indexFile.write(indexFileEntry);
 
         int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
@@ -132,7 +136,11 @@ class HaloDBFile {
         int offset = 0;
         while (iterator.hasNext()) {
             Record record = iterator.next();
-            IndexFileEntry indexFileEntry = new IndexFileEntry(record.getKey(), record.getRecordSize(), offset, record.getSequenceNumber(), Versions.CURRENT_INDEX_FILE_VERSION);
+            IndexFileEntry indexFileEntry = new IndexFileEntry(
+                record.getKey(), record.getRecordSize(),
+                offset, record.getSequenceNumber(),
+                Versions.CURRENT_INDEX_FILE_VERSION, -1
+            );
             indexFile.write(indexFileEntry);
             offset += record.getRecordSize();
         }

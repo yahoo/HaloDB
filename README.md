@@ -1,8 +1,8 @@
 # HaloDB
 
 HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java.
-Basic design principles employed in HaloDB are similar to that of log structured file systems and has been implemented in systems 
-like [BitCask](https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf), [Aerospike](https://www.aerospike.com/docs/architecture), [Haystack](https://code.facebook.com/posts/685565858139515/needle-in-a-haystack-efficient-storage-of-billions-of-photos/) etc.  
+Basic design principles employed in HaloDB were inspired by those of log structured file systems and similar ideas can be found in systems  
+like [BitCask](https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf), [Aerospike](https://www.aerospike.com/docs/architecture), and [Haystack](https://code.facebook.com/posts/685565858139515/needle-in-a-haystack-efficient-storage-of-billions-of-photos/).  
 
 HaloDB was designed and developed as an embedded storage engine for a high-throughput, low latency 
 distributed key-value database that powers Yahoo's DSP, and hence all its design choices and optimizations were

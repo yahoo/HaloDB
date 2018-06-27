@@ -1,14 +1,13 @@
 # HaloDB
 
 HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java.
-Basic design principles employed in HaloDB were inspired by those of log structured file systems and similar ideas can be found in systems  
-like [BitCask](https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf), [Aerospike](https://www.aerospike.com/docs/architecture), and [Haystack](https://code.facebook.com/posts/685565858139515/needle-in-a-haystack-efficient-storage-of-billions-of-photos/).  
+Basic design principles employed in HaloDB were inspired by those of log-structured file systems and similar ideas can be found in systems like [BitCask](https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf) and [Haystack](https://code.facebook.com/posts/685565858139515/needle-in-a-haystack-efficient-storage-of-billions-of-photos/).  
 
 HaloDB was designed and developed as an embedded storage engine for a high-throughput, low latency 
 distributed key-value database that powers Yahoo's DSP, and hence all its design choices and optimizations were
 primarily for this use case.  
 
-HaloDB comprises of two main components: an index in memory which stores all the keys, and files on
+HaloDB comprises of two main components: an index in memory which stores all the keys, and append-only log files on
 the persistent layer which stores all the data. To reduce Java garbage collection pressure the index 
 is allocated in native memory, outside the Java heap. 
 
@@ -150,8 +149,8 @@ in the hash table requires 8 bytes, and the total number of such buckets depends
 Memory fragmentation is an always an issue with native memory allocation. **Using [jemalloc](http://jemalloc.net/) is highly recommended** as it provides 
 a significant reduction in the cache's memory footprint and fragmentation.
 
-For fixed size keys it is possible to further reduce the memory footprint and fragmentation by using a memory pool. Work on this 
-is in progress and should be ready soon.   
+_For fixed size keys it is possible to further reduce the memory footprint and fragmentation by using a memory pool. Work on this 
+is in progress and should be ready soon_.   
 
 ### Delete operations.
 Delete operation for a key will add a tombstone record to a tombstone file, which is distinct from the data files. 
@@ -208,6 +207,7 @@ Insert 500 million records into an empty db in random order.
 32 threads doing a total of 640 million random reads and one thread doing random updates as fast as possible.  
 ![HaloDB](https://lh3.googleusercontent.com/sJtr8EdXWyw6IjG9oUn6Vb4YAW-KDnfMcqYTDAYOLO3N3sxt-FM-4JaA8hHKQeA63yzHZ9wGvxtp9BXDu-moxJ5K-bqFY2XBXUu4J82TiQ6SFOwC5UI73BxKdg05iS7dzJfe-lQM491xi_7aHnEfkZXOyxy0c8-zz_v4LgbeWILxGKHaGLyqj18dRIKpMw1Gv8fi5kvhSDu8YfsCp6BqZCI3CYUqduKnnHjFK7WAIvyaC6pFr3PkpU4C1ATpW9SGSeATlqbWOZgzMAVu7lZYJEi7xb3HMOkrc6w5kawVnJ62QBh9DRrila5F7fsEbR_sUPbL_WTYHvxMC0NVA2TjSUffg0wo4VJ75251s75DSLuB-Y3jlZ9i9vM6SCvGoPfeizgf8TU8iIc-9Ws9v4nLqewufM8ft4vlyoIA6aqUB_NVOtN7_FXJ40irUoEDzKDUP-cVzWlFWIpP1HXasxmbzwP34S1_oiyn2pAcC3VpGZ5RuzF-vjapscRdKYiFOJE8S5ywiZZYcCvOxwS3lKpMNs4Y_qkgPen3PTDALteoLyV9EKm90EJEMNw6Pm_amM_wj0pk7qjPpTlkhcSspwPXPvnWLJR2EhldWSFq32R8fUsFuFX5dRXmy4ORpHScuCAu5KYx2dwQSCR0WLyDvX8rKPlhNha3nece=w1950-h1066-no)
 
-  
+### License 
+HaloDB is released under the Apache License, Version 2.0  
   
   

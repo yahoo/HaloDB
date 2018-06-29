@@ -21,7 +21,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testPutAndGetDB() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testPutAndGetDB";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -48,7 +48,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testPutAndGetDBWithByteBuffer() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testPutAndGetDBWithByteBuffer";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDBWithByteBuffer");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -79,7 +79,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testPutUpdateAndGetDB() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testPutUpdateAndGetDB";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutUpdateAndGetDB");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -110,7 +110,7 @@ public class HaloDBTest extends TestBase {
     @Test
     public void testCreateCloseAndOpenDB() throws HaloDBException {
 
-        String directory = "/tmp/HaloDBTest/testCreateCloseAndOpenDB";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testCreateCloseAndOpenDB");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -159,7 +159,7 @@ public class HaloDBTest extends TestBase {
     @Test
     public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws HaloDBException {
 
-        String directory = "/tmp/HaloDBTest/testToCheckThatLatestUpdateIsPickedAfterDBOpen";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckThatLatestUpdateIsPickedAfterDBOpen");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -195,7 +195,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testToCheckDelete() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testToCheckDelete";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckDelete");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -229,7 +229,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testDeleteCloseAndOpen() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testDeleteCloseAndOpen";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteCloseAndOpen");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -267,7 +267,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testDeleteAndInsert() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testDeleteAndInsert";
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteAndInsert");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -313,7 +313,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testDeleteInsertCloseAndOpen() throws HaloDBException {
-        String directory = "/tmp/HaloDBTest/testDeleteInsertCloseAndOpen";
+        String directory = TestUtils.getTestDirectory("tmp", "testDeleteInsertCloseAndOpen");
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
@@ -363,7 +363,7 @@ public class HaloDBTest extends TestBase {
 
     @Test
     public void testDBMetaFile() throws HaloDBException, IOException {
-        String directory = Paths.get("tmp", "HaloDBTest", "testDBClose").toString();
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testDBMetaFile");
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
 
@@ -393,7 +393,7 @@ public class HaloDBTest extends TestBase {
 
     @Test(expectedExceptions = HaloDBException.class, expectedExceptionsMessageRegExp = "Another process already holds a lock for this db.")
     public void testLock() throws Throwable {
-        String directory = Paths.get("tmp", "HaloDBTest", "testLock").toString();
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testLock");
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
         db.resetStats();

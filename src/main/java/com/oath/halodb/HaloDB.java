@@ -43,19 +43,6 @@ public class HaloDB {
         }
     }
 
-    /**
-     * Reads value into the given destination buffer.
-     * The buffer will be cleared and data will be written
-     * from position 0.
-     */
-    public int get(byte[] key, ByteBuffer destination) throws HaloDBException {
-        try {
-            return dbInternal.get(key, destination);
-        } catch (Exception e) {
-            throw new HaloDBException("Lookup failed.", e);
-        }
-    }
-
     public void put(byte[] key, byte[] value) throws HaloDBException {
         try {
             dbInternal.put(key, value);

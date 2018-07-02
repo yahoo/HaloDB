@@ -9,7 +9,7 @@
 
     <groupId>com.oath.halodb</groupId>
     <artifactId>halodb</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>HaloDB</name>
@@ -19,7 +19,6 @@
     <developers>
         <developer>
             <name>Arjun Mannaly</name>
-            <email>a.mannaly@gmail.com</email>
         </developer>
     </developers>
 

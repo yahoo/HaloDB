@@ -47,37 +47,6 @@ public class HaloDBTest extends TestBase {
     }
 
     @Test
-    public void testPutAndGetDBWithByteBuffer() throws HaloDBException {
-        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDBWithByteBuffer");
-
-        HaloDBOptions options = new HaloDBOptions();
-        options.setCompactionDisabled(true);
-
-        HaloDB db = getTestDB(directory, options);
-
-        int noOfRecords = 10_000;
-        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
-
-        List<Record> actual = new ArrayList<>();
-        db.newIterator().forEachRemaining(actual::add);
-
-        Assert.assertTrue(actual.containsAll(records) && records.containsAll(actual));
-
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-        records.forEach(record -> {
-            try {
-                int read = db.get(record.getKey(), buffer);
-                byte[] array = new byte[buffer.remaining()];
-                buffer.get(array);
-                Assert.assertEquals(record.getValue(), array);
-                Assert.assertEquals(record.getValue().length, read);
-            } catch (HaloDBException e) {
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    @Test
     public void testPutUpdateAndGetDB() throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutUpdateAndGetDB");
 

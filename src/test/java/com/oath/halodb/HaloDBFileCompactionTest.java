@@ -20,14 +20,13 @@ import java.util.List;
  */
 public class HaloDBFileCompactionTest extends TestBase {
 
-    @Test
-    public void testCompaction() throws Exception {
+    @Test(dataProvider = "Options")
+    public void testCompaction(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("HaloDBFileCompactionTest", "testCompaction");
 
         int recordSize = 1024;
         int recordNumber = 20;
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * recordSize); // 10 records per data file.
         options.setCompactionThresholdPerFile(0.5);
 

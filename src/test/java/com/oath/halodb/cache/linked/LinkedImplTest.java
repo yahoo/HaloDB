@@ -7,7 +7,6 @@
 
 package com.oath.halodb.cache.linked;
 
-import com.oath.halodb.cache.OHCacheBuilder;
 import com.oath.halodb.cache.OHCache;
 
 import org.testng.annotations.AfterMethod;
@@ -23,25 +22,24 @@ public class LinkedImplTest
         Uns.clearUnsDebugForTest();
     }
 
-    static OHCache<Integer, String> cache()
+    static OHCache<String> cache()
     {
         return cache(256);
     }
 
-    static OHCache<Integer, String> cache(long capacity)
+    static OHCache<String> cache(long capacity)
     {
         return cache(capacity, -1);
     }
 
-    static OHCache<Integer, String> cache(long capacity, int hashTableSize)
+    static OHCache<String> cache(long capacity, int hashTableSize)
     {
         return cache(capacity, hashTableSize, -1, -1);
     }
 
-    static OHCache<Integer, String> cache(long capacity, int hashTableSize, int segments, long maxEntrySize)
+    static OHCache<String> cache(long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
-        OHCacheBuilder<Integer, String> builder = OHCacheBuilder.<Integer, String>newBuilder()
-                                                  .keySerializer(TestUtils.intSerializer)
+        OHCacheBuilder<String> builder = OHCacheBuilder.<String>newBuilder()
                                                   .valueSerializer(TestUtils.stringSerializer)
                                                   .capacity(capacity * TestUtils.ONE_MB);
         if (hashTableSize > 0)
@@ -60,7 +58,7 @@ public class LinkedImplTest
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testExtremeHashTableSize() throws IOException
     {
-        OHCacheBuilder<Object, Object> builder = OHCacheBuilder.newBuilder()
+        OHCacheBuilder<Object> builder = OHCacheBuilder.newBuilder()
                                                                .hashTableSize(1 << 30);
         builder.build().close();
     }

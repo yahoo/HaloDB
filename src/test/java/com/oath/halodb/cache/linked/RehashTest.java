@@ -7,10 +7,8 @@
 
 package com.oath.halodb.cache.linked;
 
-import com.oath.halodb.ByteArraySerializer;
 import com.google.common.primitives.Longs;
 import com.oath.halodb.cache.OHCache;
-import com.oath.halodb.cache.OHCacheBuilder;
 
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -31,9 +29,8 @@ public class RehashTest
     @Test
     public void testRehash() throws IOException
     {
-        try (OHCache<byte[], byte[]> cache = OHCacheBuilder.<byte[], byte[]>newBuilder()
-                                                            .keySerializer(new ByteArraySerializer())
-                                                            .valueSerializer(new ByteArraySerializer())
+        try (OHCache<byte[]> cache = OHCacheBuilder.<byte[]>newBuilder()
+                                                            .valueSerializer(TestUtils.byteArraySerializer)
                                                             .hashTableSize(64)
                                                             .segmentCount(4)
                                                             .capacity(512 * 1024 * 1024)

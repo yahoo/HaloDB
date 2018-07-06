@@ -63,8 +63,9 @@ class HaloDBInternal {
     private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
-        HaloDBInternal dbInternal = new HaloDBInternal();
+        checkIfOptionsAreCorrect(options);
 
+        HaloDBInternal dbInternal = new HaloDBInternal();
         FileUtils.createDirectoryIfNotExists(directory);
         dbInternal.dbDirectory = directory;
 
@@ -88,7 +89,11 @@ class HaloDBInternal {
 
         dbInternal.compactionManager = new CompactionManager(dbInternal);
 
-        dbInternal.keyCache = new OffHeapCache(options.getNumberOfRecords());
+        dbInternal.keyCache = new OffHeapCache(
+            options.getNumberOfRecords(), options.isUseMemoryPool(),
+            options.getFixedKeySize(), options.getMemoryPoolChunkSize()
+        );
+
         dbInternal.buildKeyCache(options);
         dbInternal.compactionManager.startCompactionThread();
 
@@ -538,8 +543,6 @@ class HaloDBInternal {
         return new HashSet<>(readFileMap.keySet());
     }
 
-
-
     boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
         RecordMetaDataForCache metaDataFromCache = keyCache.get(key);
 
@@ -559,16 +562,10 @@ class HaloDBInternal {
         return currentWriteFile != null ? currentWriteFile.getFileId() : -1;
     }
 
-    void printStaleFileStatus() {
-        logger.info("Stale data per file =>");
-
-        staleDataPerFileMap.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
-            int fileId = e.getKey();
-            int staleSize = e.getValue();
-            HaloDBFile file = readFileMap.get(fileId);
-            if (file != null)
-                logger.info("{} - {}", fileId, (staleSize * 100.0)/file.getSize() );
-        });
+    private static void checkIfOptionsAreCorrect(HaloDBOptions options) {
+        if (options.isUseMemoryPool() && (options.getFixedKeySize() < 0 || options.getFixedKeySize() > Byte.MAX_VALUE)) {
+            throw new IllegalArgumentException("fixedKeySize must be set and should be less than 128 when using memory pool");
+        }
     }
 
     boolean isClosing() {
@@ -584,8 +581,8 @@ class HaloDBInternal {
             computeStaleDataMapForStats(),
             cacheStats.getRehashCount(),
             keyCache.getNoOfSegments(),
-            cacheStats.getSegmentSizes(),
             keyCache.getMaxSizeOfEachSegment(),
+            cacheStats.getSegmentStats(),
             noOfTombstonesFoundDuringOpen,
             options.isCleanUpTombstonesDuringOpen() ? noOfTombstonesFoundDuringOpen - noOfTombstonesCopiedDuringOpen : 0,
             compactionManager.getNumberOfRecordsCopied(),

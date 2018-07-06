@@ -9,14 +9,15 @@ package com.oath.halodb.cache.linked;
 
 import com.google.common.primitives.Ints;
 import com.oath.halodb.cache.HashAlgorithm;
-import com.oath.halodb.cache.OHCacheBuilder;
-
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
-
-import com.oath.halodb.cache.CacheSerializer;
 import com.oath.halodb.cache.histo.EstimatedHistogram;
 
-class OffHeapLinkedMap<V> {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+class OffHeapLinkedMap<V> extends Segment<V> {
+
+    private static final Logger logger = LoggerFactory.getLogger(OffHeapLinkedMap.class);
+
     // maximum hash table size
     private static final int MAX_TABLE_SIZE = 1 << 30;
 
@@ -36,28 +37,16 @@ class OffHeapLinkedMap<V> {
     long evictedEntries;
     private long expiredEntries;
 
-    private final CacheSerializer<V> valueSerializer;
-    private final int fixedValueLength;
-
     private final HashAlgorithm hashAlgorithm;
 
-    // Replacement for Unsafe.monitorEnter/monitorExit. Uses the thread-ID to indicate a lock
-    // using a CAS operation on the primitive instance field.
-    private final boolean unlocked;
-    private volatile long lock;
-    private static final AtomicLongFieldUpdater<OffHeapLinkedMap> lockFieldUpdater =
-    AtomicLongFieldUpdater.newUpdater(OffHeapLinkedMap.class, "lock");
+    private volatile long putFailCount;
 
     private final boolean throwOOME;
 
-    OffHeapLinkedMap(OHCacheBuilder<?,V> builder)
-    {
+    OffHeapLinkedMap(OHCacheBuilder<V> builder) {
+        super(builder.getValueSerializer(), builder.getFixedValueSize(), builder.getHasher());
+
         this.throwOOME = builder.isThrowOOME();
-
-        this.unlocked = builder.isUnlocked();
-
-        this.valueSerializer = builder.getValueSerializer();
-        this.fixedValueLength = builder.getFixedValueSize();
 
         this.hashAlgorithm = builder.getHashAlgorighm();
         
@@ -78,8 +67,8 @@ class OffHeapLinkedMap<V> {
         threshold = (long) ((double) table.size() * loadFactor);
     }
 
-    void release()
-    {
+    @Override
+    void release() {
         boolean wasFirst = lock();
         try
         {
@@ -92,36 +81,42 @@ class OffHeapLinkedMap<V> {
         }
     }
 
-    long size()
-    {
+    @Override
+    long size() {
         return size;
     }
 
+    @Override
     long hitCount()
     {
         return hitCount;
     }
 
+    @Override
     long missCount()
     {
         return missCount;
     }
 
+    @Override
     long putAddCount()
     {
         return putAddCount;
     }
 
+    @Override
     long putReplaceCount()
     {
         return putReplaceCount;
     }
 
+    @Override
     long removeCount()
     {
         return removeCount;
     }
 
+    @Override
     void resetStatistics()
     {
         rehashes = 0L;
@@ -133,21 +128,13 @@ class OffHeapLinkedMap<V> {
         removeCount = 0L;
     }
 
+    @Override
     long rehashes()
     {
         return rehashes;
     }
 
-    long evictedEntries()
-    {
-        return evictedEntries;
-    }
-
-    long expiredEntries()
-    {
-        return expiredEntries;
-    }
-
+    @Override
     V getEntry(KeyBuffer key) {
         boolean wasFirst = lock();
         try {
@@ -169,6 +156,7 @@ class OffHeapLinkedMap<V> {
         }
     }
 
+    @Override
     boolean containsEntry(KeyBuffer key) {
         boolean wasFirst = lock();
         try {
@@ -189,19 +177,49 @@ class OffHeapLinkedMap<V> {
         }
     }
 
-    boolean putEntry(long newHashEntryAdr, long hash, long keyLen, long bytes, boolean putIfAbsent,
-                     long oldValueAddr, long valueSize)
-    {
+    @Override
+    boolean putEntry(byte[] key, V value, long hash, boolean ifAbsent, V oldValue) {
+        long oldValueAdr = 0L;
+        try {
+            if (oldValue != null) {
+                oldValueAdr = Uns.allocate(fixedValueLength, throwOOME);
+                if (oldValueAdr == 0L)
+                    throw new RuntimeException("Unable to allocate " + fixedValueLength + " bytes in off-heap");
+                valueSerializer.serialize(oldValue,  Uns.directBufferFor(oldValueAdr, 0, fixedValueLength, false));
+            }
+
+            long hashEntryAdr;
+            if ((hashEntryAdr = Uns.allocate(Util.allocLen(key.length, fixedValueLength), throwOOME)) == 0L) {
+                // entry too large to be inserted or OS is not able to provide enough memory
+                putFailCount++;
+                removeEntry(keySource(key));
+                return false;
+            }
+
+            // initialize hash entry
+            HashEntries.init(key.length, hashEntryAdr);
+            serializeForPut(key, value, hashEntryAdr);
+
+            if (putEntry(hashEntryAdr, hash, key.length, ifAbsent, oldValueAdr))
+                return true;
+
+            Uns.free(hashEntryAdr);
+            return false;
+        }
+        finally {
+            Uns.free(oldValueAdr);
+        }
+    }
+
+    private boolean putEntry(long newHashEntryAdr, long hash, long keyLen, boolean putIfAbsent, long oldValueAddr) {
         long removeHashEntryAdr = 0L;
         boolean wasFirst = lock();
-        try
-        {
+        try {
             long hashEntryAdr;
             long prevEntryAdr = 0L;
             for (hashEntryAdr = table.getFirst(hash);
                  hashEntryAdr != 0L;
-                 prevEntryAdr = hashEntryAdr, hashEntryAdr = HashEntries.getNext(hashEntryAdr))
-            {
+                 prevEntryAdr = hashEntryAdr, hashEntryAdr = HashEntries.getNext(hashEntryAdr)) {
                 if (notSameKey(newHashEntryAdr, hash, keyLen, hashEntryAdr))
                     continue;
 
@@ -210,10 +228,9 @@ class OffHeapLinkedMap<V> {
                     return false;
 
                 // key already exists, we just need to replace the value.
-                if (oldValueAddr != 0L)
-                {
+                if (oldValueAddr != 0L) {
                     // code for replace() operation
-                    if (!Uns.memoryCompare(hashEntryAdr, HashEntries.ENTRY_OFF_DATA + keyLen, oldValueAddr, 0L, valueSize))
+                    if (!Uns.memoryCompare(hashEntryAdr, HashEntries.ENTRY_OFF_DATA + keyLen, oldValueAddr, 0L, fixedValueLength))
                         return false;
                 }
 
@@ -224,8 +241,7 @@ class OffHeapLinkedMap<V> {
             }
 
             // key is not present in the map, therefore we need to add a new entry.
-            if (hashEntryAdr == 0L)
-            {
+            if (hashEntryAdr == 0L) {
 
                 // key is not present but old value is not null.
                 // we consider this as a mismatch and return.
@@ -248,23 +264,21 @@ class OffHeapLinkedMap<V> {
 
             return true;
         }
-        finally
-        {
+        finally {
             unlock(wasFirst); 
             if (removeHashEntryAdr != 0L)
                 Uns.free(removeHashEntryAdr);
         }
     }
 
-    private static boolean notSameKey(long newHashEntryAdr, long newHash, long newKeyLen, long hashEntryAdr)
-    {
+    private static boolean notSameKey(long newHashEntryAdr, long newHash, long newKeyLen, long hashEntryAdr) {
         long serKeyLen = HashEntries.getKeyLen(hashEntryAdr);
         return serKeyLen != newKeyLen
                || !Uns.memoryCompare(hashEntryAdr, HashEntries.ENTRY_OFF_DATA, newHashEntryAdr, HashEntries.ENTRY_OFF_DATA, serKeyLen);
     }
 
-    void clear()
-    {
+    @Override
+    void clear() {
         boolean wasFirst = lock();
         try
         {
@@ -288,7 +302,7 @@ class OffHeapLinkedMap<V> {
         }
     }
 
-
+    @Override
     boolean removeEntry(KeyBuffer key)
     {
         long removeHashEntryAdr = 0L;
@@ -326,6 +340,7 @@ class OffHeapLinkedMap<V> {
 
     private void rehash()
     {
+        long start = System.currentTimeMillis();
         Table tab = table;
         int tableSize = tab.size();
         if (tableSize > MAX_TABLE_SIZE)
@@ -356,6 +371,7 @@ class OffHeapLinkedMap<V> {
         table.release();
         table = newTable;
         rehashes++;
+        logger.info("Completed rehashing segment in {} ms.", (System.currentTimeMillis() - start));
     }
 
     float loadFactor()
@@ -408,7 +424,7 @@ class OffHeapLinkedMap<V> {
 
         static Table create(int hashTableSize, boolean throwOOME)
         {
-            int msz = Ints.checkedCast(Util.BUCKET_ENTRY_LEN * hashTableSize);
+            int msz = Ints.checkedCast(Util.NON_MEMORY_POOL_BUCKET_ENTRY_LEN * hashTableSize);
             long address = Uns.allocate(msz, throwOOME);
             return address != 0L ? new Table(address, hashTableSize) : null;
         }
@@ -424,7 +440,7 @@ class OffHeapLinkedMap<V> {
         {
             // It's important to initialize the hash table memory.
             // (uninitialized memory will cause problems - endless loops, JVM crashes, damaged data, etc)
-            Uns.setMemory(address, 0L, Util.BUCKET_ENTRY_LEN * size(), (byte) 0);
+            Uns.setMemory(address, 0L, Util.NON_MEMORY_POOL_BUCKET_ENTRY_LEN * size(), (byte) 0);
         }
 
         void release()
@@ -452,7 +468,7 @@ class OffHeapLinkedMap<V> {
 
         long bucketOffset(long hash)
         {
-            return bucketIndexForHash(hash) * Util.BUCKET_ENTRY_LEN;
+            return bucketIndexForHash(hash) * Util.NON_MEMORY_POOL_BUCKET_ENTRY_LEN;
         }
 
         private int bucketIndexForHash(long hash)
@@ -528,37 +544,6 @@ class OffHeapLinkedMap<V> {
     private void add(long hashEntryAdr, long hash)
     {
         table.addAsHead(hash, hashEntryAdr);
-    }
-
-    boolean lock()
-    {
-        if (unlocked)
-            return false;
-
-        long t = Thread.currentThread().getId();
-
-        if (t == lockFieldUpdater.get(this))
-            return false;
-        while (true)
-        {
-            if (lockFieldUpdater.compareAndSet(this, 0L, t))
-                return true;
-
-            // yield control to other thread.
-            // Note: we cannot use LockSupport.parkNanos() as that does not
-            // provide nanosecond resolution on Windows.
-            Thread.yield();
-        }
-    }
-
-    void unlock(boolean wasFirst)
-    {
-        if (unlocked || !wasFirst)
-            return;
-
-        long t = Thread.currentThread().getId();
-        boolean r = lockFieldUpdater.compareAndSet(this, t, 0L);
-        assert r;
     }
 
     @Override

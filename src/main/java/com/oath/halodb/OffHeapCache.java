@@ -6,16 +6,14 @@
 package com.oath.halodb;
 
 import com.oath.halodb.cache.OHCache;
-import com.oath.halodb.cache.OHCacheBuilder;
+import com.oath.halodb.cache.linked.OHCacheBuilder;
 import com.google.common.primitives.Ints;
 import com.oath.halodb.cache.OHCacheStats;
 
-import org.HdrHistogram.Histogram;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Hash table stored in native memory, outside Java heap.
@@ -25,26 +23,31 @@ import java.util.concurrent.TimeUnit;
 class OffHeapCache implements KeyCache {
     private static final Logger logger = LoggerFactory.getLogger(OffHeapCache.class);
 
-    private final OHCache<byte[], RecordMetaDataForCache> ohCache;
+    private final OHCache<RecordMetaDataForCache> ohCache;
 
     private final int noOfSegments;
     private final int maxSizeOfEachSegment;
 
-    OffHeapCache(int numberOfKeys) {
+    OffHeapCache(int numberOfKeys, boolean useMemoryPool, int fixedKeySize, int memoryPoolChunkSize) {
         noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
         maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
 
         long start = System.currentTimeMillis();
-        this.ohCache = OHCacheBuilder.<byte[], RecordMetaDataForCache>newBuilder()
-            .keySerializer(new ByteArraySerializer())
-            .valueSerializer(new RecordMetaDataSerializer())
-            .capacity(Long.MAX_VALUE)
-            .segmentCount(noOfSegments)
-            .hashTableSize(maxSizeOfEachSegment)  
-            .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
-            .loadFactor(1)   // to make sure that we don't rehash.
-            .throwOOME(true)
-            .build();
+        OHCacheBuilder<RecordMetaDataForCache> builder =
+            OHCacheBuilder.<RecordMetaDataForCache>newBuilder()
+                .valueSerializer(new RecordMetaDataSerializer())
+                .capacity(Long.MAX_VALUE)
+                .segmentCount(noOfSegments)
+                .hashTableSize(maxSizeOfEachSegment)
+                .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
+                .loadFactor(1)
+                .throwOOME(true);
+
+        if (useMemoryPool) {
+            builder.useMemoryPool(true).fixedKeySize(fixedKeySize).memoryPoolChunkSize(memoryPoolChunkSize);
+        }
+
+        this.ohCache = builder.build();
 
         logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
     }

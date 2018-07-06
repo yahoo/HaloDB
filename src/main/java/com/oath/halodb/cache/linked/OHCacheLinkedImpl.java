@@ -9,40 +9,31 @@ package com.oath.halodb.cache.linked;
 
 import com.google.common.primitives.Ints;
 import com.oath.halodb.cache.CacheSerializer;
-import com.oath.halodb.cache.OHCacheBuilder;
+import com.oath.halodb.cache.OHCache;
 import com.oath.halodb.cache.OHCacheStats;
+import com.oath.halodb.cache.histo.EstimatedHistogram;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ScheduledExecutorService;
 
-import com.oath.halodb.cache.CloseableIterator;
-import com.oath.halodb.cache.OHCache;
-import com.oath.halodb.cache.histo.EstimatedHistogram;
-
-public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
+final class OHCacheLinkedImpl<V> implements OHCache<V>
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(OHCacheLinkedImpl.class);
     
-    private final CacheSerializer<K> keySerializer;
     private final CacheSerializer<V> valueSerializer;
 
     private final int fixedValueLength;
 
-    private final List<OffHeapLinkedMap<V>> maps;
+    private final List<Segment<V>> maps;
     private final long segmentMask;
     private final int segmentShift;
 
     private final long maxEntrySize;
-    private final long defaultTTL;
 
     private long capacity;
     private final int segmentCount;
@@ -51,20 +42,16 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
 
     private boolean closed;
 
-    private final ScheduledExecutorService executorService;
-
     private final boolean throwOOME;
     private final Hasher hasher;
 
-    public OHCacheLinkedImpl(OHCacheBuilder<K, V> builder)
+    OHCacheLinkedImpl(OHCacheBuilder<V> builder)
     {
         long capacity = builder.getCapacity();
         if (capacity <= 0L)
             throw new IllegalArgumentException("capacity:" + capacity);
 
         this.capacity = capacity;
-
-        this.defaultTTL = builder.getDefaultTTLmillis();
 
         this.throwOOME = builder.isThrowOOME();
         this.hasher = Hasher.create(builder.getHashAlgorighm());
@@ -104,29 +91,26 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
             maxEntrySize = capacity / segmentCount;
         this.maxEntrySize = maxEntrySize;
 
-        this.keySerializer = builder.getKeySerializer();
-        if (keySerializer == null)
-            throw new NullPointerException("keySerializer == null");
         this.valueSerializer = builder.getValueSerializer();
         if (valueSerializer == null)
             throw new NullPointerException("valueSerializer == null");
-
-        this.executorService = builder.getExecutorService();
 
         if (LOGGER.isDebugEnabled())
             LOGGER.debug("OHC linked instance with {} segments and capacity of {} created.", segmentCount, capacity);
     }
 
-    private OffHeapLinkedMap<V> makeMap(OHCacheBuilder<K, V> builder, long perMapCapacity) {
-        return new OffHeapLinkedMap<>(builder);
+    private Segment<V> makeMap(OHCacheBuilder<V> builder, long perMapCapacity) {
+        if (builder.isUseMemoryPool()) {
+            return new SegmentWithMemoryPool<V>(builder);
+        }
+        return new OffHeapLinkedMap<V>(builder);
     }
 
     //
     // map stuff
     //
 
-    public V get(K key)
-    {
+    public V get(byte[] key) {
         if (key == null)
             throw new NullPointerException();
 
@@ -134,8 +118,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return segment(keySource.hash()).getEntry(keySource);
     }
 
-    public boolean containsKey(K key)
-    {
+    public boolean containsKey(byte[] key) {
         if (key == null)
             throw new NullPointerException();
 
@@ -143,37 +126,23 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return segment(keySource.hash()).containsEntry(keySource);
     }
 
-    public boolean put(K k, V v)
-    {
+    public boolean put(byte[] k, V v) {
         return putInternal(k, v, false, null);
     }
 
-    public boolean put(K k, V v, long expireAt)
-    {
-        return putInternal(k, v, false, null);
-    }
-
-    public boolean addOrReplace(K key, V old, V value)
-    {
+    public boolean addOrReplace(byte[] key, V old, V value) {
         return putInternal(key, value, false, old);
     }
 
-    public boolean putIfAbsent(K k, V v)
-    {
+    public boolean putIfAbsent(byte[] k, V v) {
         return putInternal(k, v, true, null);
     }
 
-    public boolean putIfAbsent(K k, V v, long expireAt)
-    {
-        return putInternal(k, v, true, null);
-    }
-
-    private boolean putInternal(K k, V v, boolean ifAbsent, V old)
-    {
-        if (k == null || v == null)
+    private boolean putInternal(byte[] key, V value, boolean ifAbsent, V old) {
+        if (key == null || value == null)
             throw new NullPointerException();
 
-        int valueSize = valueSize(v);
+        int valueSize = valueSize(value);
         if (valueSize != fixedValueLength) {
             throw new IllegalArgumentException("value size " + valueSize + " greater than fixed value size " + fixedValueLength);
         }
@@ -182,97 +151,22 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
             throw new IllegalArgumentException("old value size " + valueSize(old) + " greater than fixed value size " + fixedValueLength);
         }
 
-        int keyLen = keySize(k);
-        if (keyLen > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException("key size of " + keyLen + " exceeds max permitted size of " + Byte.MAX_VALUE);
+        if (key.length > Byte.MAX_VALUE) {
+            throw new IllegalArgumentException("key size of " + key.length + " exceeds max permitted size of " + Byte.MAX_VALUE);
         }
 
-        long bytes = Util.allocLen(keyLen, valueSize);
-
-        long oldValueAdr = 0L;
-
-        try
-        {
-            if (old != null)
-            {
-                oldValueAdr = Uns.allocate(valueSize, throwOOME);
-                if (oldValueAdr == 0L)
-                    throw new RuntimeException("Unable to allocate " + fixedValueLength + " bytes in off-heap");
-                valueSerializer.serialize(old,  Uns.directBufferFor(oldValueAdr, 0, valueSize, false));
-            }
-
-            long hashEntryAdr;
-            if ((maxEntrySize > 0L && bytes > maxEntrySize) || (hashEntryAdr = Uns.allocate(bytes, throwOOME)) == 0L)
-            {
-                // entry too large to be inserted or OS is not able to provide enough memory
-                putFailCount++;
-
-                remove(k);
-
-                return false;
-            }
-
-            long hash = serializeForPut(k, v, keyLen, fixedValueLength, hashEntryAdr);
-
-            // initialize hash entry
-            HashEntries.init(keyLen, hashEntryAdr);
-
-            if (segment(hash).putEntry(hashEntryAdr, hash, keyLen, bytes, ifAbsent,
-                                       oldValueAdr, fixedValueLength))
-                return true;
-
-            Uns.free(hashEntryAdr);
-            return false;
-        }
-        finally
-        {
-            Uns.free(oldValueAdr);
-        }
+        long hash = hasher.hash(key);
+        return segment(hash).putEntry(key, value, hash, ifAbsent, old);
     }
 
-    private int keySize(K k)
-    {
-        int sz = keySerializer.serializedSize(k);
-        if (sz <= 0)
-            throw new IllegalArgumentException("Illegal key length " + sz);
-        return sz;
-    }
-
-    private int valueSize(V v)
-    {
+    private int valueSize(V v) {
         int sz = valueSerializer.serializedSize(v);
         if (sz <= 0)
             throw new IllegalArgumentException("Illegal value length " + sz);
         return sz;
     }
 
-    private long serializeForPut(K k, V v, int keyLen, long valueLen, long hashEntryAdr)
-    {
-        try
-        {
-            keySerializer.serialize(k, Uns.keyBuffer(hashEntryAdr, keyLen));
-            if (v != null)
-                valueSerializer.serialize(v, Uns.valueBuffer(hashEntryAdr, keyLen, valueLen));
-        }
-        catch (Throwable e)
-        {
-            freeAndThrow(e, hashEntryAdr);
-        }
-
-        return hasher.hash(hashEntryAdr, HashEntries.ENTRY_OFF_DATA, keyLen);
-    }
-
-    private static void freeAndThrow(Throwable e, long hashEntryAdr)
-    {
-        Uns.free(hashEntryAdr);
-        if (e instanceof RuntimeException)
-            throw (RuntimeException) e;
-        if (e instanceof Error)
-            throw (Error) e;
-        throw new RuntimeException(e);
-    }
-
-    public boolean remove(K k)
+    public boolean remove(byte[] k)
     {
         if (k == null)
             throw new NullPointerException();
@@ -281,22 +175,14 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return segment(keySource.hash()).removeEntry(keySource);
     }
 
-    private OffHeapLinkedMap<V> segment(long hash)
+    private Segment<V> segment(long hash)
     {
         int seg = (int) ((hash & segmentMask) >>> segmentShift);
         return maps.get(seg);
     }
 
-    private KeyBuffer keySource(K o)
-    {
-        int size = keySize(o);
-
-        //TODO: here we are going to make a copy of the key
-        // and compute the hash, we can avoid copy.
-        KeyBuffer keyBuffer = new KeyBuffer(size);
-        ByteBuffer bb = keyBuffer.byteBuffer();
-        keySerializer.serialize(o, bb);
-        assert(bb.position() == bb.capacity()) && (bb.capacity() == size);
+    private KeyBuffer keySource(byte[] key) {
+        KeyBuffer keyBuffer = new KeyBuffer(key);
         return keyBuffer.finish(hasher);
     }
 
@@ -306,7 +192,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
 
     public void clear()
     {
-        for (OffHeapLinkedMap map : maps)
+        for (Segment map : maps)
             map.clear();
     }
 
@@ -323,20 +209,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
     public void close()
     {
         closed = true;
-        if (executorService != null)
-            try
-            {
-                Thread.sleep(500);
-            }
-            catch (InterruptedException e)
-            {
-                // ignored
-                Thread.currentThread().interrupt();
-            }
-
-        clear();
-
-        for (OffHeapLinkedMap map : maps)
+        for (Segment map : maps)
             map.release();
         Collections.fill(maps, null);
 
@@ -350,20 +223,18 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
 
     public void resetStatistics()
     {
-        for (OffHeapLinkedMap map : maps)
+        for (Segment map : maps)
             map.resetStatistics();
         putFailCount = 0;
     }
 
     public OHCacheStats stats()
     {
-        long hitCount=0, missCount=0, evictedEntries=0, expiredEntries=0, size =0,
+        long hitCount=0, missCount=0, size =0,
             freeCapacity=0, rehashes=0, putAddCount=0, putReplaceCount=0, removeCount=0;
-        for (OffHeapLinkedMap map : maps) {
+        for (Segment map : maps) {
             hitCount += map.hitCount();
             missCount += map.missCount();
-            evictedEntries += map.evictedEntries();
-            expiredEntries += map.expiredEntries();
             size += map.size();
             rehashes += map.rehashes();
             putAddCount += map.putAddCount();
@@ -374,9 +245,6 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return new OHCacheStats(
                                hitCount,
                                missCount,
-                               evictedEntries,
-                               expiredEntries,
-                               perSegmentSizes(),
                                size,
                                capacity(),
                                freeCapacity,
@@ -386,7 +254,8 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
                                putFailCount,
                                removeCount,
                                Uns.getTotalAllocated(),
-                               0L);
+                               0L,
+                               perSegmentStats());
     }
 
     public long capacity()
@@ -404,7 +273,7 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
     public long size()
     {
         long size = 0L;
-        for (OffHeapLinkedMap map : maps)
+        for (Segment map : maps)
             size += map.size();
         return size;
     }
@@ -435,10 +304,20 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return r;
     }
 
+    public SegmentStats[] perSegmentStats() {
+        SegmentStats[] stats = new SegmentStats[maps.size()];
+        for (int i = 0; i < stats.length; i++) {
+            Segment<V> map = maps.get(i);
+            stats[i] = new SegmentStats(map.size(), map.numberOfChunks(), map.numberOfSlots(), map.freeListSize());
+        }
+
+        return stats;
+    }
+
     public EstimatedHistogram getBucketHistogram()
     {
         EstimatedHistogram hist = new EstimatedHistogram();
-        for (OffHeapLinkedMap map : maps)
+        for (Segment map : maps)
             map.updateBucketHistogram(hist);
 
         long[] offsets = hist.getBucketOffsets();
@@ -467,138 +346,9 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
     //
     // convenience methods
     //
-
-    public void putAll(Map<? extends K, ? extends V> m)
-    {
-        // could be improved by grouping puts by segment - but increases heap pressure and complexity - decide later
-        for (Map.Entry<? extends K, ? extends V> entry : m.entrySet())
-            put(entry.getKey(), entry.getValue());
-    }
-
-    public void removeAll(Iterable<K> iterable)
-    {
-        // could be improved by grouping removes by segment - but increases heap pressure and complexity - decide later
-        for (K o : iterable)
-            remove(o);
-    }
-
     public long memUsed()
     {
         return capacity() - freeCapacity();
-    }
-
-    //
-    // key iterators
-    //
-
-    public CloseableIterator<K> keyIterator()
-    {
-        return new AbstractKeyIterator<K>()
-        {
-            K buildResult(long hashEntryAdr)
-            {
-                return keySerializer.deserialize(Uns.keyBufferR(hashEntryAdr));
-            }
-        };
-    }
-
-    public CloseableIterator<ByteBuffer> keyBufferIterator()
-    {
-        return new AbstractKeyIterator<ByteBuffer>()
-        {
-            ByteBuffer buildResult(long hashEntryAdr)
-            {
-                return Uns.directBufferFor(hashEntryAdr, HashEntries.ENTRY_OFF_DATA, HashEntries.getKeyLen(hashEntryAdr), true);
-            }
-        };
-    }
-
-    private abstract class AbstractKeyIterator<R> implements CloseableIterator<R>
-    {
-        private int segmentIndex;
-        private OffHeapLinkedMap segment;
-
-        private int mapSegmentCount;
-        private int mapSegmentIndex;
-
-        private final LongArrayList hashEntryAdrs = new LongArrayList(1024);
-        private int listIndex;
-
-        private boolean eod;
-        private R next;
-
-        private OffHeapLinkedMap lastSegment;
-        private long lastHashEntryAdr;
-
-        public void close()
-        {
-        }
-
-        public boolean hasNext()
-        {
-            if (eod)
-                return false;
-
-            if (next == null)
-                next = computeNext();
-
-            return next != null;
-        }
-
-        public R next()
-        {
-            if (eod)
-                throw new NoSuchElementException();
-
-            if (next == null)
-                next = computeNext();
-            R r = next;
-            next = null;
-            if (!eod)
-                return r;
-            throw new NoSuchElementException();
-        }
-
-        public void remove()
-        {
-        }
-
-        private R computeNext()
-        {
-
-            while (true)
-            {
-                if (listIndex < hashEntryAdrs.size())
-                {
-                    long hashEntryAdr = hashEntryAdrs.getLong(listIndex++);
-                    lastSegment = segment;
-                    lastHashEntryAdr = hashEntryAdr;
-                    return buildResult(hashEntryAdr);
-                }
-
-                if (mapSegmentIndex >= mapSegmentCount)
-                {
-                    if (segmentIndex == maps.size())
-                    {
-                        eod = true;
-                        return null;
-                    }
-                    segment = maps.get(segmentIndex++);
-                    mapSegmentCount = segment.hashTableSize();
-                    mapSegmentIndex = 0;
-                }
-
-                if (listIndex == hashEntryAdrs.size())
-                {
-                    hashEntryAdrs.clear();
-                    segment.getEntryAddresses(mapSegmentIndex, 1024, hashEntryAdrs);
-                    mapSegmentIndex += 1024;
-                    listIndex = 0;
-                }
-            }
-        }
-
-        abstract R buildResult(long hashEntryAdr);
     }
 
     public String toString()
@@ -606,7 +356,6 @@ public final class OHCacheLinkedImpl<K, V> implements OHCache<K, V>
         return getClass().getSimpleName() +
                "(capacity=" + capacity() +
                " ,segments=" + maps.size() +
-               " ,defaultTTL=" + defaultTTL +
                " ,maxEntrySize=" + maxEntrySize;
     }
 }

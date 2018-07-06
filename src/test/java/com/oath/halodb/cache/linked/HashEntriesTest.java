@@ -50,17 +50,18 @@ public class HashEntriesTest
     public void testCompareKey() throws Exception
     {
         long adr = Uns.allocate(MIN_ALLOC_LEN);
-        KeyBuffer key = new KeyBuffer(11);
         try
         {
             HashEntries.init(11, adr);
 
-            ByteBuffer keyBuffer = key.byteBuffer();
-            keyBuffer.putInt(0x98765432);
-            keyBuffer.putInt(0xabcdabba);
-            keyBuffer.put((byte)(0x44 & 0xff));
-            keyBuffer.put((byte)(0x55 & 0xff));
-            keyBuffer.put((byte)(0x88 & 0xff));
+            ByteBuffer buffer = ByteBuffer.allocate(11);
+            buffer.putInt(0x98765432);
+            buffer.putInt(0xabcdabba);
+            buffer.put((byte)(0x44 & 0xff));
+            buffer.put((byte)(0x55 & 0xff));
+            buffer.put((byte)(0x88 & 0xff));
+
+            KeyBuffer key = new KeyBuffer(buffer.array());
             key.finish(Hasher.create(HashAlgorithm.MURMUR3));
 
             Uns.setMemory(adr, HashEntries.ENTRY_OFF_DATA, 11, (byte) 0);

@@ -7,7 +7,6 @@
 
 package com.oath.halodb.cache.linked;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 final class KeyBuffer
@@ -15,9 +14,8 @@ final class KeyBuffer
     final byte[] buffer;
     private long hash;
 
-    KeyBuffer(int size)
-    {
-        buffer = new byte[size];
+    KeyBuffer(byte[] buffer) {
+        this.buffer = buffer;
     }
 
     long hash()
@@ -40,6 +38,10 @@ final class KeyBuffer
         KeyBuffer keyBuffer = (KeyBuffer) o;
 
         return buffer.length == keyBuffer.buffer.length && Arrays.equals(keyBuffer.buffer, buffer);
+    }
+
+    public int size() {
+        return buffer.length;
     }
 
     public int hashCode()
@@ -66,11 +68,6 @@ final class KeyBuffer
             sb.append(' ');
         }
         return sb.toString();
-    }
-
-    ByteBuffer byteBuffer()
-    {
-        return ByteBuffer.wrap(buffer);
     }
 
     boolean sameKey(long hashEntryAdr) {

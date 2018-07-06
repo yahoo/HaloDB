@@ -7,7 +7,6 @@
 
 package com.oath.halodb.cache.linked;
 
-import com.oath.halodb.cache.OHCacheBuilder;
 import com.oath.halodb.cache.alloc.IAllocator;
 import com.oath.halodb.cache.alloc.JNANativeAllocator;
 import com.oath.halodb.cache.alloc.UnsafeAllocator;

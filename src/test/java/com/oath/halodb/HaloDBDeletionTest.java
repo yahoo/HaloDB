@@ -16,10 +16,9 @@ import java.util.*;
  */
 public class HaloDBDeletionTest extends TestBase {
 
-    @Test
-    public void testSimpleDelete() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testSimpleDelete(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testSimpleDelete");
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -46,10 +45,9 @@ public class HaloDBDeletionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testDeleteWithIterator() throws HaloDBException {
-        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
-        HaloDBOptions options = new HaloDBOptions();
+    @Test(dataProvider = "Options")
+    public void testDeleteWithIterator(HaloDBOptions options) throws HaloDBException {
+            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -74,10 +72,9 @@ public class HaloDBDeletionTest extends TestBase {
         Assert.assertTrue(actual.containsAll(expected) && expected.containsAll(actual));
     }
 
-    @Test
-    public void testDeleteAndInsert() throws HaloDBException {
-        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
-        HaloDBOptions options = new HaloDBOptions();
+    @Test(dataProvider = "Options")
+    public void testDeleteAndInsert(HaloDBOptions options) throws HaloDBException {
+            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -129,10 +126,9 @@ public class HaloDBDeletionTest extends TestBase {
         Assert.assertTrue(actual.containsAll(records) && records.containsAll(actual));
     }
 
-    @Test
-    public void testDeleteAndOpen() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testDeleteAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndOpen");
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -163,10 +159,9 @@ public class HaloDBDeletionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testDeleteAndMerge() throws Exception {
+    @Test(dataProvider = "Options")
+    public void testDeleteAndMerge(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndMerge");
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.10);
 
@@ -216,10 +211,9 @@ public class HaloDBDeletionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testDeleteAllRecords() throws Exception {
+    @Test(dataProvider = "Options")
+    public void testDeleteAllRecords(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAllRecords");
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(1);
 

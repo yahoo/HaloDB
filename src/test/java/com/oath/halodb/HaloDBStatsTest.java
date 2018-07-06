@@ -5,6 +5,8 @@
 
 package com.oath.halodb;
 
+import com.oath.halodb.cache.linked.SegmentStats;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -16,11 +18,10 @@ import java.util.List;
  */
 public class HaloDBStatsTest extends TestBase {
 
-    @Test
-    public void testOptions() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testOptions(HaloDBOptions options) throws HaloDBException {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testOptions");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionDisabled(true);
         options.setCompactionThresholdPerFile(0.9);
@@ -44,12 +45,11 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSize(), 0);
     }
 
-    @Test
-    public void testStaleMap() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testStaleMap(HaloDBOptions options) throws HaloDBException {
 
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testStaleMap");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.50);
 
@@ -76,12 +76,11 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(db.stats().getSize(), 100);
     }
 
-    @Test
-    public void testCompactionStats() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testCompactionStats(HaloDBOptions options) throws HaloDBException {
 
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testCompactionStats");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.50);
         options.setCompactionDisabled(true);
@@ -130,14 +129,13 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSize(), noOfRecords);
     }
 
-    @Test
-    public void testKeyCacheStats() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testKeyCacheStats(HaloDBOptions options) throws HaloDBException {
         String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testKeyCacheStats");
 
         int numberOfSegments = (int)Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2);
         int numberOfRecords = numberOfSegments * 1024;
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setNumberOfRecords(numberOfRecords);
         options.setCompactionThresholdPerFile(0.50);
@@ -148,8 +146,16 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(numberOfSegments, stats.getNumberOfSegments());
         Assert.assertEquals(numberOfRecords/numberOfSegments, stats.getMaxSizePerSegment());
 
-        long[] expected = new long[numberOfSegments];
-        Arrays.fill(expected, 0);
-        Assert.assertEquals(stats.getCountPerSegment(), expected);
+        SegmentStats[] expected = new SegmentStats[numberOfSegments];
+        SegmentStats s;
+        if (options.isUseMemoryPool()) {
+            s = new SegmentStats(0, 0, 0, 0);
+        }
+        else {
+            s = new SegmentStats(0, -1, -1, -1);
+        }
+
+        Arrays.fill(expected, s);
+        Assert.assertEquals(stats.getSegmentStats(), expected);
     }
 }

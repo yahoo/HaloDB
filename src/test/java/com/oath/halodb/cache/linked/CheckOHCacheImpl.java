@@ -8,26 +8,19 @@
 package com.oath.halodb.cache.linked;
 
 import com.oath.halodb.cache.CacheSerializer;
-import com.oath.halodb.cache.CloseableIterator;
 import com.oath.halodb.cache.OHCache;
-import com.oath.halodb.cache.OHCacheBuilder;
 import com.oath.halodb.cache.OHCacheStats;
 import com.oath.halodb.cache.histo.EstimatedHistogram;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This is a {@link OHCache} implementation used to validate functionality of
  * {@link OHCacheLinkedImpl} - this implementation is <b>not</b> for production use!
  */
-final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
+final class CheckOHCacheImpl<V> implements OHCache<V>
 {
-    private final CacheSerializer<K> keySerializer;
     private final CacheSerializer<V> valueSerializer;
     private long capacity;
 
@@ -40,7 +33,7 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
     private long putFailCount;
     private final Hasher hasher;
 
-    CheckOHCacheImpl(OHCacheBuilder<K, V> builder)
+    CheckOHCacheImpl(OHCacheBuilder<V> builder)
     {
         capacity = builder.getCapacity();
         loadFactor = builder.getLoadFactor();
@@ -56,15 +49,14 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         for (int i = 0; i < maps.length; i++)
             maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor(), freeCapacity);
 
-        keySerializer = builder.getKeySerializer();
         valueSerializer = builder.getValueSerializer();
 
         maxEntrySize = builder.getMaxEntrySize();
     }
 
-    public boolean put(K key, V value)
+    public boolean put(byte[] key, V value)
     {
-        HeapKeyBuffer keyBuffer = keySource(key);
+        KeyBuffer keyBuffer = keySource(key);
         byte[] data = value(value);
 
         if (maxEntrySize > 0L && CheckSegment.sizeOf(keyBuffer, data) > maxEntrySize)
@@ -78,9 +70,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return segment.put(keyBuffer, data, false, null);
     }
 
-    public boolean addOrReplace(K key, V old, V value)
+    public boolean addOrReplace(byte[] key, V old, V value)
     {
-        HeapKeyBuffer keyBuffer = keySource(key);
+        KeyBuffer keyBuffer = keySource(key);
         byte[] data = value(value);
         byte[] oldData = value(old);
 
@@ -95,14 +87,14 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return segment.put(keyBuffer, data, false, oldData);
     }
 
-    public boolean putIfAbsent(K k, V v)
+    public boolean putIfAbsent(byte[] key, V v)
     {
-        HeapKeyBuffer keyBuffer = keySource(k);
+        KeyBuffer keyBuffer = keySource(key);
         byte[] data = value(v);
 
         if (maxEntrySize > 0L && CheckSegment.sizeOf(keyBuffer, data) > maxEntrySize)
         {
-            remove(k);
+            remove(key);
             putFailCount++;
             return false;
         }
@@ -111,33 +103,21 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return segment.put(keyBuffer, data, true, null);
     }
 
-    public boolean putIfAbsent(K key, V value, long expireAt)
+    public boolean putIfAbsent(byte[] key, V value, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
-    public boolean put(K key, V value, long expireAt)
+    public boolean put(byte[] key, V value, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
-    public void putAll(Map<? extends K, ? extends V> m)
+    public boolean remove(byte[] key)
     {
-        for (Map.Entry<? extends K, ? extends V> entry : m.entrySet())
-            put(entry.getKey(), entry.getValue());
-    }
-
-    public boolean remove(K key)
-    {
-        HeapKeyBuffer keyBuffer = keySource(key);
+        KeyBuffer keyBuffer = keySource(key);
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.remove(keyBuffer);
-    }
-
-    public void removeAll(Iterable<K> keys)
-    {
-        for (K key : keys)
-            remove(key);
     }
 
     public void clear()
@@ -146,9 +126,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
             map.clear();
     }
 
-    public V get(K key)
+    public V get(byte[] key)
     {
-        HeapKeyBuffer keyBuffer = keySource(key);
+        KeyBuffer keyBuffer = keySource(key);
         CheckSegment segment = segment(keyBuffer.hash());
         byte[] value = segment.get(keyBuffer);
 
@@ -158,155 +138,11 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return valueSerializer.deserialize(ByteBuffer.wrap(value));
     }
 
-    public boolean containsKey(K key)
+    public boolean containsKey(byte[] key)
     {
-        HeapKeyBuffer keyBuffer = keySource(key);
+        KeyBuffer keyBuffer = keySource(key);
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.get(keyBuffer) != null;
-    }
-
-    public CloseableIterator<K> hotKeyIterator(int n)
-    {
-        return new AbstractHotKeyIter<K>(n)
-        {
-            protected K construct(HeapKeyBuffer next)
-            {
-                return keySerializer.deserialize(ByteBuffer.wrap(next.array()));
-            }
-        };
-    }
-
-    public CloseableIterator<ByteBuffer> hotKeyBufferIterator(int n)
-    {
-        return new AbstractHotKeyIter<ByteBuffer>(n)
-        {
-            protected ByteBuffer construct(HeapKeyBuffer next)
-            {
-                return ByteBuffer.wrap(next.array());
-            }
-        };
-    }
-
-    public CloseableIterator<K> keyIterator()
-    {
-        return new AbstractKeyIter<K>()
-        {
-            protected K construct(HeapKeyBuffer next)
-            {
-                return keySerializer.deserialize(ByteBuffer.wrap(next.array()));
-            }
-        };
-    }
-
-    public CloseableIterator<ByteBuffer> keyBufferIterator()
-    {
-        return new AbstractKeyIter<ByteBuffer>()
-        {
-            protected ByteBuffer construct(HeapKeyBuffer next)
-            {
-                return ByteBuffer.wrap(next.array());
-            }
-        };
-    }
-
-    abstract class AbstractHotKeyIter<E> extends AbstractKeyIter<E>
-    {
-        private final int perMap;
-
-        protected AbstractHotKeyIter(int n)
-        {
-            // hotN implementation does only return a (good) approximation - not necessarily the exact hotN
-            // since it iterates over the all segments and takes a fraction of 'n' from them.
-            // This implementation may also return more results than expected just to keep it simple
-            // (it does not really matter if you request 5000 keys and e.g. get 5015).
-
-            this.perMap = n / maps.length + 1;
-        }
-
-        Iterator<HeapKeyBuffer> keyBufferIterator()
-        {
-            return segment.hotN(perMap);
-        }
-    }
-
-    abstract class AbstractKeyIter<E> implements CloseableIterator<E>
-    {
-        private int map;
-        private Iterator<HeapKeyBuffer> current = Collections.emptyIterator();
-        private boolean eol;
-
-        private HeapKeyBuffer next;
-        CheckSegment segment;
-        private HeapKeyBuffer last;
-        private CheckSegment lastSegment;
-
-        public void close()
-        {
-        }
-
-        public boolean hasNext()
-        {
-            if (eol)
-                return false;
-
-            if (next == null)
-                checkNext();
-
-            return next != null;
-        }
-
-        boolean checkNext()
-        {
-            while (true)
-            {
-                if (!current.hasNext())
-                {
-                    if (map == maps.length)
-                    {
-                        eol = true;
-                        return false;
-                    }
-                    segment = maps[map++];
-                    current = keyBufferIterator();
-                }
-
-                if (current.hasNext())
-                {
-                    next = current.next();
-                    last = next;
-                    lastSegment = segment;
-                    return true;
-                }
-            }
-        }
-
-        Iterator<HeapKeyBuffer> keyBufferIterator()
-        {
-            return segment.keyIterator();
-        }
-
-        public E next()
-        {
-            if (eol)
-                throw new NoSuchElementException();
-
-            if (next == null)
-                if (!checkNext())
-                    throw new NoSuchElementException();
-
-            E r = construct(next);
-            next = null;
-            return r;
-        }
-
-        abstract E construct(HeapKeyBuffer next);
-
-        public void remove()
-        {
-            if (last == null)
-                throw new NoSuchElementException();
-            lastSegment.remove(last);
-        }
     }
 
     public void resetStatistics()
@@ -330,12 +166,14 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return new int[maps.length];
     }
 
-    public long[] perSegmentSizes()
-    {
-        long[] r = new long[maps.length];
-        for (int i = 0; i < maps.length; i++)
-            r[i] = maps[i].size();
-        return r;
+    public SegmentStats[] perSegmentStats() {
+        SegmentStats[] stats = new SegmentStats[maps.length];
+        for (int i = 0; i < stats.length; i++) {
+            CheckSegment map = maps[i];
+            stats[i] = new SegmentStats(map.size(), -1, -1, -1);
+        }
+
+        return stats;
     }
 
     public EstimatedHistogram getBucketHistogram()
@@ -373,9 +211,6 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return new OHCacheStats(
                                hitCount(),
                                missCount(),
-                               evictedEntries(),
-                               0L,
-                               perSegmentSizes(),
                                size(),
                                capacity(),
                                freeCapacity(),
@@ -385,16 +220,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
                                putFailCount,
                                removeCount(),
                                memUsed(),
-                               0L
+                               0L,
+                               perSegmentStats()
         );
-    }
-
-    private long evictedEntries()
-    {
-        long evictedEntries = 0L;
-        for (CheckSegment map : maps)
-            evictedEntries += map.evictedEntries;
-        return evictedEntries;
     }
 
     private long putAddCount()
@@ -461,14 +289,9 @@ final class CheckOHCacheImpl<K, V> implements OHCache<K, V>
         return maps[seg];
     }
 
-    private HeapKeyBuffer keySource(K o)
-    {
-        int size = keySerializer.serializedSize(o);
-
-        ByteBuffer keyBuffer = ByteBuffer.allocate(size);
-        keySerializer.serialize(o, keyBuffer);
-        assert(keyBuffer.position() == keyBuffer.capacity()) && (keyBuffer.capacity() == size);
-        return new HeapKeyBuffer(keyBuffer.array()).finish(hasher);
+    KeyBuffer keySource(byte[] key) {
+        KeyBuffer keyBuffer = new KeyBuffer(key);
+        return keyBuffer.finish(hasher);
     }
 
     private byte[] value(V value)

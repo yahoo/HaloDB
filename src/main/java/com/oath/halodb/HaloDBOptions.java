@@ -33,6 +33,12 @@ public class HaloDBOptions implements Cloneable {
 
     private boolean cleanUpTombstonesDuringOpen = false;
 
+    private boolean useMemoryPool = false;
+
+    private int fixedKeySize = Byte.MAX_VALUE;
+
+    private int memoryPoolChunkSize = 16 * 1024 * 1024;
+
     // Just to avoid clients having to deal with CloneNotSupportedException
     public HaloDBOptions clone() {
         try {
@@ -44,7 +50,7 @@ public class HaloDBOptions implements Cloneable {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)
+        return MoreObjects.toStringHelper("")
             .add("compactionThresholdPerFile", compactionThresholdPerFile)
             .add("maxFileSize", maxFileSize)
             .add("flushDataSizeBytes", flushDataSizeBytes)
@@ -53,6 +59,9 @@ public class HaloDBOptions implements Cloneable {
             .add("compactionJobRate", compactionJobRate)
             .add("cleanUpKeyCacheOnClose", cleanUpKeyCacheOnClose)
             .add("cleanUpTombstonesDuringOpen", cleanUpTombstonesDuringOpen)
+            .add("useMemoryPool", useMemoryPool)
+            .add("fixedKeySize", fixedKeySize)
+            .add("memoryPoolChunkSize", memoryPoolChunkSize)
             .toString();
     }
 
@@ -119,5 +128,29 @@ public class HaloDBOptions implements Cloneable {
 
     public void setCleanUpTombstonesDuringOpen(boolean cleanUpTombstonesDuringOpen) {
         this.cleanUpTombstonesDuringOpen = cleanUpTombstonesDuringOpen;
+    }
+    
+    public boolean isUseMemoryPool() {
+        return useMemoryPool;
+    }
+
+    public void setUseMemoryPool(boolean useMemoryPool) {
+        this.useMemoryPool = useMemoryPool;
+    }
+
+    public int getFixedKeySize() {
+        return fixedKeySize;
+    }
+
+    public void setFixedKeySize(int fixedKeySize) {
+        this.fixedKeySize = fixedKeySize;
+    }
+
+    public int getMemoryPoolChunkSize() {
+        return memoryPoolChunkSize;
+    }
+
+    public void setMemoryPoolChunkSize(int memoryPoolChunkSize) {
+        this.memoryPoolChunkSize = memoryPoolChunkSize;
     }
 }

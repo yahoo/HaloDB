@@ -8,36 +8,19 @@
 package com.oath.halodb.cache;
 
 import com.oath.halodb.cache.histo.EstimatedHistogram;
+import com.oath.halodb.cache.linked.SegmentStats;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-public interface OHCache<K, V> extends Closeable
-{
-    long USE_DEFAULT_EXPIRE_AT = -1L;
-    long NEVER_EXPIRE = Long.MAX_VALUE;
-
+public interface OHCache<V> extends Closeable {
     /**
-     * Same as {@link #put(Object, Object, long)} but uses the configured default TTL, if any.
      * @param key      key of the entry to be added. Must not be {@code null}.
      * @param value    value of the entry to be added. Must not be {@code null}.
      * @return {@code true}, if the entry has been added, {@code false} otherwise
      */
-    boolean put(K key, V value);
-
-    /**
-     * Adds the key/value.
-     * If the entry size of key/value exceeds the configured maximum entry length, any previously existing entry
-     * for the key is removed.
-     * @param key      key of the entry to be added. Must not be {@code null}.
-     * @param value    value of the entry to be added. Must not be {@code null}.
-     * @param expireAt timestamp in milliseconds since "epoch" (like {@link System#currentTimeMillis() System.currentTimeMillis()})
-     *                 when the entry shall expire. Pass {@link #USE_DEFAULT_EXPIRE_AT} for the configured default
-     *                 time-to-live or {@link #NEVER_EXPIRE} to let it never expire.
-     * @return {@code true}, if the entry has been added, {@code false} otherwise
-     */
-    boolean put(K key, V value, long expireAt);
+    boolean put(byte[] key, V value);
 
     /**
      * Adds key/value if either the key is not present and {@code old} is null or the existing value matches parameter {@code old}.
@@ -48,37 +31,14 @@ public interface OHCache<K, V> extends Closeable
      * @param value    value of the entry to be added. Must not be {@code null}.
      * @return {@code true} on success or {@code false} if the existing value does not matcuh {@code old}
      */
-    boolean addOrReplace(K key, V old, V value);
+    boolean addOrReplace(byte[] key, V old, V value);
 
     /**
-     * Same as {@link #putIfAbsent(Object, Object, long)} but uses the configured default TTL, if any.
-     *
      * @param key      key of the entry to be added. Must not be {@code null}.
      * @param value    value of the entry to be added. Must not be {@code null}.
      * @return {@code true} on success or {@code false} if the key is already present.
      */
-    boolean putIfAbsent(K key, V value);
-
-    /**
-     * Adds the key/value if the key is not present.
-     * If the entry size of key/value exceeds the configured maximum entry length, any previously existing entry
-     * for the key is removed.
-     *
-     * @param key      key of the entry to be added. Must not be {@code null}.
-     * @param value    value of the entry to be added. Must not be {@code null}.
-     * @param expireAt timestamp in milliseconds since "epoch" (like {@link System#currentTimeMillis() System.currentTimeMillis()})
-     *                 when the entry shall expire. Pass {@link #USE_DEFAULT_EXPIRE_AT} for the configured default
-     *                 time-to-live or {@link #NEVER_EXPIRE} to let it never expire.
-     * @return {@code true} on success or {@code false} if the key is already present.
-     */
-    boolean putIfAbsent(K key, V value, long expireAt);
-
-    /**
-     * This is effectively a shortcut to add all entries in the given map {@code m}.
-     *
-     * @param m entries to be added
-     */
-    void putAll(Map<? extends K, ? extends V> m);
+    boolean putIfAbsent(byte[] key, V value);
 
     /**
      * Remove a single entry for the given key.
@@ -86,14 +46,7 @@ public interface OHCache<K, V> extends Closeable
      * @param key key of the entry to be removed. Must not be {@code null}.
      * @return {@code true}, if the entry has been removed, {@code false} otherwise
      */
-    boolean remove(K key);
-
-    /**
-     * This is effectively a shortcut to remove the entries for all keys given in the iterable {@code keys}.
-     *
-     * @param keys keys to be removed
-     */
-    void removeAll(Iterable<K> keys);
+    boolean remove(byte[] key);
 
     /**
      * Removes all entries from the cache.
@@ -106,7 +59,7 @@ public interface OHCache<K, V> extends Closeable
      * @param key      key of the entry to be retrieved. Must not be {@code null}.
      * @return either the non-{@code null} value or {@code null} if no entry for the requested key exists
      */
-    V get(K key);
+    V get(byte[] key);
 
     /**
      * Checks whether an entry for a given key exists.
@@ -115,28 +68,7 @@ public interface OHCache<K, V> extends Closeable
      * @param key      key of the entry to be retrieved. Must not be {@code null}.
      * @return either {@code true} if an entry for the given key exists or {@code false} if no entry for the requested key exists
      */
-    boolean containsKey(K key);
-
-    // iterators
-
-    /**
-     * Builds an iterator over all keys returning deserialized objects.
-     * You must call {@code close()} on the returned iterator.
-     * <p>
-     *     Note: During a rehash, the implementation might return keys twice or not at all.
-     * </p>
-     */
-    CloseableIterator<K> keyIterator();
-
-    /**
-     * Builds an iterator over all keys returning direct byte buffers.
-     * Do not use a returned {@code ByteBuffer} after calling any method on the iterator.
-     * You must call {@code close()} on the returned iterator.
-     * <p>
-     *     Note: During a rehash, the implementation might return keys twice or not at all.
-     * </p>
-     */
-    CloseableIterator<ByteBuffer> keyBufferIterator();
+    boolean containsKey(byte[] key);
 
     // statistics / information
 
@@ -146,7 +78,7 @@ public interface OHCache<K, V> extends Closeable
 
     int[] hashTableSizes();
 
-    long[] perSegmentSizes();
+    SegmentStats[] perSegmentStats();
 
     EstimatedHistogram getBucketHistogram();
 

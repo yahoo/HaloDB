@@ -44,6 +44,28 @@ final class TestUtils
             return writeUTFLen(s);
         }
     };
+
+    public static final CacheSerializer<byte[]> byteArraySerializer = new CacheSerializer<byte[]>()
+    {
+        @Override
+        public void serialize(byte[] value, ByteBuffer buf) {
+            buf.put(value);
+        }
+
+        @Override
+        public byte[] deserialize(ByteBuffer buf) {
+            // Cannot use buf.array() as buf is read-only for get() operations.
+            byte[] array = new byte[buf.remaining()];
+            buf.get(array);
+            return array;
+        }
+
+        @Override
+        public int serializedSize(byte[] value) {
+            return value.length;
+        }
+    };
+
     public static final CacheSerializer<String> stringSerializerFailSerialize = new CacheSerializer<String>()
     {
         public void serialize(String s, ByteBuffer buf)
@@ -233,86 +255,15 @@ final class TestUtils
         bigRandom = sb.toString();
     }
 
-    static void fillBigRandom5(OHCache<Integer, String> cache)
+    static List<KeyValuePair> fillMany(OHCache<byte[]> cache, int fixedValueSize)
     {
-        cache.put(1, "one " + bigRandom);
-        cache.put(2, "two " + bigRandom);
-        cache.put(3, "three " + bigRandom);
-        cache.put(4, "four " + bigRandom);
-        cache.put(5, "five " + bigRandom);
+        return fill(cache, fixedValueSize, manyCount);
     }
 
-    static void checkBigRandom5(OHCache<Integer, String> cache, int serialized)
-    {
-        int cnt = 0;
-        if (cache.get(1) != null)
-        {
-            Assert.assertEquals(cache.get(1), "one " + bigRandom);
-            cnt ++;
-        }
-        if (cache.get(2) != null)
-        {
-            Assert.assertEquals(cache.get(2), "two " + bigRandom);
-            cnt ++;
-        }
-        if (cache.get(3) != null)
-        {
-            Assert.assertEquals(cache.get(3), "three " + bigRandom);
-            cnt ++;
-        }
-        if (cache.get(4) != null)
-        {
-            Assert.assertEquals(cache.get(4), "four " + bigRandom);
-            cnt ++;
-        }
-        if (cache.get(5) != null)
-        {
-            Assert.assertEquals(cache.get(5), "five " + bigRandom);
-            cnt ++;
-        }
-        Assert.assertEquals(cnt, serialized);
-    }
-
-    static void fillBig5(OHCache<Integer, String> cache)
-    {
-        cache.put(1, "one " + big);
-        cache.put(2, "two " + big);
-        cache.put(3, "three " + big);
-        cache.put(4, "four " + big);
-        cache.put(5, "five " + big);
-    }
-
-    static void checkBig5(OHCache<Integer, String> cache)
-    {
-        Assert.assertEquals(cache.get(1), "one " + big);
-        Assert.assertEquals(cache.get(2), "two " + big);
-        Assert.assertEquals(cache.get(3), "three " + big);
-        Assert.assertEquals(cache.get(4), "four " + big);
-        Assert.assertEquals(cache.get(5), "five " + big);
-    }
-
-    static void fill5(OHCache<Integer, String> cache)
-    {
-        cache.put(1, "one");
-        cache.put(2, "two");
-        cache.put(3, "three");
-        cache.put(4, "four");
-        cache.put(5, "five");
-    }
-
-    static void check5(OHCache<Integer, String> cache)
-    {
-        Assert.assertEquals(cache.get(1), "one");
-        Assert.assertEquals(cache.get(2), "two");
-        Assert.assertEquals(cache.get(3), "three");
-        Assert.assertEquals(cache.get(4), "four");
-        Assert.assertEquals(cache.get(5), "five");
-    }
-
-    static List<KeyValuePair> fillMany(OHCache<byte[], byte[]> cache, int fixedValueSize)
+    static List<KeyValuePair> fill(OHCache<byte[]> cache, int fixedValueSize, int count)
     {
         List<KeyValuePair> many = new ArrayList<>();
-        for (int i = 0; i < manyCount; i++) {
+        for (int i = 0; i < count; i++) {
             byte[] key = Longs.toByteArray(i);
             byte[] value = TestUtils.randomBytes(fixedValueSize);
             cache.put(key, value);
@@ -320,30 +271,6 @@ final class TestUtils
         }
 
         return many;
-    }
-
-    static void checkManyForSerializedKeys(OHCache<Integer, String> cache, int count)
-    {
-        Assert.assertTrue(count > manyCount * 9 / 10, "count=" + count); // allow some variation
-
-    }
-
-    static void checkManyForSerializedEntries(OHCache<Integer, String> cache, int count)
-    {
-        Assert.assertTrue(count > manyCount * 9 / 10, "count=" + count); // allow some variation
-
-        int found = 0;
-        for (int i = 0; i < manyCount; i++)
-        {
-            String v = cache.get(i);
-            if (v != null)
-            {
-                Assert.assertEquals(v, Integer.toHexString(i));
-                found++;
-            }
-        }
-
-        Assert.assertEquals(found, count);
     }
 
     static byte[] randomBytes(int len)

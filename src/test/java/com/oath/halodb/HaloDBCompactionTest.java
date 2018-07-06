@@ -27,11 +27,10 @@ public class HaloDBCompactionTest extends TestBase {
     private final int recordsPerFile = 10;
     private final int numberOfRecords = numberOfFiles * recordsPerFile;
 
-    @Test
-    public void testCompaction() throws Exception {
+    @Test(dataProvider = "Options")
+    public void testMerge(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testCompaction");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
         options.setCompactionThresholdPerFile(0.5);
         options.setCompactionDisabled(false);
@@ -66,11 +65,10 @@ public class HaloDBCompactionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testReOpenDBAfterMerge() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testReOpenDBAfterMerge(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenDBAfterMerge");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
         options.setCompactionThresholdPerFile(0.5);
         options.setCompactionDisabled(false);
@@ -91,11 +89,10 @@ public class HaloDBCompactionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testReOpenDBWithoutMerge() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testReOpenDBWithoutMerge(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenAndUpdatesAndWithoutMerge");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
         options.setCompactionDisabled(true);
 
@@ -113,11 +110,10 @@ public class HaloDBCompactionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testUpdatesToSameFile() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testUpdatesToSameFile(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testUpdatesToSameFile");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(recordsPerFile * recordSize);
         options.setCompactionDisabled(true);
 
@@ -135,11 +131,10 @@ public class HaloDBCompactionTest extends TestBase {
         }
     }
 
-    @Test
-    public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen() throws HaloDBException, InterruptedException {
+    @Test(dataProvider = "Options")
+    public void testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testFilesWithStaleDataAddedToCompactionQueueDuringDBOpen");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -157,7 +152,7 @@ public class HaloDBCompactionTest extends TestBase {
         db.close();
 
         // open the db withe compaction enabled. 
-        options = new HaloDBOptions();
+        options.setCompactionDisabled(false);
         options.setMaxFileSize(10 * 1024);
 
         db = getTestDBWithoutDeletingFiles(directory, options);
@@ -171,7 +166,6 @@ public class HaloDBCompactionTest extends TestBase {
         db.close();
 
         // open the db with compaction disabled.
-        options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionDisabled(true);
 
@@ -186,8 +180,8 @@ public class HaloDBCompactionTest extends TestBase {
 
         db.close();
 
-        // Open db again with compaction enabled. 
-        options = new HaloDBOptions();
+        // Open db again with compaction enabled.
+        options.setCompactionDisabled(false);
         options.setMaxFileSize(10 * 1024);
 
         db = getTestDBWithoutDeletingFiles(directory, options);

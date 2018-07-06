@@ -25,21 +25,20 @@ import mockit.MockUp;
  */
 public class HaloDBIteratorTest extends TestBase {
 
-    @Test(expectedExceptions = NoSuchElementException.class)
-    public void testWithEmptyDB() throws HaloDBException {
+    @Test(expectedExceptions = NoSuchElementException.class, dataProvider = "Options")
+    public void testWithEmptyDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
-        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        HaloDB db = getTestDB(directory, options);
         HaloDBIterator iterator = db.newIterator();
         Assert.assertFalse(iterator.hasNext());
         iterator.next();
     }
 
-    @Test
-    public void testWithDelete() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testWithDelete(HaloDBOptions options) throws HaloDBException {
         String directory =  TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -61,11 +60,10 @@ public class HaloDBIteratorTest extends TestBase {
         Assert.assertFalse(iterator.hasNext());
     }
 
-    @Test
-    public void testPutAndGetDB() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testPutAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutAndGetDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -80,11 +78,10 @@ public class HaloDBIteratorTest extends TestBase {
         MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(records.toArray()));
     }
 
-    @Test
-    public void testPutUpdateAndGetDB() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testPutUpdateAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateAndGetDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -100,11 +97,10 @@ public class HaloDBIteratorTest extends TestBase {
         MatcherAssert.assertThat(actual, Matchers.containsInAnyOrder(updated.toArray()));
     }
 
-    @Test
-    public void testPutUpdateCompactAndGetDB() throws HaloDBException, InterruptedException {
+    @Test(dataProvider = "Options")
+    public void testPutUpdateCompactAndGetDB(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateMergeAndGetDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(false);
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.50);
@@ -127,11 +123,10 @@ public class HaloDBIteratorTest extends TestBase {
 
     // Test to make sure that no exceptions are thrown when files are being deleted by
     // compaction thread and db is being iterated. 
-    @Test
-    public void testConcurrentCompactionAndIterator() throws HaloDBException, InterruptedException {
+    @Test(dataProvider = "Options")
+    public void testConcurrentCompactionAndIterator(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(1024 * 1024);
         options.setCompactionThresholdPerFile(0.1);
 
@@ -158,8 +153,8 @@ public class HaloDBIteratorTest extends TestBase {
         }
     }
 
-    @Test
-    public void testConcurrentCompactionAndIteratorWhenFileIsClosed() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testConcurrentCompactionAndIteratorWhenFileIsClosed(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
 
         new MockUp<HaloDBFile>() {
@@ -178,7 +173,6 @@ public class HaloDBIteratorTest extends TestBase {
 
         };
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(2 * 1024);
         options.setCompactionThresholdPerFile(0.1);
 
@@ -204,8 +198,8 @@ public class HaloDBIteratorTest extends TestBase {
         }
     }
 
-    @Test
-    public void testConcurrentCompactionAndIteratorWithMockedException() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testConcurrentCompactionAndIteratorWithMockedException(HaloDBOptions options) throws HaloDBException {
         // Previous tests are not guaranteed to throw ClosedChannelException. Here we throw a mock exception
         // to make sure that iterator gracefully handles files being closed and delete by compaction thread. 
 
@@ -223,7 +217,6 @@ public class HaloDBIteratorTest extends TestBase {
             }
         };
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.6);
 

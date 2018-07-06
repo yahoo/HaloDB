@@ -6,6 +6,7 @@
 package com.oath.halodb;
 
 import com.google.common.base.MoreObjects;
+import com.oath.halodb.cache.linked.SegmentStats;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -24,8 +25,8 @@ public class HaloDBStats {
 
     private final long rehashCount;
     private final long numberOfSegments;
-    private final long[] countPerSegment;
     private final long maxSizePerSegment;
+    private final SegmentStats[] segmentStats;
 
     private final long numberOfTombstonesFoundDuringOpen;
     private final long numberOfTombstonesCleanedUpDuringOpen;
@@ -41,7 +42,7 @@ public class HaloDBStats {
 
     public HaloDBStats(long statsResetTime, long size, int numberOfFilesPendingCompaction,
                        Map<Integer, Double> staleDataPercentPerFile, long rehashCount, long numberOfSegments,
-                       long[] countPerSegment, long maxSizePerSegment, long numberOfTombstonesFoundDuringOpen,
+                       long maxSizePerSegment, SegmentStats[] segmentStats, long numberOfTombstonesFoundDuringOpen,
                        long numberOfTombstonesCleanedUpDuringOpen, long numberOfRecordsCopied,
                        long numberOfRecordsReplaced, long numberOfRecordsScanned, long sizeOfRecordsCopied,
                        long sizeOfFilesDeleted, long sizeReclaimed, HaloDBOptions options) {
@@ -51,8 +52,8 @@ public class HaloDBStats {
         this.staleDataPercentPerFile = staleDataPercentPerFile;
         this.rehashCount = rehashCount;
         this.numberOfSegments = numberOfSegments;
-        this.countPerSegment = countPerSegment;
         this.maxSizePerSegment = maxSizePerSegment;
+        this.segmentStats = segmentStats;
         this.numberOfTombstonesFoundDuringOpen = numberOfTombstonesFoundDuringOpen;
         this.numberOfTombstonesCleanedUpDuringOpen = numberOfTombstonesCleanedUpDuringOpen;
         this.numberOfRecordsCopied = numberOfRecordsCopied;
@@ -82,10 +83,6 @@ public class HaloDBStats {
 
     public long getNumberOfSegments() {
         return numberOfSegments;
-    }
-
-    public long[] getCountPerSegment() {
-        return countPerSegment;
     }
 
     public long getMaxSizePerSegment() {
@@ -128,11 +125,16 @@ public class HaloDBStats {
         return numberOfTombstonesCleanedUpDuringOpen;
     }
 
+    public SegmentStats[] getSegmentStats() {
+        return segmentStats;
+    }
+
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(this)
+        return MoreObjects.toStringHelper("")
             .add("statsResetTime", statsResetTime)
             .add("size", size)
+            .add("Options", options)
             .add("numberOfFilesPendingCompaction", numberOfFilesPendingCompaction)
             .add("numberOfRecordsCopied", numberOfRecordsCopied)
             .add("numberOfRecordsReplaced", numberOfRecordsReplaced)
@@ -141,12 +143,11 @@ public class HaloDBStats {
             .add("sizeOfFilesDeleted", sizeOfFilesDeleted)
             .add("sizeReclaimed", sizeReclaimed)
             .add("rehashCount", rehashCount)
-            .add("numberOfSegments", numberOfSegments)
-            .add("countPerSegment", Arrays.toString(countPerSegment))
             .add("maxSizePerSegment", maxSizePerSegment)
             .add("numberOfTombstonesFoundDuringOpen", numberOfTombstonesFoundDuringOpen)
             .add("numberOfTombstonesCleanedUpDuringOpen", numberOfTombstonesCleanedUpDuringOpen)
-            .add("Options", options)
+            .add("segmentStats", Arrays.toString(segmentStats))
+            .add("numberOfSegments", numberOfSegments)
             .add("staleDataPercentPerFile", staleDataMapToString())
             .toString();
     }

@@ -8,16 +8,12 @@
 package com.oath.halodb.cache;
 
 import com.google.common.base.Objects;
-
-import java.util.Arrays;
+import com.oath.halodb.cache.linked.SegmentStats;
 
 public final class OHCacheStats
 {
     private final long hitCount;
     private final long missCount;
-    private final long evictionCount;
-    private final long expireCount;
-    private final long[] segmentSizes;
     private final long capacity;
     private final long size;
     private final long rehashCount;
@@ -27,17 +23,15 @@ public final class OHCacheStats
     private final long removeCount;
     private final long totalAllocated;
     private final long lruCompactions;
+    private final SegmentStats[] segmentStats;
 
-    public OHCacheStats(long hitCount, long missCount, long evictionCount, long expireCount,
-                        long[] segmentSizes, long size, long capacity, long free, long rehashCount,
+    public OHCacheStats(long hitCount, long missCount,
+                        long size, long capacity, long free, long rehashCount,
                         long putAddCount, long putReplaceCount, long putFailCount, long removeCount,
-                        long totalAllocated, long lruCompactions)
+                        long totalAllocated, long lruCompactions, SegmentStats[] segmentStats)
     {
         this.hitCount = hitCount;
         this.missCount = missCount;
-        this.evictionCount = evictionCount;
-        this.expireCount = expireCount;
-        this.segmentSizes = segmentSizes;
         this.size = size;
         this.capacity = capacity;
         this.rehashCount = rehashCount;
@@ -47,6 +41,7 @@ public final class OHCacheStats
         this.removeCount = removeCount;
         this.totalAllocated = totalAllocated;
         this.lruCompactions = lruCompactions;
+        this.segmentStats = segmentStats;
     }
 
     public long getCapacity()
@@ -67,21 +62,6 @@ public final class OHCacheStats
     public long getMissCount()
     {
         return missCount;
-    }
-
-    public long getEvictionCount()
-    {
-        return evictionCount;
-    }
-
-    public long getExpireCount()
-    {
-        return expireCount;
-    }
-
-    public long[] getSegmentSizes()
-    {
-        return segmentSizes;
     }
 
     public long getSize()
@@ -109,21 +89,6 @@ public final class OHCacheStats
         return removeCount;
     }
 
-    public double getAverageSegmentSize()
-    {
-        return avgOf(segmentSizes);
-    }
-
-    public long getMinSegmentSize()
-    {
-        return minOf(segmentSizes);
-    }
-
-    public long getMaxSegmentSize()
-    {
-        return maxOf(segmentSizes);
-    }
-
     public long getTotalAllocated()
     {
         return totalAllocated;
@@ -134,18 +99,20 @@ public final class OHCacheStats
         return lruCompactions;
     }
 
+    public SegmentStats[] getSegmentStats() {
+        return segmentStats;
+    }
+
     public String toString()
     {
         return Objects.toStringHelper(this)
                       .add("hitCount", hitCount)
                       .add("missCount", missCount)
-                      .add("evictionCount", evictionCount)
                       .add("size", size)
                       .add("capacity", capacity)
                       .add("rehashCount", rehashCount)
                       .add("put(add/replace/fail)", Long.toString(putAddCount)+'/'+putReplaceCount+'/'+putFailCount)
                       .add("removeCount", removeCount)
-                      .add("segmentSizes(#/min/max/avg)", String.format("%d/%d/%d/%.2f", segmentSizes.length, getMinSegmentSize(), getMaxSegmentSize(), getAverageSegmentSize()))
                       .add("totalAllocated", totalAllocated)
                       .add("lruCompactions", lruCompactions)
                       .toString();
@@ -185,7 +152,6 @@ public final class OHCacheStats
         OHCacheStats that = (OHCacheStats) o;
 
         if (capacity != that.capacity) return false;
-        if (evictionCount != that.evictionCount) return false;
         if (hitCount != that.hitCount) return false;
         if (missCount != that.missCount) return false;
         if (putAddCount != that.putAddCount) return false;
@@ -195,7 +161,6 @@ public final class OHCacheStats
         if (removeCount != that.removeCount) return false;
         if (size != that.size) return false;
 //        if (totalAllocated != that.totalAllocated) return false;
-        if (!Arrays.equals(segmentSizes, that.segmentSizes)) return false;
 
         return true;
     }
@@ -204,8 +169,6 @@ public final class OHCacheStats
     {
         int result = (int) (hitCount ^ (hitCount >>> 32));
         result = 31 * result + (int) (missCount ^ (missCount >>> 32));
-        result = 31 * result + (int) (evictionCount ^ (evictionCount >>> 32));
-        result = 31 * result + Arrays.hashCode(segmentSizes);
         result = 31 * result + (int) (capacity ^ (capacity >>> 32));
         result = 31 * result + (int) (size ^ (size >>> 32));
 //        result = 31 * result + (int) (rehashCount ^ (rehashCount >>> 32));

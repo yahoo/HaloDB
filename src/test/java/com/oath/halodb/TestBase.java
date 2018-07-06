@@ -6,6 +6,7 @@
 package com.oath.halodb;
 
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.DataProvider;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +19,19 @@ public class TestBase {
     private String directory;
 
     private HaloDB db;
+
+    @DataProvider(name = "Options")
+    public Object[][] optionData() {
+        HaloDBOptions options = new HaloDBOptions();
+        HaloDBOptions withMemoryPool = new HaloDBOptions();
+        withMemoryPool.setUseMemoryPool(true);
+        withMemoryPool.setMemoryPoolChunkSize(1024 * 1024);
+
+        return new Object[][] {
+            {options},
+            {withMemoryPool}
+        };
+    }
 
     HaloDB getTestDB(String directory, HaloDBOptions options) throws HaloDBException {
         this.directory = directory;

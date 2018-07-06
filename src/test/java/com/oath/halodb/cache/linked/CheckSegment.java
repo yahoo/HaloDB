@@ -7,12 +7,9 @@
 
 package com.oath.halodb.cache.linked;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -21,8 +18,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 final class CheckSegment
 {
-    private final Map<HeapKeyBuffer, byte[]> map;
-    private final LinkedList<HeapKeyBuffer> lru = new LinkedList<>();
+    private final Map<KeyBuffer, byte[]> map;
+    private final LinkedList<KeyBuffer> lru = new LinkedList<>();
     private final AtomicLong freeCapacity;
 
     long hitCount;
@@ -40,13 +37,13 @@ final class CheckSegment
 
     synchronized void clear()
     {
-        for (Map.Entry<HeapKeyBuffer, byte[]> entry : map.entrySet())
+        for (Map.Entry<KeyBuffer, byte[]> entry : map.entrySet())
             freeCapacity.addAndGet(sizeOf(entry.getKey(), entry.getValue()));
         map.clear();
         lru.clear();
     }
 
-    synchronized byte[] get(HeapKeyBuffer keyBuffer)
+    synchronized byte[] get(KeyBuffer keyBuffer)
     {
         byte[] r = map.get(keyBuffer);
         if (r == null)
@@ -62,7 +59,7 @@ final class CheckSegment
         return r;
     }
 
-    synchronized boolean put(HeapKeyBuffer keyBuffer, byte[] data, boolean ifAbsent, byte[] old)
+    synchronized boolean put(KeyBuffer keyBuffer, byte[] data, boolean ifAbsent, byte[] old)
     {
         long sz = sizeOf(keyBuffer, data);
         while (freeCapacity.get() < sz) {
@@ -96,7 +93,7 @@ final class CheckSegment
         return true;
     }
 
-    synchronized boolean remove(HeapKeyBuffer keyBuffer)
+    synchronized boolean remove(KeyBuffer keyBuffer)
     {
         byte[] old = map.remove(keyBuffer);
         if (old != null)
@@ -114,22 +111,7 @@ final class CheckSegment
         return map.size();
     }
 
-    synchronized Iterator<HeapKeyBuffer> hotN(int n)
-    {
-        List<HeapKeyBuffer> lst = new ArrayList<>(n);
-        for (Iterator<HeapKeyBuffer> iter = lru.iterator(); iter.hasNext() && n-- > 0; )
-            lst.add(iter.next());
-        return lst.iterator();
-    }
-
-    synchronized Iterator<HeapKeyBuffer> keyIterator()
-    {
-        return new ArrayList<>(lru).iterator();
-    }
-
-    //
-
-    static long sizeOf(HeapKeyBuffer key, byte[] value)
+    static long sizeOf(KeyBuffer key, byte[] value)
     {
         // calculate the same value as the original impl would do
         return HashEntries.ENTRY_OFF_DATA + key.size() + value.length;

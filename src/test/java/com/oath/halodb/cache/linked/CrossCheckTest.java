@@ -8,11 +8,8 @@
 package com.oath.halodb.cache.linked;
 
 import com.google.common.primitives.Longs;
-import com.oath.halodb.ByteArraySerializer;
-import com.oath.halodb.cache.CloseableIterator;
 import com.oath.halodb.cache.HashAlgorithm;
 import com.oath.halodb.cache.OHCache;
-import com.oath.halodb.cache.OHCacheBuilder;
 import com.oath.halodb.cache.OHCacheStats;
 import com.oath.halodb.cache.histo.EstimatedHistogram;
 
@@ -22,20 +19,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 // This unit test uses the production cache implementation and an independent OHCache implementation used to
@@ -43,7 +33,8 @@ import static org.testng.Assert.assertTrue;
 public class CrossCheckTest
 {
 
-    private static final int fixedValueSize = 16;
+    private static final int fixedValueSize = 20;
+    private static final int fixedKeySize = 16;
 
     @AfterMethod(alwaysRun = true)
     public void deinit()
@@ -51,29 +42,31 @@ public class CrossCheckTest
         Uns.clearUnsDebugForTest();
     }
 
-    static DoubleCheckCacheImpl<byte[], byte[]> cache(HashAlgorithm hashAlgorithm)
+    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool)
     {
-        return cache(hashAlgorithm, 256);
+        return cache(hashAlgorithm, useMemoryPool, 256);
     }
 
-    static DoubleCheckCacheImpl<byte[], byte[]> cache(HashAlgorithm hashAlgorithm, long capacity)
+    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity)
     {
-        return cache(hashAlgorithm, capacity, -1);
+        return cache(hashAlgorithm, useMemoryPool, capacity, -1);
     }
 
-    static DoubleCheckCacheImpl<byte[], byte[]> cache(HashAlgorithm hashAlgorithm, long capacity, int hashTableSize)
+    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize)
     {
-        return cache(hashAlgorithm, capacity, hashTableSize, -1, -1);
+        return cache(hashAlgorithm, useMemoryPool, capacity, hashTableSize, -1, -1);
     }
 
-    static DoubleCheckCacheImpl<byte[], byte[]> cache(HashAlgorithm hashAlgorithm, long capacity, int hashTableSize, int segments, long maxEntrySize)
+    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
-        OHCacheBuilder<byte[], byte[]> builder = OHCacheBuilder.<byte[], byte[]>newBuilder()
-                                                                .keySerializer(new ByteArraySerializer())
-                                                                .valueSerializer(new ByteArraySerializer())
+        OHCacheBuilder<byte[]> builder = OHCacheBuilder.<byte[]>newBuilder()
+                                                                .valueSerializer(TestUtils.byteArraySerializer)
                                                                 .hashMode(hashAlgorithm)
                                                                 .fixedValueSize(fixedValueSize)
                                                                 .capacity(Long.MAX_VALUE);
+        if (useMemoryPool)
+            builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
+
         if (hashTableSize > 0)
             builder.hashTableSize(hashTableSize);
         if (segments > 0)
@@ -87,20 +80,24 @@ public class CrossCheckTest
         return new DoubleCheckCacheImpl<>(builder);
     }
 
-    @DataProvider(name = "types")
+    @DataProvider(name = "hashAlgorithms")
     public Object[][] cacheEviction()
     {
         return new Object[][]{
-            {HashAlgorithm.MURMUR3 },
-            {HashAlgorithm.CRC32 },
-            {HashAlgorithm.XX }
+            {HashAlgorithm.MURMUR3, false },
+            {HashAlgorithm.MURMUR3, true },
+            {HashAlgorithm.CRC32, false },
+            {HashAlgorithm.CRC32, true },
+            {HashAlgorithm.XX, false },
+            {HashAlgorithm.XX, true }
         };
     }
 
-    @Test(dataProvider = "types")
-    public void testBasics(HashAlgorithm hashAlgorithm) throws IOException, InterruptedException
+
+    @Test(dataProvider = "hashAlgorithms")
+    public void testBasics(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = TestUtils.randomBytes(12);
             byte[] value = TestUtils.randomBytes(fixedValueSize);
@@ -129,10 +126,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types", dependsOnMethods = "testBasics")
-    public void testManyValues(HashAlgorithm hashAlgorithm) throws IOException, InterruptedException
+    @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics")
+    public void testManyValues(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm, 64, -1))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool, 64, -1))
         {
             List<TestUtils.KeyValuePair> entries = TestUtils.fillMany(cache, fixedValueSize);
 
@@ -186,6 +183,85 @@ public class CrossCheckTest
             Assert.assertEquals(stats.getSize(), 0);
         }
     }
+
+
+    @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics")
+    public void testRehash(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
+    {
+        int count = 10_000;
+        OHCacheBuilder<byte[]> builder = OHCacheBuilder.<byte[]>newBuilder()
+            .valueSerializer(TestUtils.byteArraySerializer)
+            .hashMode(hashAlgorithm)
+            .fixedValueSize(fixedValueSize)
+            .capacity(Long.MAX_VALUE)
+            .hashTableSize(count/4)
+            .segmentCount(1)
+            .loadFactor(1);
+
+        if (useMemoryPool)
+            builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
+
+
+        try (OHCache<byte[]> cache = new DoubleCheckCacheImpl<>(builder))
+        {
+            List<TestUtils.KeyValuePair> entries = TestUtils.fill(cache, fixedValueSize, count);
+
+            OHCacheStats stats = cache.stats();
+            Assert.assertEquals(stats.getPutAddCount(), count);
+            Assert.assertEquals(stats.getSize(), count);
+            Assert.assertEquals(stats.getRehashCount(), 2); // default load factor of 0.75, therefore 3 rehashes.
+
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+
+            stats = cache.stats();
+            Assert.assertEquals(stats.getHitCount(), count);
+            Assert.assertEquals(stats.getSize(), count);
+
+            for (int i = 0; i < count; i++)
+            {
+                TestUtils.KeyValuePair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.value, "for i="+i);
+                assertTrue(cache.containsKey(kv.key), "for i="+i);
+                byte[] updated = TestUtils.randomBytes(fixedValueSize);
+                cache.put(kv.key, updated);
+                entries.set(i, new TestUtils.KeyValuePair(kv.key, updated));
+                Assert.assertEquals(cache.get(kv.key), updated, "for i="+i);
+                Assert.assertEquals(cache.size(), count, "for i=" + i);
+                assertTrue(cache.containsKey(kv.key), "for i="+i);
+            }
+
+            stats = cache.stats();
+            Assert.assertEquals(stats.getPutReplaceCount(), count);
+            Assert.assertEquals(stats.getSize(), count);
+            Assert.assertEquals(stats.getRehashCount(), 2);
+
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+
+            stats = cache.stats();
+            Assert.assertEquals(stats.getHitCount(), count * 6);
+            Assert.assertEquals(stats.getSize(), count);
+
+            for (int i = 0; i < count; i++)
+            {
+                TestUtils.KeyValuePair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.value, "for i=" + i);
+                assertTrue(cache.containsKey(kv.key), "for i=" + i);
+                cache.remove(kv.key);
+                Assert.assertNull(cache.get(kv.key), "for i=" + i);
+                Assert.assertFalse(cache.containsKey(kv.key), "for i=" + i);
+                Assert.assertEquals(cache.stats().getRemoveCount(), i + 1);
+                Assert.assertEquals(cache.size(), count - i - 1, "for i=" + i);
+            }
+
+            stats = cache.stats();
+            Assert.assertEquals(stats.getRemoveCount(), count);
+            Assert.assertEquals(stats.getSize(), 0);
+            Assert.assertEquals(stats.getRehashCount(), 2);
+        }
+    }
+
+
+
 //
 //    private String longString()
 //    {
@@ -196,36 +272,36 @@ public class CrossCheckTest
 //    }
 //
 //
-    @Test(dataProvider = "types", dependsOnMethods = "testBasics",
+    @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics",
             expectedExceptions = IllegalArgumentException.class,
             expectedExceptionsMessageRegExp = ".*greater than fixed value size.*")
-    public void testPutTooLargeValue(HashAlgorithm hashAlgorithm) throws IOException, InterruptedException {
+    public void testPutTooLargeValue(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
         byte[] key = TestUtils.randomBytes(8);
         byte[] largeValue = TestUtils.randomBytes(fixedValueSize + 1);
 
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm, 1, -1)) {
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool,1, -1)) {
             cache.put(key, largeValue);
         }
     }
 
-    @Test(dataProvider = "types", dependsOnMethods = "testBasics",
+    @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics",
             expectedExceptions = IllegalArgumentException.class,
             expectedExceptionsMessageRegExp = ".*exceeds max permitted size of 127")
-    public void testPutTooLargeKey(HashAlgorithm hashAlgorithm) throws IOException, InterruptedException {
+    public void testPutTooLargeKey(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
         byte[] key = TestUtils.randomBytes(1024);
         byte[] largeValue = TestUtils.randomBytes(fixedValueSize);
 
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm, 1, -1)) {
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {
             cache.put(key, largeValue);
         }
     }
 
     // per-method tests
 
-    @Test(dataProvider = "types", dependsOnMethods = "testBasics")
-    public void testAddOrReplace(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics")
+    public void testAddOrReplace(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] oldValue = null;
             for (int i = 0; i < TestUtils.manyCount; i++)
@@ -245,10 +321,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types")
-    public void testPutIfAbsent(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms")
+    public void testPutIfAbsent(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             for (int i = 0; i < TestUtils.manyCount; i++)
                 assertTrue(cache.putIfAbsent(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
@@ -261,27 +337,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types")
-    public void testPutAll(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms")
+    public void testRemove(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
-        {
-            Map<byte[], byte[]> map = new HashMap<>();
-            map.put(Longs.toByteArray(1), TestUtils.randomBytes(fixedValueSize));
-            map.put(Longs.toByteArray(2), TestUtils.randomBytes(fixedValueSize));
-            map.put(Longs.toByteArray(3), TestUtils.randomBytes(fixedValueSize));
-            cache.putAll(map);
-
-            map.forEach((key, value) -> {
-                Assert.assertEquals(cache.get(key), value);
-            });
-        }
-    }
-
-    @Test(dataProvider = "types")
-    public void testRemove(HashAlgorithm hashAlgorithm) throws Exception
-    {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             TestUtils.fillMany(cache, fixedValueSize);
 
@@ -299,42 +358,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types")
-    public void testRemoveAll(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms")
+    public void testClear(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
-        {
-            List<TestUtils.KeyValuePair> data = new ArrayList<>();
-            for (int i = 0; i < 100; i++) {
-                data.add(new TestUtils.KeyValuePair(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
-            }
-
-            data.forEach(kv -> cache.put(kv.key, kv.value));
-            data.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
-
-            Assert.assertEquals(cache.size(), 100);
-
-            // remove first 10 elements.
-            cache.removeAll(data.stream().limit(10).map(kv -> kv.key).collect(Collectors.toList()));
-
-            Assert.assertEquals(cache.size(), 90);
-
-
-            // remove next 40 elements.
-            cache.removeAll(data.stream().skip(10).limit(40).map(kv -> kv.key).collect(Collectors.toList()));
-
-            Assert.assertEquals(cache.size(), 50);
-
-            // remove rest of the elements
-            cache.removeAll(data.stream().skip(50).map(kv -> kv.key).collect(Collectors.toList()));
-            Assert.assertEquals(cache.size(), 0);
-        }
-    }
-
-    @Test(dataProvider = "types")
-    public void testClear(HashAlgorithm hashAlgorithm) throws Exception
-    {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             List<TestUtils.KeyValuePair> data = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
@@ -351,10 +378,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types")
-    public void testGet_Put(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms")
+    public void testGet_Put(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = Longs.toByteArray(42);
             byte[] value = TestUtils.randomBytes(fixedValueSize);
@@ -375,10 +402,10 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types")
-    public void testContainsKey(HashAlgorithm hashAlgorithm) throws Exception
+    @Test(dataProvider = "hashAlgorithms")
+    public void testContainsKey(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = Longs.toByteArray(42);
             byte[] value = TestUtils.randomBytes(fixedValueSize);
@@ -388,124 +415,12 @@ public class CrossCheckTest
         }
     }
 
-    @Test(dataProvider = "types", dependsOnMethods = "testBasics")
-    public void testKeyIterator1(HashAlgorithm hashAlgorithm) throws IOException, InterruptedException
+
+    @Test(dataProvider = "hashAlgorithms")
+    public void testGetBucketHistogram(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm, 32))
+        try (DoubleCheckCacheImpl<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
-
-            List<TestUtils.KeyValuePair> data = new ArrayList<>();
-            for (int i = 0; i < 100; i++) {
-                data.add(new TestUtils.KeyValuePair(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
-            }
-
-            data.forEach(kv -> cache.put(kv.key, kv.value));
-
-            Set<ByteBuffer> returned = new TreeSet<>();
-            Iterator<byte[]> iter = cache.keyIterator();
-            for (int i = 0; i < 100; i++)
-            {
-                assertTrue(iter.hasNext());
-                returned.add(ByteBuffer.wrap(iter.next()));
-            }
-            assertFalse(iter.hasNext());
-            assertEquals(returned.size(), 100);
-
-            data.forEach(kv -> assertTrue(returned.contains(ByteBuffer.wrap(kv.key))));
-
-            returned.clear();
-
-            iter = cache.keyIterator();
-            for (int i = 0; i < 100; i++)
-            {
-                assertTrue(iter.hasNext());
-                returned.add(ByteBuffer.wrap(iter.next()));
-            }
-            assertFalse(iter.hasNext());
-            assertEquals(returned.size(), 100);
-
-            data.forEach(kv -> assertTrue(returned.contains(ByteBuffer.wrap(kv.key))));
-        }
-    }
-
-    @Test(dataProvider = "types")
-    public void testKeyIterator2(HashAlgorithm hashAlgorithm) throws Exception
-    {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
-        {
-            Assert.assertFalse(cache.keyIterator().hasNext());
-
-            List<TestUtils.KeyValuePair> data = new ArrayList<>();
-            for (int i = 0; i < 100; i++) {
-                data.add(new TestUtils.KeyValuePair(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
-            }
-
-            data.forEach(kv -> cache.put(kv.key, kv.value));
-
-            Assert.assertEquals(cache.stats().getSize(), 100);
-
-            Set<ByteBuffer> keys = new TreeSet<>();
-            try (CloseableIterator<byte[]> iter = cache.keyIterator())
-            {
-                while (iter.hasNext())
-                {
-                    byte[] k = iter.next();
-                    assertTrue(keys.add(ByteBuffer.wrap(k)));
-                }
-            }
-
-            Assert.assertEquals(keys.size(), 100);
-            data.forEach(kv -> assertTrue(keys.contains(ByteBuffer.wrap(kv.key))));
-
-            cache.clear();
-
-            Assert.assertEquals(cache.stats().getSize(), 0);
-        }
-    }
-//
-    @Test(dataProvider = "types")
-    public void testKeyBufferIterator(HashAlgorithm hashAlgorithm) throws Exception
-    {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
-        {
-            Assert.assertFalse(cache.keyBufferIterator().hasNext());
-
-            List<TestUtils.KeyValuePair> data = new ArrayList<>();
-            for (int i = 0; i < 100; i++) {
-                data.add(new TestUtils.KeyValuePair(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
-            }
-
-            data.forEach(kv -> cache.put(kv.key, kv.value));
-
-            Assert.assertEquals(cache.stats().getSize(), 100);
-
-            Set<ByteBuffer> keys = new HashSet<>();
-            try (CloseableIterator<ByteBuffer> iter = cache.keyBufferIterator())
-            {
-                while (iter.hasNext())
-                {
-                    ByteBuffer k = iter.next();
-                    ByteBuffer k2 = ByteBuffer.allocate(k.remaining());
-                    k2.put(k);
-                    k2.flip();
-                    assertTrue(keys.add(k2));
-                }
-            }
-            Assert.assertEquals(keys.size(), 100);
-            data.forEach(kv -> assertTrue(keys.contains(ByteBuffer.wrap(kv.key))));
-
-            cache.clear();
-
-            Assert.assertEquals(cache.stats().getSize(), 0);
-        }
-    }
-
-    @Test(dataProvider = "types")
-    public void testGetBucketHistogram(HashAlgorithm hashAlgorithm) throws Exception
-    {
-        try (DoubleCheckCacheImpl<byte[], byte[]> cache = cache(hashAlgorithm))
-        {
-            Assert.assertFalse(cache.keyIterator().hasNext());
             List<TestUtils.KeyValuePair> data = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
                 data.add(new TestUtils.KeyValuePair(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize)));
@@ -537,10 +452,10 @@ public class CrossCheckTest
         return r;
     }
 
-    @Test(dataProvider = "types")
-    public void testResetStatistics(HashAlgorithm hashAlgorithm) throws IOException
+    @Test(dataProvider = "hashAlgorithms")
+    public void testResetStatistics(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException
     {
-        try (OHCache<byte[], byte[]> cache = cache(hashAlgorithm))
+        try (OHCache<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             for (int i = 0; i < 100; i++)
                 cache.put(Longs.toByteArray(i), TestUtils.randomBytes(fixedValueSize));

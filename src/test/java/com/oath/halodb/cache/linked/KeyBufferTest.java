@@ -45,13 +45,14 @@ public class KeyBufferTest
     @Test(dataProvider = "hashes")
     public void testHashFinish(HashAlgorithm hashAlgorithm) throws Exception
     {
-        KeyBuffer out = new KeyBuffer(12);
 
-        ByteBuffer buf = out.byteBuffer();
+        ByteBuffer buf = ByteBuffer.allocate(12);
         byte[] ref = TestUtils.generateRandomByteArray(10);
         buf.put((byte) (42 & 0xff));
         buf.put(ref);
         buf.put((byte) (0xf0 & 0xff));
+
+        KeyBuffer out = new KeyBuffer(buf.array());
         out.finish(com.oath.halodb.cache.linked.Hasher.create(hashAlgorithm));
 
         Hasher hasher = hasher(hashAlgorithm);
@@ -91,13 +92,13 @@ public class KeyBufferTest
     @Test(dataProvider = "hashes", dependsOnMethods = "testHashFinish")
     public void testHashFinish16(HashAlgorithm hashAlgorithm) throws Exception
     {
-        KeyBuffer out = new KeyBuffer(16);
 
         byte[] ref = TestUtils.generateRandomByteArray(14);
-        ByteBuffer buf = out.byteBuffer();
+        ByteBuffer buf = ByteBuffer.allocate(16);
         buf.put((byte) (42 & 0xff));
         buf.put(ref);
         buf.put((byte) (0xf0 & 0xff));
+        KeyBuffer out = new KeyBuffer(buf.array());
         out.finish(com.oath.halodb.cache.linked.Hasher.create(hashAlgorithm));
 
         Hasher hasher = hasher(hashAlgorithm);
@@ -116,11 +117,11 @@ public class KeyBufferTest
         {
             for (int j = 0; j < 10; j++)
             {
-                KeyBuffer out = new KeyBuffer(i);
 
                 byte[] ref = TestUtils.generateRandomByteArray(i);
-                ByteBuffer buf = out.byteBuffer();
+                ByteBuffer buf = ByteBuffer.allocate(i);
                 buf.put(ref);
+                KeyBuffer out = new KeyBuffer(buf.array());
                 out.finish(com.oath.halodb.cache.linked.Hasher.create(hashAlgorithm));
 
                 Hasher hasher = hasher(hashAlgorithm);
@@ -136,32 +137,28 @@ public class KeyBufferTest
     public void testSameKey() {
 
         int keyLength = 8;
-        KeyBuffer key = new KeyBuffer(keyLength);
         byte[] randomKey = TestUtils.generateRandomByteArray(keyLength);
-        compareKey(key, randomKey);
+        compareKey(randomKey);
 
         keyLength = 9;
-        key = new KeyBuffer(keyLength);
         randomKey = TestUtils.generateRandomByteArray(keyLength);
-        compareKey(key, randomKey);
+        compareKey(randomKey);
 
         for (int i = 0; i < 128; i++) {
             randomKey = TestUtils.generateRandomByteArray();
             keyLength = randomKey.length;
             if (keyLength == 0)
                 continue;
-            key = new KeyBuffer(keyLength);
-            compareKey(key, randomKey);
+            compareKey(randomKey);
         }
 
     }
 
-    private void compareKey(KeyBuffer key, byte[] randomKey) {
+    private void compareKey(byte[] randomKey) {
 
         long adr = Uns.allocate(HashEntries.ENTRY_OFF_DATA + randomKey.length, true);
         try {
-            ByteBuffer keyBuffer = key.byteBuffer();
-            keyBuffer.put(randomKey);
+            KeyBuffer key = new KeyBuffer(randomKey);
             key.finish(com.oath.halodb.cache.linked.Hasher.create(HashAlgorithm.MURMUR3));
 
             HashEntries.init(randomKey.length, adr);

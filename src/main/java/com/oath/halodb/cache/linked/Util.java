@@ -12,24 +12,8 @@ final class Util
 
 // Hash bucket-table
 
-    // total memory required for a hash-partition
-    static final long BUCKET_ENTRY_LEN = 8;
-
-// Compressed entries header
-
-    // 'OHCC'
-    static final int HEADER_COMPRESSED = 0x4f484343;
-    // 'OHCC' reversed
-    static final int HEADER_COMPRESSED_WRONG = 0x4343484f;
-    // 'OHCE'
-    static final int HEADER_ENTRIES = 0x4f484345;
-    // 'OHCE' reversed
-    static final int HEADER_ENTRIES_WRONG = 0x4543484f;
-    // 'OHCK'
-    static final int HEADER_KEYS = 0x4f48434b;
-    // 'OHCK' reversed
-    static final int HEADER_KEYS_WRONG = 0x4b43484f;
-
+    static final long NON_MEMORY_POOL_BUCKET_ENTRY_LEN = 8;
+    static final long MEMORY_POOL_BUCKET_ENTRY_LEN = 5;
 
     static long allocLen(long keyLen, long valueLen)
     {

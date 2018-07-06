@@ -14,11 +14,10 @@ import java.util.Random;
  */
 public class DataConsistencyCheck extends TestBase {
 
-    @Test
-    public void testConcurrentReadAndUpdates() throws HaloDBException, InterruptedException {
+    @Test(dataProvider = "Options")
+    public void testConcurrentReadAndUpdates(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("DataConsistencyCheck", "testConcurrentReadAndUpdates");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.5);
 

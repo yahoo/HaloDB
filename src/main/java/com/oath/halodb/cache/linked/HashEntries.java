@@ -10,8 +10,7 @@ package com.oath.halodb.cache.linked;
 /**
  * Encapsulates access to hash entries.
  */
-final class HashEntries
-{
+final class HashEntries {
 
     // offset of next hash entry in a hash bucket (8 bytes, long)
     static final long ENTRY_OFF_NEXT = 0;

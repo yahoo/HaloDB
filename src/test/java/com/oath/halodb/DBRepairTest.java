@@ -18,11 +18,10 @@ import java.util.List;
  */
 public class DBRepairTest extends TestBase {
 
-    @Test
-    public void testRepairDB() throws HaloDBException, IOException {
+    @Test(dataProvider = "Options")
+    public void testRepairDB(HaloDBOptions options) throws HaloDBException, IOException {
         String directory = TestUtils.getTestDirectory("DBRepairTest", "testRepairDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(1024 * 1024);
         options.setCompactionDisabled(true);
 
@@ -66,13 +65,11 @@ public class DBRepairTest extends TestBase {
         }
     }
 
-    @Test
-    public void testRepairDBWithCompaction() throws HaloDBException, InterruptedException, IOException {
+    @Test(dataProvider = "Options")
+    public void testRepairDBWithCompaction(HaloDBOptions options) throws HaloDBException, InterruptedException, IOException {
         String directory = TestUtils.getTestDirectory("DBRepairTest", "testRepairDBWithCompaction");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setMaxFileSize(1024 * 1024);
-
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10 * 1024 + 512;
 

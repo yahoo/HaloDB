@@ -19,11 +19,10 @@ import java.util.List;
  */
 public class HaloDBTest extends TestBase {
 
-    @Test
-    public void testPutAndGetDB() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testPutAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
@@ -46,11 +45,10 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testPutUpdateAndGetDB() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testPutUpdateAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutUpdateAndGetDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -76,12 +74,11 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testCreateCloseAndOpenDB() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testCreateCloseAndOpenDB(HaloDBOptions options) throws HaloDBException {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testCreateCloseAndOpenDB");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -125,12 +122,11 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testToCheckThatLatestUpdateIsPickedAfterDBOpen() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testToCheckThatLatestUpdateIsPickedAfterDBOpen(HaloDBOptions options) throws HaloDBException {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckThatLatestUpdateIsPickedAfterDBOpen");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
 
         // sized to ensure that there will be two files.
@@ -162,11 +158,10 @@ public class HaloDBTest extends TestBase {
         Assert.assertEquals(openAgainDB.get(key), value);
     }
 
-    @Test
-    public void testToCheckDelete() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testToCheckDelete(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckDelete");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -196,11 +191,10 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testDeleteCloseAndOpen() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testDeleteCloseAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteCloseAndOpen");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -234,11 +228,10 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testDeleteAndInsert() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testDeleteAndInsert(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteAndInsert");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
@@ -280,11 +273,10 @@ public class HaloDBTest extends TestBase {
         });
     }
 
-    @Test
-    public void testDeleteInsertCloseAndOpen() throws HaloDBException {
+    @Test(dataProvider = "Options")
+    public void testDeleteInsertCloseAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("tmp", "testDeleteInsertCloseAndOpen");
 
-        HaloDBOptions options = new HaloDBOptions();
         options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 

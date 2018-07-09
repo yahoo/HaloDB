@@ -318,6 +318,15 @@ public class CrossCheckTest
             Assert.assertEquals(cache.get(key), update2);
             Assert.assertFalse(cache.addOrReplace(key, update1, update2));
             Assert.assertEquals(cache.get(key), update2);
+
+            cache.remove(key);
+            Assert.assertNull(cache.get(key));
+
+            byte[] update3 = TestUtils.randomBytes(fixedValueSize);
+
+            // update will fail since the key was removed but old value is non-null.
+            Assert.assertFalse(cache.addOrReplace(key, update2, update3));
+            Assert.assertNull(cache.get(key));
         }
     }
 

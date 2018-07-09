@@ -68,12 +68,12 @@ final class CheckSegment
             }
 
         byte[] existing = map.get(keyBuffer);
-        if (ifAbsent || old != null)
-        {
-            if (ifAbsent && existing != null)
-                return false;
-            if (old != null && existing != null && !Arrays.equals(old, existing))
-                return false;
+
+        if (ifAbsent && existing != null)
+            return false;
+
+        if (old != null && !Arrays.equals(old, existing))  {
+            return false;
         }
 
         map.put(keyBuffer, data);

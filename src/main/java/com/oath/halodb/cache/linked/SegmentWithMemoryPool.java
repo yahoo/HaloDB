@@ -170,6 +170,12 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
                 }
             }
 
+            if (oldValue != null) {
+                // key is not present but old value is not null.
+                // we consider this as a mismatch and return.
+                return false;
+            }
+
             if (size >= threshold) {
                 rehash();
                 first = table.getFirst(hash);

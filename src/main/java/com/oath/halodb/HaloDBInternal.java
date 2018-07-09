@@ -7,7 +7,6 @@ package com.oath.halodb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
-import com.oath.halodb.cache.OHCacheStats;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +40,7 @@ class HaloDBInternal {
 
     HaloDBOptions options;
 
-    private KeyCache keyCache;
+    private InMemoryIndex inMemoryIndex;
 
     private final Map<Integer, Integer> staleDataPerFileMap = new ConcurrentHashMap<>();
 
@@ -89,7 +88,7 @@ class HaloDBInternal {
 
         dbInternal.compactionManager = new CompactionManager(dbInternal);
 
-        dbInternal.keyCache = new OffHeapCache(
+        dbInternal.inMemoryIndex = new OffHeapIndex(
             options.getNumberOfRecords(), options.isUseMemoryPool(),
             options.getFixedKeySize(), options.getMemoryPoolChunkSize()
         );
@@ -117,7 +116,7 @@ class HaloDBInternal {
         }
 
         if (options.isCleanUpKeyCacheOnClose())
-            keyCache.close();
+            inMemoryIndex.close();
 
         if (currentWriteFile != null) {
             currentWriteFile.flushToDisk();
@@ -156,7 +155,7 @@ class HaloDBInternal {
 
         //TODO: implement getAndSet and use the return value for
         //TODO: markPreviousVersionAsStale method.   
-        keyCache.put(key, entry);
+        inMemoryIndex.put(key, entry);
     }
 
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
@@ -164,7 +163,7 @@ class HaloDBInternal {
             logger.error("Tried {} attempts but read failed", attemptNumber-1);
             throw new HaloDBException("Tried " + attemptNumber + " attempts but failed.");
         }
-        RecordMetaDataForCache metaData = keyCache.get(key);
+        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
         if (metaData == null) {
             return null;
         }
@@ -190,7 +189,7 @@ class HaloDBInternal {
     }
 
     int get(byte[] key, ByteBuffer buffer) throws IOException {
-        RecordMetaDataForCache metaData = keyCache.get(key);
+        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
         if (metaData == null) {
             return 0;
         }
@@ -221,10 +220,10 @@ class HaloDBInternal {
     }
 
     void delete(byte[] key) throws IOException {
-        RecordMetaDataForCache metaData = keyCache.get(key);
+        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
         if (metaData != null) {
             //TODO: implement a getAndRemove method in keyCache. 
-            keyCache.remove(key);
+            inMemoryIndex.remove(key);
             TombstoneEntry entry =
                 new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
             rollOverCurrentTombstoneFile(entry);
@@ -234,7 +233,7 @@ class HaloDBInternal {
     }
 
     long size() {
-        return keyCache.size();
+        return inMemoryIndex.size();
     }
 
     void setIOErrorFlag() throws IOException {
@@ -276,7 +275,7 @@ class HaloDBInternal {
     }
 
     private void markPreviousVersionAsStale(byte[] key) {
-        RecordMetaDataForCache recordMetaData = keyCache.get(key);
+        RecordMetaDataForCache recordMetaData = inMemoryIndex.get(key);
         if (recordMetaData != null) {
             markPreviousVersionAsStale(key, recordMetaData);
         }
@@ -312,8 +311,8 @@ class HaloDBInternal {
         staleDataPerFileMap.remove(fileId);
     }
 
-    KeyCache getKeyCache() {
-        return keyCache;
+    InMemoryIndex getInMemoryIndex() {
+        return inMemoryIndex;
     }
 
     HaloDBFile createHaloDBFile(HaloDBFile.FileType fileType) throws IOException {
@@ -395,16 +394,16 @@ class HaloDBInternal {
                 int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
 
-                RecordMetaDataForCache existing = keyCache.get(key);
+                RecordMetaDataForCache existing = inMemoryIndex.get(key);
 
                 if (existing == null) {
                     // first version of the record that we have seen, add to cache.
-                    keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
+                    inMemoryIndex.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
                     inserted++;
                 }
                 else if (existing.getSequenceNumber() <= sequenceNumber) {
                     // a newer version of the record, replace existing record in cache with newer one.
-                    keyCache.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
+                    inMemoryIndex.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
 
                     // update stale data map for the previous version.
                     addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
@@ -434,10 +433,10 @@ class HaloDBInternal {
                 long sequenceNumber = entry.getSequenceNumber();
                 count++;
 
-                RecordMetaDataForCache existing = keyCache.get(key);
+                RecordMetaDataForCache existing = inMemoryIndex.get(key);
                 if (existing != null && existing.getSequenceNumber() < sequenceNumber) {
                     // Found a tombstone record which happened after the version currently in cache; remove.
-                    keyCache.remove(key);
+                    inMemoryIndex.remove(key);
 
                     // update stale data map for the previous version.
                     addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
@@ -544,7 +543,7 @@ class HaloDBInternal {
     }
 
     boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
-        RecordMetaDataForCache metaDataFromCache = keyCache.get(key);
+        RecordMetaDataForCache metaDataFromCache = inMemoryIndex.get(key);
 
         return
             metaDataFromCache != null
@@ -573,15 +572,15 @@ class HaloDBInternal {
     }
 
     HaloDBStats stats() {
-        OHCacheStats cacheStats = keyCache.stats();
+        OffHeapHashTableStats cacheStats = inMemoryIndex.stats();
         return new HaloDBStats(
             statsResetTime,
             cacheStats.getSize(),
             compactionManager.noOfFilesPendingCompaction(),
             computeStaleDataMapForStats(),
             cacheStats.getRehashCount(),
-            keyCache.getNoOfSegments(),
-            keyCache.getMaxSizeOfEachSegment(),
+            inMemoryIndex.getNoOfSegments(),
+            inMemoryIndex.getMaxSizeOfEachSegment(),
             cacheStats.getSegmentStats(),
             noOfTombstonesFoundDuringOpen,
             options.isCleanUpTombstonesDuringOpen() ? noOfTombstonesFoundDuringOpen - noOfTombstonesCopiedDuringOpen : 0,
@@ -596,7 +595,7 @@ class HaloDBInternal {
     }
 
     synchronized void resetStats() {
-        keyCache.resetStats();
+        inMemoryIndex.resetStats();
         compactionManager.resetStats();
         statsResetTime = System.currentTimeMillis();
     }

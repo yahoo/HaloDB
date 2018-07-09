@@ -51,6 +51,7 @@ public class DataConsistencyCheck extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testConcurrentReadAndUpdates(HaloDBOptions options) throws HaloDBException, InterruptedException {
+
         String directory = TestUtils.getTestDirectory("DataConsistencyCheck", "testConcurrentReadAndUpdates");
 
         options.setMaxFileSize(10 * 1024);

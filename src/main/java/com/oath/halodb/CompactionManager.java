@@ -182,7 +182,7 @@ class CompactionManager {
                 int recordSize = indexFileEntry.getRecordSize();
                 recordsScanned++;
 
-                RecordMetaDataForCache currentRecordMetaData = dbInternal.getKeyCache().get(key);
+                RecordMetaDataForCache currentRecordMetaData = dbInternal.getInMemoryIndex().get(key);
 
                 if (isRecordFresh(indexFileEntry, currentRecordMetaData, idOfFileToCompact)) {
                     recordsCopied++;
@@ -217,7 +217,7 @@ class CompactionManager {
                         currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber()
                     );
 
-                    boolean updated = dbInternal.getKeyCache().replace(key, currentRecordMetaData, newMetaData);
+                    boolean updated = dbInternal.getInMemoryIndex().replace(key, currentRecordMetaData, newMetaData);
                     if (updated) {
                         numberOfRecordsReplaced++;
                     }

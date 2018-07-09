@@ -61,7 +61,4 @@ class RecordMetaDataForCache {
     long getSequenceNumber() {
         return sequenceNumber;
     }
-
-    //TODO: need to define equals and hash code as it is used in KeyCache's replace operation.
-
 }

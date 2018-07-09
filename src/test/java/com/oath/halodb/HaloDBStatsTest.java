@@ -5,8 +5,6 @@
 
 package com.oath.halodb;
 
-import com.oath.halodb.cache.linked.SegmentStats;
-
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

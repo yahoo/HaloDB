@@ -6,7 +6,6 @@
 package com.oath.halodb;
 
 import com.google.common.base.MoreObjects;
-import com.oath.halodb.cache.linked.SegmentStats;
 
 import java.util.Arrays;
 import java.util.Map;

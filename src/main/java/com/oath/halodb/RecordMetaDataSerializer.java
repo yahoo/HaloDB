@@ -5,14 +5,12 @@
 
 package com.oath.halodb;
 
-import com.oath.halodb.cache.CacheSerializer;
-
 import java.nio.ByteBuffer;
 
 /**
  * @author Arjun Mannaly
  */
-public class RecordMetaDataSerializer implements CacheSerializer<RecordMetaDataForCache> {
+class RecordMetaDataSerializer implements HashTableValueSerializer<RecordMetaDataForCache> {
 
     public void serialize(RecordMetaDataForCache recordMetaData, ByteBuffer byteBuffer) {
         recordMetaData.serialize(byteBuffer);

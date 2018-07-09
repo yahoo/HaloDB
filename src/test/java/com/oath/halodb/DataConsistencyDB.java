@@ -7,9 +7,13 @@ package com.oath.halodb;
 
 import com.google.common.primitives.Ints;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -23,15 +27,17 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 
 class DataConsistencyDB {
+    private static final Logger logger = LoggerFactory.getLogger(DataConsistencyDB.class);
 
-    private final Map<Integer, byte[]> javaMap = new ConcurrentHashMap<>();
+    //TODO: allocate this off-heap.
+    private final Map<ByteBuffer, byte[]> javaMap = new ConcurrentHashMap<>();
     private final HaloDB haloDB;
 
     private int numberOfLocks = 100;
 
     private final ReentrantReadWriteLock[] locks;
 
-    DataConsistencyDB(HaloDB haloDB) {
+    DataConsistencyDB(HaloDB haloDB, int noOfRecords) {
         this.haloDB = haloDB;
 
         locks = new ReentrantReadWriteLock[numberOfLocks];
@@ -40,41 +46,88 @@ class DataConsistencyDB {
         }
     }
 
-    void put(int key, byte[] value) throws HaloDBException {
-        ReentrantReadWriteLock lock = locks[key%numberOfLocks];
+    void put(int keyIndex, ByteBuffer keyBuf, byte[] value) throws HaloDBException {
+        ReentrantReadWriteLock lock = locks[keyIndex%numberOfLocks];
         try {
             lock.writeLock().lock();
-            javaMap.put(key, value);
-            haloDB.put(Ints.toByteArray(key), value);
+            javaMap.put(keyBuf, value);
+            haloDB.put(keyBuf.array(), value);
         }
         finally {
             lock.writeLock().unlock();
         }
     }
 
-    byte[] get(int key) throws HaloDBException {
-        ReentrantReadWriteLock lock = locks[key%numberOfLocks];
+    boolean compareValues(int keyIndex, ByteBuffer keyBuf) throws HaloDBException {
+        ReentrantReadWriteLock lock = locks[keyIndex%numberOfLocks];
         try {
             lock.readLock().lock();
-            byte[] mapValue = javaMap.get(key);
-            byte[] dbValue = haloDB.get(Ints.toByteArray(key));
-            Assert.assertEquals(mapValue, dbValue);
-            return dbValue;
+            return checkValues(keyIndex, keyBuf, haloDB);
         }
         finally {
             lock.readLock().unlock();
         }
     }
 
-    void delete(int key) throws HaloDBException {
-        ReentrantReadWriteLock lock = locks[key%numberOfLocks];
+    boolean checkSize() {
+        return haloDB.size() == javaMap.size();
+    }
+
+    void delete(int keyIndex, ByteBuffer keyBuf) throws HaloDBException {
+        ReentrantReadWriteLock lock = locks[keyIndex%numberOfLocks];
         try {
             lock.writeLock().lock();
-            javaMap.remove(key);
-            haloDB.delete(Ints.toByteArray(key));
+            javaMap.remove(keyBuf);
+            haloDB.delete(keyBuf.array());
         }
         finally {
             lock.writeLock().unlock();
         }
+    }
+
+    boolean iterateAndCheck(HaloDB db) {
+        if (db.size() != javaMap.size()) {
+            logger.error("Size don't match {} != {}", db.size(), javaMap.size());
+            return false;
+        }
+
+        for (Map.Entry<ByteBuffer, byte[]> entry : javaMap.entrySet()) {
+            try {
+                if (!Arrays.equals(entry.getValue(), db.get(entry.getKey().array()))) {
+                    return false;
+                }
+
+            } catch (HaloDBException e) {
+                logger.error("Error while iterating", e);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean checkValues(long key, ByteBuffer keyBuf, HaloDB haloDB) throws HaloDBException {
+        byte[] mapValue = javaMap.get(keyBuf);
+        byte[] dbValue = haloDB.get(keyBuf.array());
+        if (Arrays.equals(mapValue, dbValue))
+            return true;
+
+        if (mapValue == null) {
+            logger.error("Map value is null for key {} of length {} but HaloDB value has version {}",
+                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(dbValue));
+        }
+        else if (dbValue == null) {
+            logger.error("HaloDB value is null for key {} of length {} but Map value has version {}",
+                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(mapValue));
+        }
+        else {
+            logger.error("HaloDB value for key {} has version {} of length {} but map value version is {}",
+                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(dbValue), DataConsistencyCheck.getVersionFromValue(mapValue));
+        }
+
+        return false;
+    }
+
+    boolean containsKey(byte[] key) throws HaloDBException {
+        return haloDB.get(key) != null;
     }
 }

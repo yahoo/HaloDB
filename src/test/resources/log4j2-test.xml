@@ -16,7 +16,7 @@
     </Appenders>
 
     <Loggers>
-        <Logger name="amannaly" level="trace" additivity="false">
+        <Logger name="com.oath.halodb.CompactionManager" level="info" additivity="false">
             <AppenderRef ref="console"/>
         </Logger>
         <Root level="debug">

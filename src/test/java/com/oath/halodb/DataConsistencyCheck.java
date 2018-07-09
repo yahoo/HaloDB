@@ -5,29 +5,64 @@
 
 package com.oath.halodb;
 
+import com.google.common.primitives.Longs;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.nio.ByteBuffer;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * @author Arjun Mannaly
  */
 public class DataConsistencyCheck extends TestBase {
+    private static final Logger logger = LoggerFactory.getLogger(DataConsistencyCheck.class);
+
+    private final Object lock = new Object();
+    private volatile boolean insertionComplete;
+    private volatile boolean updatesComplete;
+    private volatile boolean foundNonMatchingValue;
+
+    private static final int fixedKeySize = 16;
+    private static final int valueSize = 50;
+
+    private static final int noOfRecords = 100_000;
+    private static final int noOfTransactions = 10_000_000;
+
+    private ByteBuffer[] keys;
+
+    private RandomDataGenerator randDataGenerator;
+    private Random random = new Random();
+
+    @BeforeMethod
+    public void init() {
+        insertionComplete = false;
+        updatesComplete = false;
+        foundNonMatchingValue = false;
+        keys = new ByteBuffer[noOfRecords];
+        randDataGenerator = new RandomDataGenerator();
+    }
 
     @Test(dataProvider = "Options")
     public void testConcurrentReadAndUpdates(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("DataConsistencyCheck", "testConcurrentReadAndUpdates");
 
         options.setMaxFileSize(10 * 1024);
-        options.setCompactionThresholdPerFile(0.5);
+        options.setCompactionThresholdPerFile(0.1);
+        options.setFixedKeySize(fixedKeySize);
 
-        int noOfRecords = 10_000;
-        int noOfTransactions = 100_000;
+        options.setNumberOfRecords(2 * noOfRecords);
 
         HaloDB haloDB = getTestDB(directory, options);
-        DataConsistencyDB db = new DataConsistencyDB(haloDB);
+        DataConsistencyDB db = new DataConsistencyDB(haloDB, noOfRecords);
 
-        Writer writer = new Writer(noOfRecords, noOfTransactions, db);
+        Writer writer = new Writer(db);
         writer.start();
 
         synchronized (lock) {
@@ -39,65 +74,102 @@ public class DataConsistencyCheck extends TestBase {
         Reader[] readers = new Reader[10];
 
         for (int i = 0; i < readers.length; i++) {
-            readers[i] = new Reader(noOfRecords, db);
+            readers[i] = new Reader(db);
             readers[i].start();
         }
 
         writer.join();
+        long totalReads = 0;
+        for (Reader reader : readers) {
+            reader.join();
+            totalReads += reader.readCount;
+        }
+
+        Assert.assertFalse(foundNonMatchingValue);
+        Assert.assertTrue(db.checkSize());
+
+        haloDB.close();
+
+        logger.info("Iterating and checking ...");
+        HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        TestUtils.waitForCompactionToComplete(openAgainDB);
+        Assert.assertTrue(db.iterateAndCheck(openAgainDB));
+
+        logger.info("Completed {} updates", writer.updateCount);
+        logger.info("Completed {} deletes", writer.deleteCount);
+        logger.info("Completed {} reads", totalReads);
     }
 
-    static final Object lock = new Object();
-    static volatile boolean insertionComplete = false;
-    static volatile boolean updatesComplete = false;
+    class Writer extends Thread {
 
-    static class Writer extends Thread {
-
-        int noOfRecords;
         DataConsistencyDB db;
-        int numberOfTransactions;
+        long updateCount = 0;
+        long deleteCount = 0;
+        Set<Integer> deletedKeys = new HashSet<>(50_000);
 
-        Writer(int noOfRecords, int numberOfTransactions, DataConsistencyDB db) {
-            this.noOfRecords = noOfRecords;
+        Writer(DataConsistencyDB db) {
             this.db = db;
-            this.numberOfTransactions = numberOfTransactions;
         }
 
         @Override
         public void run() {
             Random random = new Random();
 
-            for (int i = 0; i < noOfRecords; i++) {
-                try {
-                    db.put(i, TestUtils.generateRandomByteArray());
-                } catch (HaloDBException e) {
-                    throw new RuntimeException(e);
+            try {
+                for (int i = 0; i < noOfRecords; i++) {
+                    try {
+                        byte[] key = randDataGenerator.getData(getRandomKeyLength());
+                        while (db.containsKey(key)) {
+                            key = randDataGenerator.getData(getRandomKeyLength());
+                        }
+
+                        keys[i] = ByteBuffer.wrap(key);
+                        db.put(i, keys[i], generateRandomValueWithVersion(updateCount));
+                    } catch (HaloDBException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            } finally {
+                synchronized (lock) {
+                    insertionComplete = true;
+                    lock.notify();
                 }
             }
 
-            synchronized (lock) {
-                insertionComplete = true;
-                lock.notify();
-            }
-
-            for (long i = 0; i < numberOfTransactions; i++) {
-                int k = random.nextInt(noOfRecords);
-                try {
-                    db.put(k, TestUtils.generateRandomByteArray());
-                } catch (HaloDBException e) {
-                    throw new RuntimeException(e);
+            try {
+                while (!foundNonMatchingValue && updateCount < noOfTransactions) {
+                    int k = random.nextInt(noOfRecords);
+                    updateCount++;
+                    try {
+                        if (updateCount % 2 == 0) {
+                            db.delete(k, keys[k]);
+                            deleteCount++;
+                            deletedKeys.add(k);
+                            if (deletedKeys.size() == 50_000) {
+                                int keyToAdd = deletedKeys.stream().findFirst().get();
+                                db.put(keyToAdd, keys[keyToAdd], generateRandomValueWithVersion(updateCount));
+                                deletedKeys.remove(keyToAdd);
+                            }
+                        }
+                        else {
+                            db.put(k, keys[k], generateRandomValueWithVersion(updateCount));
+                        }
+                    } catch (HaloDBException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
+            } finally {
+                updatesComplete = true;
             }
-            updatesComplete = true;
         }
     }
 
-    static class Reader extends Thread {
+    class Reader extends Thread {
 
-        int noOfRecords;
         DataConsistencyDB db;
+        volatile long readCount = 0;
 
-        Reader(int noOfRecords, DataConsistencyDB db) {
-            this.noOfRecords = noOfRecords;
+        Reader(DataConsistencyDB db) {
             this.db = db;
         }
 
@@ -107,11 +179,32 @@ public class DataConsistencyCheck extends TestBase {
             while (!updatesComplete) {
                 int i = random.nextInt(noOfRecords);
                 try {
-                    db.get(i);
+                    boolean isMatch = db.compareValues(i, keys[i]);
+                    readCount++;
+                    if (!isMatch) {
+                        foundNonMatchingValue = true;
+                    }
+                    Assert.assertTrue(isMatch, "Values don't match for key " + i);
                 } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
             }
         }
+    }
+
+    private int getRandomKeyLength() {
+        return random.nextInt(fixedKeySize) + 1;
+    }
+
+    private byte[] generateRandomValueWithVersion(long version) {
+        byte[] value = randDataGenerator.getData(valueSize);
+        System.arraycopy(Longs.toByteArray(version), 0, value, valueSize - 8, 8);
+        return value;
+    }
+
+    static long getVersionFromValue(byte[] value) {
+        byte[] v = new byte[8];
+        System.arraycopy(value, valueSize-8, v, 0, 8);
+        return Longs.fromByteArray(v);
     }
 }

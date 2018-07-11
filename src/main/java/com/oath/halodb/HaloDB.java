@@ -14,7 +14,7 @@ import java.util.Set;
 /**
  * @author Arjun Mannaly
  */
-public class HaloDB {
+public final class HaloDB {
 
     private HaloDBInternal dbInternal;
 

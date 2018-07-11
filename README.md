@@ -2,121 +2,116 @@
 
 [![Build Status](https://travis-ci.org/yahoo/HaloDB.svg?branch=master)](https://travis-ci.org/yahoo/HaloDB)
 
-HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java.
-Basic design principles employed in HaloDB were inspired by those of log-structured file systems and similar ideas can be found in systems like [BitCask](https://github.com/basho/bitcask/blob/develop/doc/bitcask-intro.pdf) and [Haystack](https://code.facebook.com/posts/685565858139515/needle-in-a-haystack-efficient-storage-of-billions-of-photos/).  
+HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java. HaloDB is suitable for large datasets and IO bound workloads, 
+and handles high throughput for _both_ reads and writes at submillisecond latencies. 
 
 HaloDB was designed and developed as an embedded storage engine for a high-throughput, low latency 
 distributed key-value database that powers Yahoo's DSP, and hence all its design choices and optimizations were
 primarily for this use case.  
 
+Basic design principles employed in HaloDB were inspired by those of log-structured storage systems. Refer to this [document](https://github.com/yahoo/HaloDB/blob/master/docs/WhyHaloDB.md) for more details about the motivation for HaloDB and its inspirations.  
+ 
 HaloDB comprises of two main components: an index in memory which stores all the keys, and append-only log files on
 the persistent layer which stores all the data. To reduce Java garbage collection pressure the index 
 is allocated in native memory, outside the Java heap. 
 
 ![HaloDB](https://lh3.googleusercontent.com/JxnA8Kznn2jZrG1ytAEo5OZ5OCrnfhDOaLfK1D30SZSz_Dl1IU2666fDc8lGGBW1zGSEjOBWw07C5eltiSmOvxc34OhO0nzqaSxGzE-AeVS8gihFp4E8NBFOnzmjkfsPsQO69x5x2Q=w1576-h872-no)
 
-The workload for which HaloDB was designed for has the following characteristics:
-* Small keys(8 bytes) and large values (10Kb average)
-* Both read and write throughput are high.
-* Low lookup latency SLA of < 1ms at the 99th percentile. 
-* Single writer thread.
-* No need for ordered access or range scans.
-* Data size is significantly larger than the available memory, hence workload is IO bound. 
-
-If your workload is similar HaloDB is probably a good choice for you.     
-
-HaloDB also has the following limitations/restrictions which you should be aware of: 
-* Since all the keys are stored in memory HaloDB need lots of it. Currently for storing 100 million 8 byte keys 
-   HaloDB needs around 8GB of memory.  
-* HaloDB supports multiple reader threads but only a single writer thread.
-* HaloDB doesn't order keys and hence doesn't support range scans.
-* It takes time to open a HaloDB instance as it needs to scan all the index files and build a cache of all keys. 
-    (For our production workload with 150 million records in each db this usually around 3 minutes.)
-* Key size is restricted to 127 bytes. 
-
 ### Basic Operations. 
 ```java
-    // Open a db with default options. 
-    HaloDBOptions options = new HaloDBOptions();
+            // Open a db with default options.
+            HaloDBOptions options = new HaloDBOptions();
     
-    // size of each data file size will be 1GB.
-    options.maxFileSize = 1024 * 1024 * 1024;
-
-    // the threshold at which page cache is synced to disk.
-    // data will be durable only if it is flushed to disk, therefore
-    // more data will be lost if this value is set too high. Setting
-    // this value too low might interfere with read performance.
-    options.flushDataSizeBytes = 10 * 1024 * 1024;
-
-    // The percentage of stale data in a data file at which the file will be compacted.
-    // This value helps control write and space amplification. Increasing this value will
-    // reduce write amplification but will increase space amplification.
-    // This along with the compactionJobRate below is the most important setting 
-    // for tuning HaloDB performance.
-    options.compactionThresholdPerFile = 0.75;
-
-    // Controls how fast the compaction job should run.
-    // This is the amount of data which will be copied by the compaction thread per second.
-    // Optimal value depends on the compactionThresholdPerFile option. 
-    options.compactionJobRate = 50 * 1024 * 1024;
-
-    // Setting this value is important as it helps to preallocate enough
-    // memory for the off-heap cache. If the value is too low the db might
-    // need to rehash the cache. For a db of size n set this value to 2*n.
-    options.numberOfRecords = 100_000_000;
-
-
-    // Represents a database instance and provides all methods for operating on the database. 
-    HaloDB db = null;
-
-    // The directory will be created if it doesn't exist and all database files will be stored in this directory
-    String directory = "directory";
-
-    // Open the database. Directory will be created if it doesn't exist.
-    // If we are opening an existing database HaloDB needs to scan all the
-    // index files to create the in-memory index, which, depending on the db size, might take a few minutes. 
-    db = HaloDB.open(directory, options);
-
-    // key and values are byte arrays. Key size is restricted to 128 bytes.
-    byte[] key1 = Ints.toByteArray(200);
-    byte[] value1 = "Value for key 1".getBytes();
-
-    byte[] key2 = Ints.toByteArray(300);
-    byte[] value2 = "Value for key 2".getBytes();
-
-    // add the key-value pair to the database.
-    // HaloDB doesn't support cocurrent writes. 
-    // This is expected to be enforced by the calling application.
-    db.put(key1, value1);
-    db.put(key2, value2);
-
-    // read the value from the database. 
-    value1 = db.get(key1);
-    value2 = db.get(key2);
-
-    // delete a key from the database.
-    db.delete(key1);
-
-    // Open an iterator and iterate through all the key-value records.
-    HaloDBIterator iterator = db.newIterator();
-    while (iterator.hasNext()) {
-        Record record = iterator.next();
-        System.out.println(Ints.fromByteArray(record.getKey()));
-        System.out.println(new String(record.getValue()));
-    }
+            // size of each data file size will be 1GB.
+            options.setMaxFileSize(1024 * 1024 * 1024);
     
-    // get stats and print it. 
-    HaloDBStats stats = db.stats();
-    System.out.println(stats.toString());
-
-    // reset stats
-    db.resetStats();
+            // the threshold at which page cache is synced to disk.
+            // data will be durable only if it is flushed to disk, therefore
+            // more data will be lost if this value is set too high. Setting
+            // this value too low might interfere with read and write performance.
+            options.setFlushDataSizeBytes(10 * 1024 * 1024);
     
-    // Close the database.
-    db.close();    
-
+            // The percentage of stale data in a data file at which the file will be compacted.
+            // This value helps control write and space amplification. Increasing this value will
+            // reduce write amplification but will increase space amplification.
+            // This along with the compactionJobRate below is the most important setting
+            // for tuning HaloDB performance.
+            options.setCompactionThresholdPerFile(0.7);
+    
+            // Controls how fast the compaction job should run.
+            // This is the amount of data which will be copied by the compaction thread per second.
+            // Optimal value depends on the compactionThresholdPerFile option.
+            options.setCompactionJobRate(50 * 1024 * 1024);
+    
+            // Setting this value is important as it helps to preallocate enough
+            // memory for the off-heap cache. If the value is too low the db might
+            // need to rehash the cache. For a db of size n set this value to 2*n.
+            options.setNumberOfRecords(100_000_000);
+    
+    
+            // ** settings for memory pool **
+            options.setUseMemoryPool(true);
+    
+            // Hash table implementation in HaloDB is similar to that of ConcurrentHashMap in Java 7.
+            // Hash table is divided into segments and each segment manages its own native memory.
+            // The number of segments is twice the number of cores in the machine.
+            // A segment's memory is further divided into chunks whose size can be configured here. 
+            options.setMemoryPoolChunkSize(2 * 1024 * 1024);
+    
+            // using a memory pool requires us to declare the size of keys in advance.
+            // Any write request with key length greater than the declared value will fail, but it
+            // is still possible to store keys smaller than this declared size. 
+            options.setFixedKeySize(8);
+    
+            // Represents a database instance and provides all methods for operating on the database.
+            HaloDB db = null;
+    
+            // The directory will be created if it doesn't exist and all database files will be stored in this directory
+            String directory = "directory";
+    
+            // Open the database. Directory will be created if it doesn't exist.
+            // If we are opening an existing database HaloDB needs to scan all the
+            // index files to create the in-memory index, which, depending on the db size, might take a few minutes.
+            db = HaloDB.open(directory, options);
+    
+            // key and values are byte arrays. Key size is restricted to 128 bytes.
+            byte[] key1 = Ints.toByteArray(200);
+            byte[] value1 = "Value for key 1".getBytes();
+    
+            byte[] key2 = Ints.toByteArray(300);
+            byte[] value2 = "Value for key 2".getBytes();
+    
+            // add the key-value pair to the database.
+            // HaloDB doesn't support cocurrent writes.
+            // This is expected to be enforced by the calling application.
+            db.put(key1, value1);
+            db.put(key2, value2);
+    
+            // read the value from the database.
+            value1 = db.get(key1);
+            value2 = db.get(key2);
+    
+            // delete a key from the database.
+            db.delete(key1);
+    
+            // Open an iterator and iterate through all the key-value records.
+            HaloDBIterator iterator = db.newIterator();
+            while (iterator.hasNext()) {
+                Record record = iterator.next();
+                System.out.println(Ints.fromByteArray(record.getKey()));
+                System.out.println(new String(record.getValue()));
+            }
+    
+            // get stats and print it.
+            HaloDBStats stats = db.stats();
+            System.out.println(stats.toString());
+    
+            // reset stats
+            db.resetStats();
+    
+            // Close the database.
+            db.close();
 ```   
-
 
 
 ### Read, Write and Space amplification.
@@ -144,21 +139,32 @@ In the event of a power loss HaloDB offers the following consistency guarantees:
  
   
 ### In-memory index.  
-HaloDB stores all keys and associated metadata in a hash table in memory. A billion 8 byte keys currently takes around 64GB of memory. 
-Storing this in the Java Heap is a non-starter for a performance critical storage engine. HaloDB solves this problem by storing 
-all data in native memory, outside the heap. Each key in the cache takes an additional 29 bytes for the metadata. Also, each bucket
-in the hash table requires 8 bytes, and the total number of such buckets depends on the number of keys.  
-Memory fragmentation is an always an issue with native memory allocation. **Using [jemalloc](http://jemalloc.net/) is highly recommended** as it provides 
-a significant reduction in the cache's memory footprint and fragmentation.
+HaloDB stores all keys and their associated metadata in a hash table in memory. The size of this index, depending on the number and length of keys, can be quite big.  
+Therefore, storing this in the Java Heap is a non-starter for a performance critical storage engine. HaloDB solves this problem by storing 
+all data in native memory, outside the heap. There are two variants of the hash table; one with a memory pool and the other without it.
+Using the memory pool helps to reduce the memory footprint of the hash table and reduce fragmentation, but requires fixed size keys. A billion 8 byte keys 
+currently takes around 44GB of memory with memory pool and around 64GB without memory pool.   
 
-_For fixed size keys it is possible to further reduce the memory footprint and fragmentation by using a memory pool. Work on this 
-is in progress and should be ready soon_.   
+The size of the keys when using a memory pool should be declared in advance, and although this imposes an upper limit on the size of the keys that can be stored it is 
+still possible to store keys smaller than this declared size. 
+
+Without the memory pool, HaloDB needs to allocate native memory for every write request. Therefore, memory fragmentation could be an issue. 
+**Using [jemalloc](http://jemalloc.net/) is highly recommended** as it provides a significant reduction in the cache's memory footprint and fragmentation.
 
 ### Delete operations.
 Delete operation for a key will add a tombstone record to a tombstone file, which is distinct from the data files. 
 This design has the advantage that the tombstone record once written need not be copied again during compaction, but 
 the drawback is that in case of a power loss HaloDB cannot guarantee total ordering when put and delete operations are 
-interleaved (although partial ordering for both is guaranteed).   
+interleaved (although partial ordering for both is guaranteed).
+
+### System requirements. 
+* HaloDB requires Java 8 to run, but has not yet been tested with newer Java versions.  
+* HaloDB has been tested on Linux running on x86 and on MacOS. It may run on other platforms, but this hasn't been verified yet.
+
+### Restrictions. 
+* Size of keys is restricted to 128 bytes. 
+* HaloDB supports only a single writer thread, and expects the client to make sure that there are no concurrent writes. 
+* HaloDB doesn't order keys and hence doesn't support range scans    
 
 # Benchmarks.
   Benchmarks were run to compare HaloDB against RocksDB and KyotoCabinet (which is what HaloDB was written to replace) 
@@ -209,6 +215,23 @@ Insert 500 million records into an empty db in random order.
 32 threads doing a total of 640 million random reads and one thread doing random updates as fast as possible.  
 ![HaloDB](https://lh3.googleusercontent.com/sJtr8EdXWyw6IjG9oUn6Vb4YAW-KDnfMcqYTDAYOLO3N3sxt-FM-4JaA8hHKQeA63yzHZ9wGvxtp9BXDu-moxJ5K-bqFY2XBXUu4J82TiQ6SFOwC5UI73BxKdg05iS7dzJfe-lQM491xi_7aHnEfkZXOyxy0c8-zz_v4LgbeWILxGKHaGLyqj18dRIKpMw1Gv8fi5kvhSDu8YfsCp6BqZCI3CYUqduKnnHjFK7WAIvyaC6pFr3PkpU4C1ATpW9SGSeATlqbWOZgzMAVu7lZYJEi7xb3HMOkrc6w5kawVnJ62QBh9DRrila5F7fsEbR_sUPbL_WTYHvxMC0NVA2TjSUffg0wo4VJ75251s75DSLuB-Y3jlZ9i9vM6SCvGoPfeizgf8TU8iIc-9Ws9v4nLqewufM8ft4vlyoIA6aqUB_NVOtN7_FXJ40irUoEDzKDUP-cVzWlFWIpP1HXasxmbzwP34S1_oiyn2pAcC3VpGZ5RuzF-vjapscRdKYiFOJE8S5ywiZZYcCvOxwS3lKpMNs4Y_qkgPen3PTDALteoLyV9EKm90EJEMNw6Pm_amM_wj0pk7qjPpTlkhcSspwPXPvnWLJR2EhldWSFq32R8fUsFuFX5dRXmy4ORpHScuCAu5KYx2dwQSCR0WLyDvX8rKPlhNha3nece=w1950-h1066-no)
 
+## Why HaloDB is fast.
+The reason why HaloDB is fast or _faster_ than RocksDB and Kyoto Cabinet in the benchmarks and for our production workload can be explained by some of the design choices and trade-offs that it has made. 
+
+All writes to HaloDB are sequential writes to append-only log files. HaloDB uses a background compaction job to clean up stale data. 
+The threshold at which a file is compacted can be tuned and this determines HaloDB's write amplification and space amplification. 
+A compaction threshold of 50% gives a write amplification of only 2, 
+this coupled with the fact that we do only sequential writes are the primary reasons for HaloDB’s high write throughput. Additionally, the only meta-data that HaloDB need to modify during writes are 
+those of the index in memory.   
+
+To lookup the value for a key its corresponding metadata is first read from the in-memory index and then the value is read from disk. 
+Therefore each lookup request requires at most a single read from disk, giving us a read amplification of 1, and is primarily responsible for HaloDB’s low read latencies. The trade-off here is that we 
+need to store all the keys their associated metadata in memory.  
+
+HaloDB supports only a single writer thread and since it avoids doing in-place updates doesn’t need record level locks, which also helps with performance even under high read and write throughput.
+
+HaloDB also doesn't support range scans and hence doesn't pay the  cost associated with storing data in a format suitable for efficient range scans.
+  
 # Contributors
 * Author: [Arjun Mannaly](https://github.com/amannaly) 
 

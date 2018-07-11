@@ -88,7 +88,7 @@ class HaloDBInternal {
 
         dbInternal.compactionManager = new CompactionManager(dbInternal);
 
-        dbInternal.inMemoryIndex = new OffHeapIndex(
+        dbInternal.inMemoryIndex = new InMemoryIndex(
             options.getNumberOfRecords(), options.isUseMemoryPool(),
             options.getFixedKeySize(), options.getMemoryPoolChunkSize()
         );

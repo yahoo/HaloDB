@@ -5,27 +5,96 @@
 
 package com.oath.halodb;
 
-interface InMemoryIndex {
+import com.google.common.primitives.Ints;
 
-    boolean put(byte[] key, RecordMetaDataForCache metaData);
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    RecordMetaDataForCache get(byte[] key);
+import java.io.IOException;
 
-    boolean remove(byte[] key);
+/**
+ * Hash table stored in native memory, outside Java heap.
+ *
+ * @author Arjun Mannaly
+ */
+class InMemoryIndex {
+    private static final Logger logger = LoggerFactory.getLogger(InMemoryIndex.class);
 
-    boolean replace(byte[] key, RecordMetaDataForCache oldValue, RecordMetaDataForCache newValue);
+    private final OffHeapHashTable<RecordMetaDataForCache> offHeapHashTable;
 
-    boolean containsKey(byte[] key);
+    private final int noOfSegments;
+    private final int maxSizeOfEachSegment;
 
-    void close();
+    InMemoryIndex(int numberOfKeys, boolean useMemoryPool, int fixedKeySize, int memoryPoolChunkSize) {
+        noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
+        maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
 
-    long size();
+        long start = System.currentTimeMillis();
+        OffHeapHashTableBuilder<RecordMetaDataForCache> builder =
+            OffHeapHashTableBuilder.<RecordMetaDataForCache>newBuilder()
+                .valueSerializer(new RecordMetaDataSerializer())
+                .capacity(Long.MAX_VALUE)
+                .segmentCount(noOfSegments)
+                .hashTableSize(maxSizeOfEachSegment)
+                .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
+                .loadFactor(1)
+                .throwOOME(true);
 
-    OffHeapHashTableStats stats();
+        if (useMemoryPool) {
+            builder.useMemoryPool(true).fixedKeySize(fixedKeySize).memoryPoolChunkSize(memoryPoolChunkSize);
+        }
 
-    void resetStats();
+        this.offHeapHashTable = builder.build();
 
-    int getNoOfSegments();
+        logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
+    }
 
-    int getMaxSizeOfEachSegment();
+    boolean put(byte[] key, RecordMetaDataForCache metaData) {
+        offHeapHashTable.put(key, metaData);
+        return true;
+    }
+
+    boolean remove(byte[] key) {
+        return offHeapHashTable.remove(key);
+    }
+
+    boolean replace(byte[] key, RecordMetaDataForCache oldValue, RecordMetaDataForCache newValue) {
+        return offHeapHashTable.addOrReplace(key, oldValue, newValue);
+    }
+
+    RecordMetaDataForCache get(byte[] key) {
+        return offHeapHashTable.get(key);
+    }
+
+    boolean containsKey(byte[] key) {
+        return offHeapHashTable.containsKey(key);
+    }
+
+    void close() {
+        try {
+            offHeapHashTable.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    long size() {
+        return offHeapHashTable.size();
+    }
+
+    public OffHeapHashTableStats stats() {
+        return offHeapHashTable.stats();
+    }
+
+    void resetStats() {
+        offHeapHashTable.resetStatistics();
+    }
+
+    int getNoOfSegments() {
+        return noOfSegments;
+    }
+
+    int getMaxSizeOfEachSegment() {
+        return maxSizeOfEachSegment;
+    }
 }

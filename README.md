@@ -216,21 +216,23 @@ Insert 500 million records into an empty db in random order.
 ![HaloDB](https://lh3.googleusercontent.com/sJtr8EdXWyw6IjG9oUn6Vb4YAW-KDnfMcqYTDAYOLO3N3sxt-FM-4JaA8hHKQeA63yzHZ9wGvxtp9BXDu-moxJ5K-bqFY2XBXUu4J82TiQ6SFOwC5UI73BxKdg05iS7dzJfe-lQM491xi_7aHnEfkZXOyxy0c8-zz_v4LgbeWILxGKHaGLyqj18dRIKpMw1Gv8fi5kvhSDu8YfsCp6BqZCI3CYUqduKnnHjFK7WAIvyaC6pFr3PkpU4C1ATpW9SGSeATlqbWOZgzMAVu7lZYJEi7xb3HMOkrc6w5kawVnJ62QBh9DRrila5F7fsEbR_sUPbL_WTYHvxMC0NVA2TjSUffg0wo4VJ75251s75DSLuB-Y3jlZ9i9vM6SCvGoPfeizgf8TU8iIc-9Ws9v4nLqewufM8ft4vlyoIA6aqUB_NVOtN7_FXJ40irUoEDzKDUP-cVzWlFWIpP1HXasxmbzwP34S1_oiyn2pAcC3VpGZ5RuzF-vjapscRdKYiFOJE8S5ywiZZYcCvOxwS3lKpMNs4Y_qkgPen3PTDALteoLyV9EKm90EJEMNw6Pm_amM_wj0pk7qjPpTlkhcSspwPXPvnWLJR2EhldWSFq32R8fUsFuFX5dRXmy4ORpHScuCAu5KYx2dwQSCR0WLyDvX8rKPlhNha3nece=w1950-h1066-no)
 
 ## Why HaloDB is fast.
-The reason why HaloDB is fast or _faster_ than RocksDB and Kyoto Cabinet in the benchmarks and for our production workload can be explained by some of the design choices and trade-offs that it has made. 
+HaloDB is fast because of some of the design choices and trade-offs that was made. 
 
 All writes to HaloDB are sequential writes to append-only log files. HaloDB uses a background compaction job to clean up stale data. 
 The threshold at which a file is compacted can be tuned and this determines HaloDB's write amplification and space amplification. 
-A compaction threshold of 50% gives a write amplification of only 2, 
-this coupled with the fact that we do only sequential writes are the primary reasons for HaloDB’s high write throughput. Additionally, the only meta-data that HaloDB need to modify during writes are 
+A compaction threshold of 50% gives a write amplification of only 2, this coupled with the fact that we do only sequential writes 
+are the primary reasons for HaloDB’s high write throughput. Additionally, the only meta-data that HaloDB need to modify during writes are 
 those of the index in memory.   
 
 To lookup the value for a key its corresponding metadata is first read from the in-memory index and then the value is read from disk. 
-Therefore each lookup request requires at most a single read from disk, giving us a read amplification of 1, and is primarily responsible for HaloDB’s low read latencies. The trade-off here is that we 
-need to store all the keys their associated metadata in memory.  
+Therefore each lookup request requires at most a single read from disk, giving us a read amplification of 1, and is primarily responsible 
+for HaloDB’s low read latencies. The trade-off here is that we need to store all the keys and their associated metadata in memory.  
 
-HaloDB supports only a single writer thread and since it avoids doing in-place updates doesn’t need record level locks, which also helps with performance even under high read and write throughput.
+HaloDB supports only a single writer thread and since it avoids doing in-place updates doesn’t need record level locks, 
+which also helps with performance even under high read and write throughput.
 
-HaloDB also doesn't support range scans and hence doesn't pay the  cost associated with storing data in a format suitable for efficient range scans.
+HaloDB also doesn't support range scans and hence doesn't pay the cost associated with storing data in a format suitable 
+for efficient range scans.
   
 # Contributors
 * Author: [Arjun Mannaly](https://github.com/amannaly) 

@@ -326,7 +326,10 @@ public class HaloDBTest extends TestBase {
     public void testDBMetaFile() throws HaloDBException, IOException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testDBMetaFile");
 
-        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        HaloDBOptions options = new HaloDBOptions();
+        int maxFileSize = 1024 * 1024 * 1024;
+        options.setMaxFileSize(maxFileSize);
+        HaloDB db = getTestDB(directory, options);
 
         // Make sure that the META file was written.
         Assert.assertTrue(Paths.get(directory, DBMetaData.METADATA_FILE_NAME).toFile().exists());
@@ -340,6 +343,10 @@ public class HaloDBTest extends TestBase {
         // Default value of ioError flag must be false. 
         Assert.assertFalse(metaData.isIOError());
 
+        // since we just created the db max file size should be set to one we set in HaloDBOptions
+        Assert.assertEquals(metaData.getMaxFileSize(), maxFileSize);
+        Assert.assertEquals(metaData.getVersion(), Versions.CURRENT_META_FILE_VERSION);
+
         db.close();
 
         // Make sure that the META file was written.
@@ -348,8 +355,31 @@ public class HaloDBTest extends TestBase {
         // Make sure that the flags were set correctly on close.
         metaData.loadFromFileIfExists();
 
+        Assert.assertEquals(metaData.getVersion(), Versions.CURRENT_META_FILE_VERSION);
         Assert.assertFalse(metaData.isOpen());
         Assert.assertFalse(metaData.isIOError());
+        Assert.assertEquals(metaData.getMaxFileSize(), maxFileSize);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "File size cannot be changed after db was created.*")
+    public void testMaxFileSize() throws HaloDBException, IOException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testMaxFileSize");
+
+        HaloDBOptions options = new HaloDBOptions();
+        int maxFileSize = 1024 * 1024 * 1024;
+        options.setMaxFileSize(maxFileSize);
+        HaloDB db = getTestDB(directory, options);
+
+        DBMetaData metaData = new DBMetaData(directory);
+        metaData.loadFromFileIfExists();
+
+        Assert.assertEquals(metaData.getMaxFileSize(), maxFileSize);
+
+        db.close();
+
+        // try opening the db with max file size changed.
+        options.setMaxFileSize(500 * 1024 * 1024);
+        getTestDBWithoutDeletingFiles(directory, options);
     }
 
     @Test(expectedExceptions = HaloDBException.class, expectedExceptionsMessageRegExp = "Another process already holds a lock for this db.")
@@ -358,11 +388,8 @@ public class HaloDBTest extends TestBase {
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
         db.resetStats();
-        try {
-            HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
-            anotherDB.resetStats();
-        } catch (HaloDBException e) {
-            throw e.getCause();
-        }
+        HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
+        anotherDB.resetStats();
+
     }
 }

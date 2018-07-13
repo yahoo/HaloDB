@@ -28,14 +28,13 @@ import java.util.regex.Matcher;
 class HaloDBFile {
     private static final Logger logger = LoggerFactory.getLogger(HaloDBFile.class);
 
-    private FileChannel channel;
-
     private volatile int writeOffset;
 
-
+    private FileChannel channel;
     private final File backingFile;
-    private IndexFile indexFile;
     private final int fileId;
+
+    private IndexFile indexFile;
 
     private final HaloDBOptions options;
 
@@ -67,7 +66,6 @@ class HaloDBFile {
     }
 
     int readFromFile(long position, ByteBuffer destinationBuffer) throws IOException {
-
         long currentPosition = position;
         int bytesRead;
         do {

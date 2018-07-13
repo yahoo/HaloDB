@@ -15,7 +15,7 @@ public class HaloDBOptions implements Cloneable {
     // threshold of stale data at which file needs to be compacted.
     private double compactionThresholdPerFile = 0.75;
 
-    private long maxFileSize = 1024 * 1024; /* 1mb file recordSize */
+    private int maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
      // Data will be flushed to disk after flushDataSizeBytes have been written.
      // -1 disables explicit flushing and let the kernel handle it.
@@ -69,7 +69,10 @@ public class HaloDBOptions implements Cloneable {
         this.compactionThresholdPerFile = compactionThresholdPerFile;
     }
 
-    public void setMaxFileSize(long maxFileSize) {
+    public void setMaxFileSize(int maxFileSize) {
+        if (maxFileSize <= 0) {
+            throw new IllegalArgumentException("maxFileSize should be > 0");
+        }
         this.maxFileSize = maxFileSize;
     }
 
@@ -97,10 +100,9 @@ public class HaloDBOptions implements Cloneable {
         return compactionThresholdPerFile;
     }
 
-    public long getMaxFileSize() {
+    public int getMaxFileSize() {
         return maxFileSize;
     }
-
 
     public long getFlushDataSizeBytes() {
         return flushDataSizeBytes;

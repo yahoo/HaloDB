@@ -77,6 +77,10 @@ class HaloDBInternal {
 
         DBMetaData dbMetaData = new DBMetaData(directory.getPath());
         dbMetaData.loadFromFileIfExists();
+        if (dbMetaData.getMaxFileSize() != 0 && dbMetaData.getMaxFileSize() != options.getMaxFileSize()) {
+            throw new IllegalArgumentException("File size cannot be changed after db was created. Current size " + dbMetaData.getMaxFileSize());
+        }
+
         if (dbMetaData.isOpen() || dbMetaData.isIOError()) {
             logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
             // open flag is true, this might mean that the db was not cleanly closed the last time.
@@ -84,6 +88,8 @@ class HaloDBInternal {
         }
         dbMetaData.setOpen(true);
         dbMetaData.setIOError(false);
+        dbMetaData.setVersion(Versions.CURRENT_META_FILE_VERSION);
+        dbMetaData.setMaxFileSize(options.getMaxFileSize());
         dbMetaData.storeToFile();
 
         dbInternal.compactionManager = new CompactionManager(dbInternal);
@@ -93,7 +99,7 @@ class HaloDBInternal {
             options.getFixedKeySize(), options.getMemoryPoolChunkSize()
         );
 
-        dbInternal.buildKeyCache(options);
+        dbInternal.buildInMemoryIndex(options);
         dbInternal.compactionManager.startCompactionThread();
 
         logger.info("Opened HaloDB {}", directory.getName());
@@ -369,11 +375,11 @@ class HaloDBInternal {
             .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
-    private void buildKeyCache(HaloDBOptions options) throws IOException {
+    private void buildInMemoryIndex(HaloDBOptions options) throws IOException {
         //TODO: probably processing files in descending order is more efficient.
         List<Integer> indexFiles = FileUtils.listIndexFiles(dbDirectory);
 
-        logger.info("About to scan {} index files to construct cache ...", indexFiles.size());
+        logger.info("About to scan {} index files to construct index ...", indexFiles.size());
 
         long start = System.currentTimeMillis();
 

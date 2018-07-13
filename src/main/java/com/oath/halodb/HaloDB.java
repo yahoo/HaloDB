@@ -8,7 +8,7 @@ package com.oath.halodb;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.File;
-import java.nio.ByteBuffer;
+import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -25,7 +25,7 @@ public final class HaloDB {
         try {
             db.dbInternal = HaloDBInternal.open(dirname, opts);
             db.directory = dirname;
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HaloDBException("Failed to open db " + dirname.getName(), e);
         }
         return db;
@@ -38,7 +38,7 @@ public final class HaloDB {
     public byte[] get(byte[] key) throws HaloDBException {
         try {
             return dbInternal.get(key, 1);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HaloDBException("Lookup failed.", e);
         }
     }
@@ -46,7 +46,7 @@ public final class HaloDB {
     public void put(byte[] key, byte[] value) throws HaloDBException {
         try {
             dbInternal.put(key, value);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HaloDBException("Store to db failed.", e);
         }
     }
@@ -54,7 +54,7 @@ public final class HaloDB {
     public void delete(byte[] key) throws HaloDBException {
         try {
             dbInternal.delete(key);
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HaloDBException("Delete operation failed.", e);
         }
     }
@@ -62,7 +62,7 @@ public final class HaloDB {
     public void close() throws HaloDBException {
         try {
             dbInternal.close();
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new HaloDBException("Error while closing " + directory.getName(), e);
         }
     }

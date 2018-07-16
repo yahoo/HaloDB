@@ -1,6 +1,7 @@
 # HaloDB
 
 [![Build Status](https://travis-ci.org/yahoo/HaloDB.svg?branch=master)](https://travis-ci.org/yahoo/HaloDB)
+[![Download](https://api.bintray.com/packages/yahoo/maven/halodb/images/download.svg) ](https://bintray.com/yahoo/maven/halodb/_latestVersion)
 
 HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java. HaloDB is suitable for large datasets and IO bound workloads, 
 and handles high throughput for _both_ reads and writes at submillisecond latencies. 

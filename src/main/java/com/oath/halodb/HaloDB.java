@@ -89,12 +89,4 @@ public final class HaloDB {
     boolean isCompactionComplete() {
         return dbInternal.isCompactionComplete();
     }
-
-    Set<Integer> listDataFileIds() {
-        return dbInternal.listDataFileIds();
-    }
-
-    HaloDBInternal getDbInternal() {
-        return dbInternal;
-    }
 }

@@ -11,7 +11,9 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -62,8 +64,8 @@ public class HaloDBFileCompactionTest extends TestBase {
         TestUtils.waitForCompactionToComplete(db);
 
         // the latest file will be the compacted file.
-        int compactedFile = db.getDbInternal().listDataFileIds().stream().max(Comparator.comparingInt(Integer::intValue)).get();
-        HaloDBFile.HaloDBFileIterator iterator = db.getDbInternal().getHaloDBFile(compactedFile).newIterator();
+        File compactedFile = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
+        HaloDBFile.HaloDBFileIterator iterator = HaloDBFile.openForReading(new File(directory), compactedFile, HaloDBFile.FileType.COMPACTED_FILE, options).newIterator();
 
         // make sure the the compacted file has the bottom half of two files.
         List<Record> mergedRecords = new ArrayList<>();

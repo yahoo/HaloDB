@@ -8,8 +8,12 @@ package com.oath.halodb;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.nio.file.Paths;
-import java.util.*;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * @author Arjun Mannaly
@@ -238,6 +242,6 @@ public class HaloDBDeletionTest extends TestBase {
 
         // only the current write file will be remaining everything else should have been
         // deleted by the compaction job. 
-        Assert.assertEquals(db.listDataFileIds().size(), 1);
+        Assert.assertEquals(FileUtils.listDataFiles(new File(directory)).length, 1);
     }
 }

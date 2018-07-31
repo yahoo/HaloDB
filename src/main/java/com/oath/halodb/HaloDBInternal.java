@@ -490,23 +490,21 @@ class HaloDBInternal {
         getLatestDataFile(HaloDBFile.FileType.DATA_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.data", file.getFileId());
-                HaloDBFile newFile = file.repairFile(getNextFileId());
-                readFileMap.put(newFile.getFileId(), newFile);
-                readFileMap.remove(file.getFileId());
+                HaloDBFile repairedFile = file.repairFile();
+                readFileMap.put(repairedFile.getFileId(), repairedFile);
             }
             catch (IOException e) {
-                throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
+                throw new RuntimeException("Exception while repairing data file " + file.getFileId() + " which might be corrupted", e);
             }
         });
         getLatestDataFile(HaloDBFile.FileType.COMPACTED_FILE).ifPresent(file -> {
             try {
                 logger.info("Repairing file {}.datac", file.getFileId());
-                HaloDBFile newFile = file.repairFile(getNextFileId());
-                readFileMap.put(newFile.getFileId(), newFile);
-                readFileMap.remove(file.getFileId());
+                HaloDBFile repairedFile = file.repairFile();
+                readFileMap.put(repairedFile.getFileId(), repairedFile);
             }
             catch (IOException e) {
-                throw new RuntimeException("Exception while rebuilding index file " + file.getFileId() + " which might be corrupted", e);
+                throw new RuntimeException("Exception while repairing datac file " + file.getFileId() + " which might be corrupted", e);
             }
         });
 
@@ -516,10 +514,10 @@ class HaloDBInternal {
             try {
                 logger.info("Repairing {} file", lastFile.getName());
                 lastFile.open();
-                TombstoneFile newFile = lastFile.repairFile(getNextFileId());
-                newFile.close();
+                TombstoneFile repairedFile = lastFile.repairFile();
+                repairedFile.close();
             } catch (IOException e) {
-                throw new RuntimeException("Exception while rebuilding index file " + lastFile.getName() + " which might be corrupted", e);
+                throw new RuntimeException("Exception while repairing tombstone file " + lastFile.getName() + " which might be corrupted", e);
             }
         }
     }

@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -231,5 +232,9 @@ public class TestUtils {
         return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
             .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.COMPACTED_FILE)
             .max(Comparator.comparing(File::getName));
+    }
+
+    static FileTime getFileCreationTime(File file) throws IOException {
+        return Files.readAttributes(file.toPath(), BasicFileAttributes.class).creationTime();
     }
 }

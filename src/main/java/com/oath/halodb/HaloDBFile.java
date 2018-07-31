@@ -15,10 +15,15 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
+
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * Represents a data file and its associated index file.
@@ -145,26 +150,23 @@ class HaloDBFile {
     }
 
     /**
-     * Copies to a new file those records whose computed checksum matches the stored one.
+     * Copies to a temporary file those records whose computed checksum matches the stored one and then atomically
+     * rename the temp file to the current file.
      * Records in the file which occur after a corrupted record are discarded.
      * Index file is also recreated.
-     *
-     * Current file is deleted after copy.
-     *
      * This method is called if we detect an unclean shutdown.
      */
-    HaloDBFile repairFile(int newFileId) throws IOException {
-        HaloDBFile newFile = create(backingFile.getParentFile(), newFileId, options, fileType);
+    HaloDBFile repairFile() throws IOException {
+        HaloDBFile repairFile = createRepairFile();
 
-        logger.info("Repairing file {}. Records with the correct checksum will be copied to {}", fileId, newFile.fileId);
-
+        logger.info("Repairing file {}.", getName());
         HaloDBFileIterator iterator = new HaloDBFileIterator();
         int count = 0;
         while (iterator.hasNext()) {
             Record record = iterator.next();
             // if the header is corrupted iterator will return null.
             if (record != null && record.verifyChecksum()) {
-                newFile.writeRecord(record);
+                repairFile.writeRecord(record);
                 count++;
             }
             else {
@@ -172,11 +174,27 @@ class HaloDBFile {
                 break;
             }
         }
-        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, fileId, getSize(), newFile.fileId, newFile.getSize());
-        newFile.flushToDisk();
-        newFile.indexFile.flushToDisk();
-        delete();
-        return newFile;
+        logger.info("Recovered {} records from file {} with size {}. Size after repair {}.", count, getName(), getSize(), repairFile.getSize());
+        repairFile.flushToDisk();
+        repairFile.indexFile.flushToDisk();
+        Files.move(repairFile.indexFile.getPath(), indexFile.getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        repairFile.close();
+        close();
+        return openForReading(backingFile.getParentFile(), getPath().toFile(), fileType, options);
+    }
+
+    private HaloDBFile createRepairFile() throws IOException {
+        File repairFile = Paths.get(getPath().toString()+".repair").toFile();
+        while (!repairFile.createNewFile()) {
+            logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting and trying again", repairFile.getName());
+            repairFile.delete();
+        }
+
+        FileChannel channel = new RandomAccessFile(repairFile, "rw").getChannel();
+        IndexFile indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
+        indexFile.createRepairFile();
+        return new HaloDBFile(fileId, repairFile, indexFile, fileType, channel, options);
     }
 
     private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
@@ -286,6 +304,10 @@ class HaloDBFile {
 
     String getName() {
         return backingFile.getName();
+    }
+
+    Path getPath() {
+        return backingFile.toPath();
     }
 
     private static File getDataFile(File haloDBDirectory, int fileId) {

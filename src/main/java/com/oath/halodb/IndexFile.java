@@ -5,11 +5,15 @@
 
 package com.oath.halodb;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Objects;
@@ -18,9 +22,11 @@ import java.util.Objects;
  * @author Arjun Mannaly
  */
 class IndexFile {
+    private static final Logger logger = LoggerFactory.getLogger(IndexFile.class);
 
     private final int fileId;
     private final File dbDirectory;
+    private File backingFile;
 
     private FileChannel channel;
 
@@ -38,16 +44,25 @@ class IndexFile {
     }
 
     void create() throws IOException {
-        File file = getIndexFile();
-        if (!file.createNewFile()) {
+        backingFile = getIndexFile();
+        if (!backingFile.createNewFile()) {
             throw new IOException("Index file with id " + fileId + " already exists");
         }
-        channel = new RandomAccessFile(file, "rw").getChannel();
+        channel = new RandomAccessFile(backingFile, "rw").getChannel();
+    }
+
+    void createRepairFile() throws IOException {
+        backingFile = getRepairFile();
+        while (!backingFile.createNewFile()) {
+            logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting a trying again", backingFile.getName());
+            backingFile.delete();
+        }
+        channel = new RandomAccessFile(backingFile, "rw").getChannel();
     }
 
     void open() throws IOException {
-        File file = getIndexFile();
-        channel = new RandomAccessFile(file, "rw").getChannel();
+        backingFile = getIndexFile();
+        channel = new RandomAccessFile(backingFile, "rw").getChannel();
     }
 
     void close() throws IOException {
@@ -92,8 +107,16 @@ class IndexFile {
         return new IndexFileIterator();
     }
 
+    Path getPath() {
+        return backingFile.toPath();
+    }
+
     private File getIndexFile() {
         return Paths.get(dbDirectory.getPath(), fileId + INDEX_FILE_NAME).toFile();
+    }
+
+    private File getRepairFile() {
+        return Paths.get(dbDirectory.getPath(), fileId + INDEX_FILE_NAME + ".repair").toFile();
     }
 
     public class IndexFileIterator implements Iterator<IndexFileEntry> {

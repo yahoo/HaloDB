@@ -13,9 +13,14 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Objects;
+
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * @author Arjun Mannaly
@@ -102,16 +107,16 @@ class TombstoneFile {
     }
 
     /**
-     * Copies to a new file those entries whose computed checksum matches the stored one.
+     * Copies to a temp file those entries whose computed checksum matches the stored one and then
+     * atomically rename the temp file to the current file.
      * Records in the file which occur after a corrupted record are discarded.
      * Current file is deleted after copy.
      * This method is called if we detect an unclean shutdown.
      */
-    TombstoneFile repairFile(int newFileId) throws IOException {
-        TombstoneFile newFile = create(backingFile.getParentFile(), newFileId, options);
+    TombstoneFile repairFile() throws IOException {
+        TombstoneFile repairFile = createRepairFile();
 
-        logger.info("Repairing tombstone file {}. Records with the correct checksum will be copied to {}", getName(), newFile.getName());
-
+        logger.info("Repairing tombstone file {}. Records with the correct checksum will be copied to {}", getName(), repairFile.getName());
         TombstoneFileIterator iterator = newIteratorWithCheckForDataCorruption();
         int count = 0;
         while (iterator.hasNext()) {
@@ -121,16 +126,35 @@ class TombstoneFile {
                 break;
             }
             count++;
-            newFile.write(entry);
+            repairFile.write(entry);
         }
-        logger.info("Copied {} records from {} with size {} to {} with size {}. Deleting file ...", count, getName(), getSize(), newFile.getName(), newFile.getSize());
-        newFile.flushToDisk();
-        delete();
-        return newFile;
+        logger.info("Recovered {} records from file {} with size {}. Size after repair {}.", count, getName(), getSize(), repairFile.getSize());
+        repairFile.flushToDisk();
+        Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        repairFile.close();
+        close();
+        open();
+        return this;
+    }
+
+    private TombstoneFile createRepairFile()  throws IOException {
+        File repairFile = Paths.get(getPath().toString() + ".repair").toFile();
+        while (!repairFile.createNewFile()) {
+            logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting a trying again", repairFile.getName());
+            repairFile.delete();
+        }
+
+        TombstoneFile tombstoneFile = new TombstoneFile(repairFile, options);
+        tombstoneFile.open();
+        return tombstoneFile;
     }
 
     String getName() {
         return backingFile.getName();
+    }
+
+    private Path getPath() {
+        return backingFile.toPath();
     }
 
     private long getSize() {

@@ -16,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,14 +27,22 @@ public class TombstoneFileTest {
 
     private File directory = new File(TestUtils.getTestDirectory("TombstoneFileTest"));
     private TombstoneFile file;
+    private File backingFile;
     private int fileId = 100;
-    private int newFileId = 200;
+    private FileTime createdTime;
 
     @BeforeMethod
     public void before() throws IOException {
         TestUtils.deleteDirectory(directory);
         FileUtils.createDirectoryIfNotExists(directory);
         file = TombstoneFile.create(directory, fileId, new HaloDBOptions());
+        backingFile = directory.toPath().resolve(file.getName()).toFile();
+        createdTime = TestUtils.getFileCreationTime(backingFile);
+        try {
+            // wait for a second to make sure that the file creation time of the repaired file will be different.
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
     }
 
     @AfterMethod
@@ -60,11 +69,9 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile newFile = file.repairFile(newFileId);
-
-        // make sure that old file is deleted.
-        Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toFile().exists());
-        verifyData(newFile, records);
+        TombstoneFile repairedFile = file.repairFile();
+        Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
+        verifyData(repairedFile, records);
     }
 
     @Test
@@ -84,11 +91,9 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile newFile = file.repairFile(newFileId);
-
-        // make sure that old file is deleted.
-        Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toFile().exists());
-        verifyData(newFile, records);
+        TombstoneFile repairedFile = file.repairFile();
+        Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
+        verifyData(repairedFile, records);
     }
 
     @Test
@@ -109,11 +114,9 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile newFile = file.repairFile(newFileId);
-
-        // make sure that old file is deleted.
-        Assert.assertFalse(Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toFile().exists());
-        verifyData(newFile, records);
+        TombstoneFile repairedFile = file.repairFile();
+        Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
+        verifyData(repairedFile, records);
     }
 
     private void verifyData(TombstoneFile file, List<TombstoneEntry> records) throws IOException {

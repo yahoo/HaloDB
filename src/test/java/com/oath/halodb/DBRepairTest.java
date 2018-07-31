@@ -10,8 +10,11 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * @author Arjun Mannaly
@@ -37,8 +40,10 @@ public class DBRepairTest extends TestBase {
             }
         }
 
-        File latestDataFile = TestUtils.getLatestDataFile(directory).get();
-        File latestTombstoneFile = FileUtils.listTombstoneFiles(new File(directory))[0];
+        FileTime latestDataFileCreatedTime =
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get());
+        FileTime latestTombstoneFileCreationTime =
+            TestUtils.getFileCreationTime(FileUtils.listTombstoneFiles(new File(directory))[0]);
 
         db.close();
 
@@ -47,11 +52,23 @@ public class DBRepairTest extends TestBase {
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 
+        // wait for a second so that the new file will have a different create at time.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
+
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // latest file should have been repaired and deleted. 
-        Assert.assertFalse(latestDataFile.exists());
-        Assert.assertFalse(latestTombstoneFile.exists());
+        // latest file should have been repaired and deleted.
+        Assert.assertNotEquals(
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
+            latestDataFileCreatedTime
+        );
+        Assert.assertNotEquals(
+            TestUtils.getFileCreationTime(FileUtils.listTombstoneFiles(new File(directory))[0]),
+            latestTombstoneFileCreationTime
+        );
 
         Assert.assertEquals(db.size(), noOfRecords/2);
         for (int i = 0; i < noOfRecords; i++) {
@@ -70,16 +87,21 @@ public class DBRepairTest extends TestBase {
         String directory = TestUtils.getTestDirectory("DBRepairTest", "testRepairDBWithCompaction");
 
         options.setMaxFileSize(1024 * 1024);
+        options.setCompactionThresholdPerFile(0.5);
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10 * 1024 + 512;
 
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
-        records = TestUtils.updateRecords(db, records);
+        List<Record> toUpdate = IntStream.range(0, noOfRecords).filter(i -> i%2==0).mapToObj(i -> records.get(i)).collect(Collectors.toList());
+        List<Record> updatedRecords = TestUtils.updateRecords(db, toUpdate);
+        for (int i = 0; i < updatedRecords.size(); i++) {
+            records.set(i * 2, updatedRecords.get(i));
+        }
 
         TestUtils.waitForCompactionToComplete(db);
 
-        File latestDataFile = TestUtils.getLatestDataFile(directory).get();
-        File latestCompactionFile = TestUtils.getLatestCompactionFile(directory).get();
+        FileTime latestDataFileCreatedTime =
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get());
 
         db.close();
 
@@ -88,11 +110,19 @@ public class DBRepairTest extends TestBase {
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 
+        // wait for a second so that the new file will have a different created at time.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
+
         db = getTestDBWithoutDeletingFiles(directory, options);
 
         // latest file should have been repaired and deleted.
-        Assert.assertFalse(latestDataFile.exists());
-        Assert.assertFalse(latestCompactionFile.exists());
+        Assert.assertNotEquals(
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
+            latestDataFileCreatedTime
+        );
 
         Assert.assertEquals(db.size(), noOfRecords);
         for (Record r : records) {
@@ -128,22 +158,37 @@ public class DBRepairTest extends TestBase {
             db.delete(r.getKey());
         }
 
-        db.close();
-
-        File latestDataFile = TestUtils.getLatestDataFile(directory).get();
         File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
-        File latestTombstoneFile = tombstoneFiles[tombstoneFiles.length-1];
+
+        FileTime latestDataFileCreatedTime =
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get());
+        FileTime latestTombstoneFileCreationTime =
+            TestUtils.getFileCreationTime(tombstoneFiles[tombstoneFiles.length-1]);
+
+        db.close();
 
         // trick the db to think that there was an unclean shutdown.
         DBMetaData dbMetaData = new DBMetaData(directory);
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+        }
+
         db = getTestDBWithoutDeletingFiles(directory, options);
 
         // latest file should have been repaired and deleted.
-        Assert.assertFalse(latestDataFile.exists());
-        Assert.assertFalse(latestTombstoneFile.exists());
+        Assert.assertNotEquals(
+            TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
+            latestDataFileCreatedTime
+        );
+        Assert.assertNotEquals(
+            TestUtils.getFileCreationTime(tombstoneFiles[tombstoneFiles.length-1]),
+            latestTombstoneFileCreationTime
+        );
+
 
         // other two tombstone files should still be there
         Assert.assertTrue(tombstoneFiles[0].exists());

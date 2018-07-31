@@ -19,6 +19,9 @@
         <Logger name="com.oath.halodb.CompactionManager" level="info" additivity="false">
             <AppenderRef ref="console"/>
         </Logger>
+        <Logger name="com.oath.halodb.HaloDBIterator" level="info" additivity="false">
+            <AppenderRef ref="console"/>
+        </Logger>
         <Root level="debug">
             <AppenderRef ref="console"/>
         </Root>

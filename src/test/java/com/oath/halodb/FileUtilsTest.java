@@ -39,6 +39,12 @@ public class FileUtilsTest {
             .collect(Collectors.toList());
 
 
+    private List<String> dataFileNamesRepair =
+        Stream.of(fileIds)
+            .map(i -> Paths.get(directory).resolve(i + HaloDBFile.DATA_FILE_NAME + ".repair").toString())
+            .collect(Collectors.toList());
+
+
     private List<String> tombstoneFileNames =
         Stream.of(fileIds)
             .map(i -> Paths.get(directory).resolve(i + TombstoneFile.TOMBSTONE_FILE_NAME).toString())
@@ -57,6 +63,12 @@ public class FileUtilsTest {
         }
 
         for (String f : dataFileNames) {
+            try(PrintWriter writer = new PrintWriter(new FileWriter(f))) {
+                writer.append("test");
+            }
+        }
+
+        for (String f : dataFileNamesRepair) {
             try(PrintWriter writer = new PrintWriter(new FileWriter(f))) {
                 writer.append("test");
             }

@@ -60,7 +60,7 @@ public class DBRepairTest extends TestBase {
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // latest file should have been repaired and deleted.
+        // latest file should have been repaired and replaced.
         Assert.assertNotEquals(
             TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
             latestDataFileCreatedTime
@@ -118,7 +118,7 @@ public class DBRepairTest extends TestBase {
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // latest file should have been repaired and deleted.
+        // latest file should have been repaired and replaced.
         Assert.assertNotEquals(
             TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
             latestDataFileCreatedTime
@@ -179,7 +179,7 @@ public class DBRepairTest extends TestBase {
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // latest file should have been repaired and deleted.
+        // latest file should have been repaired and replaced.
         Assert.assertNotEquals(
             TestUtils.getFileCreationTime(TestUtils.getLatestDataFile(directory).get()),
             latestDataFileCreatedTime

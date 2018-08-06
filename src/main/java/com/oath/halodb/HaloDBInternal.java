@@ -148,7 +148,7 @@ class HaloDBInternal {
         }
     }
 
-    void put(byte[] key, byte[] value) throws IOException, HaloDBException {
+    boolean put(byte[] key, byte[] value) throws IOException, HaloDBException {
         if (key.length > Byte.MAX_VALUE) {
             throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
@@ -161,7 +161,7 @@ class HaloDBInternal {
 
         //TODO: implement getAndSet and use the return value for
         //TODO: markPreviousVersionAsStale method.   
-        inMemoryIndex.put(key, entry);
+        return inMemoryIndex.put(key, entry);
     }
 
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {

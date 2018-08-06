@@ -37,8 +37,7 @@ class InMemoryIndex {
                 .segmentCount(noOfSegments)
                 .hashTableSize(maxSizeOfEachSegment)
                 .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
-                .loadFactor(1)
-                .throwOOME(true);
+                .loadFactor(1);
 
         if (useMemoryPool) {
             builder.useMemoryPool(true).fixedKeySize(fixedKeySize).memoryPoolChunkSize(memoryPoolChunkSize);
@@ -50,8 +49,7 @@ class InMemoryIndex {
     }
 
     boolean put(byte[] key, RecordMetaDataForCache metaData) {
-        offHeapHashTable.put(key, metaData);
-        return true;
+        return offHeapHashTable.put(key, metaData);
     }
 
     boolean remove(byte[] key) {

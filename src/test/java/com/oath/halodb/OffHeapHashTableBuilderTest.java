@@ -108,19 +108,6 @@ public class OffHeapHashTableBuilderTest
     }
 
     @Test
-    public void testThrowOOME() throws Exception
-    {
-        OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertFalse(builder.isThrowOOME());
-        builder.throwOOME(true);
-        Assert.assertTrue(builder.isThrowOOME());
-
-        System.setProperty("org.caffinitas.ohc.throwOOME", "true");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertTrue(builder.isThrowOOME());
-    }
-
-    @Test
     public void testValueSerializer() throws Exception
     {
         OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.newBuilder();

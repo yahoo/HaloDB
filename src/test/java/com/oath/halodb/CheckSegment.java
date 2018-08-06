@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * On-heap test-only counterpart of {@link SegmentNonMemoryPool} for {@link CheckOHCacheImpl}.
+ * On-heap test-only counterpart of {@link SegmentNonMemoryPool} for {@link CheckOffHeapHashTable}.
  */
 final class CheckSegment
 {

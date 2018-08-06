@@ -18,7 +18,6 @@ class OffHeapHashTableBuilder<V> {
     private int fixedKeySize = -1;
     private int fixedValueSize = -1;
     private long maxEntrySize;
-    private boolean throwOOME;
     private HashAlgorithm hashAlgorighm = HashAlgorithm.MURMUR3;
     private Hasher hasher;
     private boolean unlocked;
@@ -36,7 +35,6 @@ class OffHeapHashTableBuilder<V> {
         memoryPoolChunkSize = fromSystemProperties("memoryPoolChunkSize", memoryPoolChunkSize);
         loadFactor = fromSystemProperties("loadFactor", loadFactor);
         maxEntrySize = fromSystemProperties("maxEntrySize", maxEntrySize);
-        throwOOME = fromSystemProperties("throwOOME", throwOOME);
         hashAlgorighm = HashAlgorithm.valueOf(fromSystemProperties("hashAlgorighm", hashAlgorighm.name()));
         unlocked = fromSystemProperties("unlocked", unlocked);
     }
@@ -249,15 +247,6 @@ class OffHeapHashTableBuilder<V> {
         }
         this.hashAlgorighm = hashMode;
         this.hasher = Hasher.create(hashMode);
-        return this;
-    }
-
-    public boolean isThrowOOME() {
-        return throwOOME;
-    }
-
-    public OffHeapHashTableBuilder<V> throwOOME(boolean throwOOME) {
-        this.throwOOME = throwOOME;
         return this;
     }
 

@@ -43,9 +43,9 @@ public final class HaloDB {
         }
     }
 
-    public void put(byte[] key, byte[] value) throws HaloDBException {
+    public boolean put(byte[] key, byte[] value) throws HaloDBException {
         try {
-            dbInternal.put(key, value);
+            return dbInternal.put(key, value);
         } catch (IOException e) {
             throw new HaloDBException("Store to db failed.", e);
         }

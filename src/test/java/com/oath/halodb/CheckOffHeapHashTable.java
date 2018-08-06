@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * This is a {@link OffHeapHashTable} implementation used to validate functionality of
  * {@link OffHeapHashTableImpl} - this implementation is <b>not</b> for production use!
  */
-final class CheckOHCacheImpl<V> implements OffHeapHashTable<V>
+final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
 {
     private final HashTableValueSerializer<V> valueSerializer;
     private long capacity;
@@ -30,7 +30,7 @@ final class CheckOHCacheImpl<V> implements OffHeapHashTable<V>
     private long putFailCount;
     private final Hasher hasher;
 
-    CheckOHCacheImpl(OffHeapHashTableBuilder<V> builder)
+    CheckOffHeapHashTable(OffHeapHashTableBuilder<V> builder)
     {
         capacity = builder.getCapacity();
         loadFactor = builder.getLoadFactor();

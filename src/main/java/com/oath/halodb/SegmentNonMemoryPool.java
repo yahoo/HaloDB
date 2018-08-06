@@ -40,12 +40,10 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
 
     private volatile long putFailCount;
 
-    private final boolean throwOOME;
+    private static final boolean throwOOME = true;
 
     SegmentNonMemoryPool(OffHeapHashTableBuilder<V> builder) {
         super(builder.getValueSerializer(), builder.getFixedValueSize(), builder.getHasher());
-
-        this.throwOOME = builder.isThrowOOME();
 
         this.hashAlgorithm = builder.getHashAlgorighm();
 

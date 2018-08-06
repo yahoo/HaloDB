@@ -39,7 +39,6 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
 
     private boolean closed;
 
-    private final boolean throwOOME;
     private final Hasher hasher;
 
     OffHeapHashTableImpl(OffHeapHashTableBuilder<V> builder) {
@@ -49,10 +48,7 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         }
 
         this.capacity = capacity;
-
-        this.throwOOME = builder.isThrowOOME();
         this.hasher = Hasher.create(builder.getHashAlgorighm());
-
         this.fixedValueLength = builder.getFixedValueSize();
 
         // build segments

@@ -17,17 +17,17 @@ import java.io.IOException;
 /**
  * Test code that contains an instance of the production and check {@link OffHeapHashTable}
  * implementations {@link OffHeapHashTableImpl} and
- * {@link CheckOHCacheImpl}.
+ * {@link CheckOffHeapHashTable}.
  */
-public class DoubleCheckCacheImpl<V> implements OffHeapHashTable<V>
+public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
 {
     public final OffHeapHashTable<V> prod;
     public final OffHeapHashTable<V> check;
 
-    public DoubleCheckCacheImpl(OffHeapHashTableBuilder<V> builder)
+    public DoubleCheckOffHeapHashTableImpl(OffHeapHashTableBuilder<V> builder)
     {
         this.prod = builder.build();
-        this.check = new CheckOHCacheImpl<>(builder);
+        this.check = new CheckOffHeapHashTable<>(builder);
     }
 
     public boolean put(byte[] key, V value)

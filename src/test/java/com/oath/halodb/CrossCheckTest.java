@@ -39,22 +39,22 @@ public class CrossCheckTest
         Uns.clearUnsDebugForTest();
     }
 
-    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool)
+    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool)
     {
         return cache(hashAlgorithm, useMemoryPool, 256);
     }
 
-    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity)
+    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity)
     {
         return cache(hashAlgorithm, useMemoryPool, capacity, -1);
     }
 
-    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize)
+    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize)
     {
         return cache(hashAlgorithm, useMemoryPool, capacity, hashTableSize, -1, -1);
     }
 
-    static DoubleCheckCacheImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize, int segments, long maxEntrySize)
+    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
         OffHeapHashTableBuilder<byte[]> builder = OffHeapHashTableBuilder.<byte[]>newBuilder()
                                                                 .valueSerializer(HashTableTestUtils.byteArraySerializer)
@@ -74,7 +74,7 @@ public class CrossCheckTest
         if (maxEntrySize > 0)
             builder.maxEntrySize(maxEntrySize);
 
-        return new DoubleCheckCacheImpl<>(builder);
+        return new DoubleCheckOffHeapHashTableImpl<>(builder);
     }
 
     @DataProvider(name = "hashAlgorithms")
@@ -199,7 +199,7 @@ public class CrossCheckTest
             builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
 
 
-        try (OffHeapHashTable<byte[]> cache = new DoubleCheckCacheImpl<>(builder))
+        try (OffHeapHashTable<byte[]> cache = new DoubleCheckOffHeapHashTableImpl<>(builder))
         {
             List<HashTableTestUtils.KeyValuePair> entries = HashTableTestUtils.fill(cache, fixedValueSize, count);
 
@@ -427,7 +427,7 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testGetBucketHistogram(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (DoubleCheckCacheImpl<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (DoubleCheckOffHeapHashTableImpl<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
         {
             List<HashTableTestUtils.KeyValuePair> data = new ArrayList<>();
             for (int i = 0; i < 100; i++) {

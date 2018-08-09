@@ -147,7 +147,7 @@ public class DataConsistencyCheck extends TestBase {
                             deleteCount++;
                             deletedKeys.add(k);
                             if (deletedKeys.size() == 50_000) {
-                                int keyToAdd = deletedKeys.stream().findFirst().get();
+                                int keyToAdd = deletedKeys.iterator().next();
                                 db.put(keyToAdd, keys[keyToAdd], generateRandomValueWithVersion(updateCount));
                                 deletedKeys.remove(keyToAdd);
                             }

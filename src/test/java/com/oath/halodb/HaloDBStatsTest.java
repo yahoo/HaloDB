@@ -26,7 +26,7 @@ public class HaloDBStatsTest extends TestBase {
         options.setFlushDataSizeBytes(1024);
         options.setCompactionJobRate(2048);
         options.setNumberOfRecords(100);
-        options.setCleanUpKeyCacheOnClose(true);
+        options.setCleanUpInMemoryIndexOnClose(true);
 
         HaloDB db = getTestDB(dir, options);
 
@@ -39,7 +39,7 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(actual.getFlushDataSizeBytes(), options.getFlushDataSizeBytes());
         Assert.assertEquals(actual.getCompactionJobRate(), options.getCompactionJobRate());
         Assert.assertEquals(actual.getNumberOfRecords(), options.getNumberOfRecords());
-        Assert.assertEquals(actual.isCleanUpKeyCacheOnClose(), options.isCleanUpKeyCacheOnClose());
+        Assert.assertEquals(actual.isCleanUpInMemoryIndexOnClose(), options.isCleanUpInMemoryIndexOnClose());
         Assert.assertEquals(stats.getSize(), 0);
     }
 

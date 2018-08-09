@@ -1,7 +1,7 @@
  
-# HaloDB at Oath.
+# HaloDB at Yahoo.
 
-At Oath, we built this high throughput, low latency distributed key-value database that runs in multiple data centers in the US, Europe, and Asia-Pacific regions. 
+At Yahoo, we built this high throughput, low latency distributed key-value database that runs in multiple data centers in the US, Europe, and Asia-Pacific regions. 
 The largest of these clusters stores around 80 billion records and handles, at peak, around 3 million read requests and 1 million write requests per second 
 with an SLA of 1 millisecond at the 99th percentile.
  
@@ -25,7 +25,7 @@ which based on our projections, would have been a major obstacle for scaling the
 
 
 ## Why a new storage engine?
-Although there are umpteen number of storage engines publicly available almost all use a variation of the following data structures to organize data on disk:
+Although there are umpteen number of storage engines publicly available almost all use a variation of the following data structures to organize data on disk for fast lookup:
 * __Hash table__: Kyoto Cabinet. 
 * __Log-structured merge tree__: LevelDB, RocksDB.
 * __B-Tree/B+ Tree__: Berkeley DB, InnoDB. 

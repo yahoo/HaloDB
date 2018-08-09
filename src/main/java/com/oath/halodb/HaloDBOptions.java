@@ -29,7 +29,7 @@ public class HaloDBOptions implements Cloneable {
     // MB of data to be compacted per second.
     private int compactionJobRate = 1024 * 1024 * 1024;
 
-    private boolean cleanUpKeyCacheOnClose = false;
+    private boolean cleanUpInMemoryIndexOnClose = false;
 
     private boolean cleanUpTombstonesDuringOpen = false;
 
@@ -57,7 +57,7 @@ public class HaloDBOptions implements Cloneable {
             .add("isCompactionDisabled", isCompactionDisabled)
             .add("numberOfRecords", numberOfRecords)
             .add("compactionJobRate", compactionJobRate)
-            .add("cleanUpKeyCacheOnClose", cleanUpKeyCacheOnClose)
+            .add("cleanUpInMemoryIndexOnClose", cleanUpInMemoryIndexOnClose)
             .add("cleanUpTombstonesDuringOpen", cleanUpTombstonesDuringOpen)
             .add("useMemoryPool", useMemoryPool)
             .add("fixedKeySize", fixedKeySize)
@@ -92,8 +92,8 @@ public class HaloDBOptions implements Cloneable {
         this.compactionJobRate = compactionJobRate;
     }
 
-    public void setCleanUpKeyCacheOnClose(boolean cleanUpKeyCacheOnClose) {
-        this.cleanUpKeyCacheOnClose = cleanUpKeyCacheOnClose;
+    public void setCleanUpInMemoryIndexOnClose(boolean cleanUpInMemoryIndexOnClose) {
+        this.cleanUpInMemoryIndexOnClose = cleanUpInMemoryIndexOnClose;
     }
 
     public double getCompactionThresholdPerFile() {
@@ -120,8 +120,8 @@ public class HaloDBOptions implements Cloneable {
         return compactionJobRate;
     }
 
-    public boolean isCleanUpKeyCacheOnClose() {
-        return cleanUpKeyCacheOnClose;
+    public boolean isCleanUpInMemoryIndexOnClose() {
+        return cleanUpInMemoryIndexOnClose;
     }
 
     public boolean isCleanUpTombstonesDuringOpen() {

@@ -23,7 +23,7 @@ is allocated in native memory, outside the Java heap.
             // Open a db with default options.
             HaloDBOptions options = new HaloDBOptions();
     
-            // size of each data file size will be 1GB.
+            // size of each data file will be 1GB.
             options.setMaxFileSize(1024 * 1024 * 1024);
     
             // the threshold at which page cache is synced to disk.
@@ -48,6 +48,22 @@ is allocated in native memory, outside the Java heap.
             // memory for the off-heap cache. If the value is too low the db might
             // need to rehash the cache. For a db of size n set this value to 2*n.
             options.setNumberOfRecords(100_000_000);
+            
+            // Delete operation for a key will write a tombstone record to a tombstone file.
+            // the tombstone record can be removed only when all previous version of that key
+            // has been deleted by the compaction job.
+            // enabling this option will delete during startup all tombstone records whose previous
+            // versions were removed from the data file.
+            options.setCleanUpTombstonesDuringOpen(true);
+    
+            // HaloDB does native memory allocation for the in-memory index.
+            // Enabling this option will release all allocated memory back to the kernel when the db is closed.
+            // This option is not necessary if the JVM is shutdown when the db is closed, as in that case
+            // allocated memory is released automatically by the kernel.
+            // If using in-memory index without memory pool this option,
+            // depending on the number of records in the database,
+            // could be a slow as we need to call _free_ for each record.
+            options.setCleanUpInMemoryIndexOnClose(false);
     
     
             // ** settings for memory pool **
@@ -83,8 +99,6 @@ is allocated in native memory, outside the Java heap.
             byte[] value2 = "Value for key 2".getBytes();
     
             // add the key-value pair to the database.
-            // HaloDB doesn't support cocurrent writes.
-            // This is expected to be enforced by the calling application.
             db.put(key1, value1);
             db.put(key2, value2);
     

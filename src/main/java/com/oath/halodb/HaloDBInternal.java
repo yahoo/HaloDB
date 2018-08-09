@@ -132,7 +132,7 @@ class HaloDBInternal {
             setIOErrorFlag();
         }
 
-        if (options.isCleanUpKeyCacheOnClose())
+        if (options.isCleanUpInMemoryIndexOnClose())
             inMemoryIndex.close();
 
         if (currentWriteFile != null) {

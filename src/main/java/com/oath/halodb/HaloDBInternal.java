@@ -20,9 +20,18 @@ import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * @author Arjun Mannaly
@@ -53,6 +62,8 @@ class HaloDBInternal {
     private volatile long statsResetTime = System.currentTimeMillis();
 
     private FileLock dbLock;
+
+    private final Lock writeLock = new ReentrantLock();
 
     private static final int maxReadAttempts = 5;
 
@@ -153,15 +164,21 @@ class HaloDBInternal {
             throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
         }
 
-        Record record = new Record(key, value);
-        record.setSequenceNumber(getNextSequenceNumber());
-        record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
-        RecordMetaDataForCache entry = writeRecordToFile(record);
-        markPreviousVersionAsStale(key);
+        //TODO: more fine-grained locking is possible. 
+        writeLock.lock();
+        try {
+            Record record = new Record(key, value);
+            record.setSequenceNumber(getNextSequenceNumber());
+            record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
+            RecordMetaDataForCache entry = writeRecordToFile(record);
+            markPreviousVersionAsStale(key);
 
-        //TODO: implement getAndSet and use the return value for
-        //TODO: markPreviousVersionAsStale method.   
-        return inMemoryIndex.put(key, entry);
+            //TODO: implement getAndSet and use the return value for
+            //TODO: markPreviousVersionAsStale method.
+            return inMemoryIndex.put(key, entry);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
@@ -226,15 +243,20 @@ class HaloDBInternal {
     }
 
     void delete(byte[] key) throws IOException {
-        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
-        if (metaData != null) {
-            //TODO: implement a getAndRemove method in keyCache. 
-            inMemoryIndex.remove(key);
-            TombstoneEntry entry =
-                new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
-            rollOverCurrentTombstoneFile(entry);
-            currentTombstoneFile.write(entry);
-            markPreviousVersionAsStale(key, metaData);
+        writeLock.lock();
+        try {
+            RecordMetaDataForCache metaData = inMemoryIndex.get(key);
+            if (metaData != null) {
+                //TODO: implement a getAndRemove method in keyCache.
+                inMemoryIndex.remove(key);
+                TombstoneEntry entry =
+                    new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
+                rollOverCurrentTombstoneFile(entry);
+                currentTombstoneFile.write(entry);
+                markPreviousVersionAsStale(key, metaData);
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 

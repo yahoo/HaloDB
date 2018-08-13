@@ -21,8 +21,8 @@ import java.util.Set;
 /**
  * @author Arjun Mannaly
  */
-public class DataConsistencyCheck extends TestBase {
-    private static final Logger logger = LoggerFactory.getLogger(DataConsistencyCheck.class);
+public class DataConsistencyTest extends TestBase {
+    private static final Logger logger = LoggerFactory.getLogger(DataConsistencyTest.class);
 
     private final Object lock = new Object();
     private volatile boolean insertionComplete;
@@ -33,7 +33,7 @@ public class DataConsistencyCheck extends TestBase {
     private static final int valueSize = 50;
 
     private static final int noOfRecords = 100_000;
-    private static final int noOfTransactions = 10_000_000;
+    private static final int noOfTransactions = 100_000_000;
 
     private ByteBuffer[] keys;
 

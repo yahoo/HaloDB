@@ -36,7 +36,8 @@ is allocated in native memory, outside the Java heap.
             // This value helps control write and space amplification. Increasing this value will
             // reduce write amplification but will increase space amplification.
             // This along with the compactionJobRate below is the most important setting
-            // for tuning HaloDB performance.
+            // for tuning HaloDB performance. If this is set to x then write amplification 
+            // will be approximately 1/x. 
             options.setCompactionThresholdPerFile(0.7);
     
             // Controls how fast the compaction job should run.
@@ -130,10 +131,11 @@ is allocated in native memory, outside the Java heap.
 
 
 ### Read, Write and Space amplification.
-Read amplification in HaloDB is always 1—for a read request it needs to do just one disk lookup—hence it is well suited for read latency critical workloads. 
-HaloDB provides a simple configuration option which can be changed to tune write amplification and space amplification, both of which trade-off with each other;
-HaloDB has a background compaction thread which removes stale data from the DB. The percentage of stale data at which a file is compacted can be controlled. Increasing this value
-will increase space amplification but will reduce write amplification. For example if the value is set to 50% then write amplification will be approximately 2. 
+Read amplification in HaloDB is always 1—for a read request it needs to do just one disk lookup—hence it is well suited for 
+read latency critical workloads. HaloDB provides a configuration which can be tuned to control write amplification 
+and space amplification, both of which trade-off with each other; HaloDB has a background compaction thread which removes stale data 
+from the DB. The percentage of stale data at which a file is compacted can be controlled. Increasing this value will increase space amplification 
+but will reduce write amplification. For example if the value is set to 50% then write amplification will be approximately 2 
 
 
 ### Durability and Crash recovery.
@@ -154,17 +156,20 @@ In the event of a power loss HaloDB offers the following consistency guarantees:
  
   
 ### In-memory index.  
-HaloDB stores all keys and their associated metadata in a hash table in memory. The size of this index, depending on the number and length of keys, can be quite big.  
-Therefore, storing this in the Java Heap is a non-starter for a performance critical storage engine. HaloDB solves this problem by storing 
-all data in native memory, outside the heap. There are two variants of the hash table; one with a memory pool and the other without it.
-Using the memory pool helps to reduce the memory footprint of the hash table and reduce fragmentation, but requires fixed size keys. A billion 8 byte keys 
+HaloDB stores all keys and their associated metadata in an index in memory. The size of this index, depending on the 
+number and length of keys, can be quite big. Therefore, storing this in the Java Heap is a non-starter for a 
+performance critical storage engine. HaloDB solves this problem by storing the index in native memory, 
+outside the heap. There are two variants of the hash table; one with a memory pool and the other 
+without it. Using the memory pool helps to reduce the memory footprint of the hash table and reduce 
+fragmentation, but requires fixed size keys. A billion 8 byte keys 
 currently takes around 44GB of memory with memory pool and around 64GB without memory pool.   
 
-The size of the keys when using a memory pool should be declared in advance, and although this imposes an upper limit on the size of the keys that can be stored it is 
-still possible to store keys smaller than this declared size. 
+The size of the keys when using a memory pool should be declared in advance, and although this imposes an 
+upper limit on the size of the keys it is still possible to store keys smaller than this declared size. 
 
-Without the memory pool, HaloDB needs to allocate native memory for every write request. Therefore, memory fragmentation could be an issue. 
-**Using [jemalloc](http://jemalloc.net/) is highly recommended** as it provides a significant reduction in the cache's memory footprint and fragmentation.
+Without the memory pool, HaloDB needs to allocate native memory for every write request. Therefore, 
+memory fragmentation could be an issue. Using [jemalloc](http://jemalloc.net/) is highly recommended as it 
+provides a significant reduction in the cache's memory footprint and fragmentation.
 
 ### Delete operations.
 Delete operation for a key will add a tombstone record to a tombstone file, which is distinct from the data files. 
@@ -231,20 +236,20 @@ Insert 500 million records into an empty db in random order.
 ![HaloDB](https://lh3.googleusercontent.com/sJtr8EdXWyw6IjG9oUn6Vb4YAW-KDnfMcqYTDAYOLO3N3sxt-FM-4JaA8hHKQeA63yzHZ9wGvxtp9BXDu-moxJ5K-bqFY2XBXUu4J82TiQ6SFOwC5UI73BxKdg05iS7dzJfe-lQM491xi_7aHnEfkZXOyxy0c8-zz_v4LgbeWILxGKHaGLyqj18dRIKpMw1Gv8fi5kvhSDu8YfsCp6BqZCI3CYUqduKnnHjFK7WAIvyaC6pFr3PkpU4C1ATpW9SGSeATlqbWOZgzMAVu7lZYJEi7xb3HMOkrc6w5kawVnJ62QBh9DRrila5F7fsEbR_sUPbL_WTYHvxMC0NVA2TjSUffg0wo4VJ75251s75DSLuB-Y3jlZ9i9vM6SCvGoPfeizgf8TU8iIc-9Ws9v4nLqewufM8ft4vlyoIA6aqUB_NVOtN7_FXJ40irUoEDzKDUP-cVzWlFWIpP1HXasxmbzwP34S1_oiyn2pAcC3VpGZ5RuzF-vjapscRdKYiFOJE8S5ywiZZYcCvOxwS3lKpMNs4Y_qkgPen3PTDALteoLyV9EKm90EJEMNw6Pm_amM_wj0pk7qjPpTlkhcSspwPXPvnWLJR2EhldWSFq32R8fUsFuFX5dRXmy4ORpHScuCAu5KYx2dwQSCR0WLyDvX8rKPlhNha3nece=w1950-h1066-no)
 
 ## Why HaloDB is fast.
-HaloDB is fast because of some of the design choices and trade-offs that was made. 
+HaloDB makes some design choices and trade-offs which, while helping with HaloDB's good performance 
+on IO bound workloads, might make it sub-optimal for certain other workloads.   
 
 All writes to HaloDB are sequential writes to append-only log files. HaloDB uses a background compaction job to clean up stale data. 
 The threshold at which a file is compacted can be tuned and this determines HaloDB's write amplification and space amplification. 
 A compaction threshold of 50% gives a write amplification of only 2, this coupled with the fact that we do only sequential writes 
 are the primary reasons for HaloDB’s high write throughput. Additionally, the only meta-data that HaloDB need to modify during writes are 
-those of the index in memory.   
+those of the index in memory. The trade-off here is that HaloDB will occupy will space on disk.    
 
 To lookup the value for a key its corresponding metadata is first read from the in-memory index and then the value is read from disk. 
 Therefore each lookup request requires at most a single read from disk, giving us a read amplification of 1, and is primarily responsible 
 for HaloDB’s low read latencies. The trade-off here is that we need to store all the keys and their associated metadata in memory.  
 
-HaloDB supports only a single writer thread and since it avoids doing in-place updates doesn’t need record level locks, 
-which also helps with performance even under high read and write throughput.
+HaloDB avoids doing in-place updates and doesn’t need record level locks, which also helps with performance even under high read and write throughput.
 
 HaloDB also doesn't support range scans and hence doesn't pay the cost associated with storing data in a format suitable 
 for efficient range scans.

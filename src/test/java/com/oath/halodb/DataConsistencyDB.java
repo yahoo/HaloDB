@@ -5,13 +5,9 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
@@ -113,15 +109,16 @@ class DataConsistencyDB {
 
         if (mapValue == null) {
             logger.error("Map value is null for key {} of length {} but HaloDB value has version {}",
-                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(dbValue));
+                         key, keyBuf.remaining(), DataConsistencyTest.getVersionFromValue(dbValue));
         }
         else if (dbValue == null) {
             logger.error("HaloDB value is null for key {} of length {} but Map value has version {}",
-                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(mapValue));
+                         key, keyBuf.remaining(), DataConsistencyTest.getVersionFromValue(mapValue));
         }
         else {
             logger.error("HaloDB value for key {} has version {} of length {} but map value version is {}",
-                         key, keyBuf.remaining(), DataConsistencyCheck.getVersionFromValue(dbValue), DataConsistencyCheck.getVersionFromValue(mapValue));
+                         key, keyBuf.remaining(), DataConsistencyTest.getVersionFromValue(dbValue), DataConsistencyTest
+                             .getVersionFromValue(mapValue));
         }
 
         return false;

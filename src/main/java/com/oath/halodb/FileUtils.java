@@ -21,8 +21,12 @@ import java.util.stream.Collectors;
 class FileUtils {
 
     static void createDirectoryIfNotExists(File directory) throws IOException {
-        if (directory.exists() && directory.isDirectory())
+        if (directory.exists()) {
+            if (!directory.isDirectory()) {
+                throw new IOException(directory.getName() + " is not a directory.");
+            }
             return;
+        }
 
         if (!directory.mkdirs()) {
             throw new IOException("Cannot create directory " + directory.getName());

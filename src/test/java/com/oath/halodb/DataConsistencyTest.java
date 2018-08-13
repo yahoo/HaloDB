@@ -33,7 +33,7 @@ public class DataConsistencyTest extends TestBase {
     private static final int valueSize = 50;
 
     private static final int noOfRecords = 100_000;
-    private static final int noOfTransactions = 100_000_000;
+    private static final int noOfTransactions = 10_000_000;
 
     private ByteBuffer[] keys;
 
@@ -158,6 +158,11 @@ public class DataConsistencyTest extends TestBase {
                     } catch (HaloDBException e) {
                         throw new RuntimeException(e);
                     }
+
+                    if (updateCount > 0 && updateCount % 500_000 == 0) {
+                        logger.info("Completed {} updates", updateCount);
+                    }
+
                 }
             } finally {
                 updatesComplete = true;

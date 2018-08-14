@@ -196,7 +196,9 @@ interleaved (although partial ordering for both is guaranteed).
   
   
   Key size was 8 bytes and value size 1024 bytes. Tests created a db with 500 million records with total size of approximately 
-  500GB. Since this is significantly bigger than the available memory it will ensure that the workload will be IO bound, which is what HaloDB was primarily designed for.  
+  500GB. Since this is significantly bigger than the available memory it will ensure that the workload will be IO bound, which is what HaloDB was primarily designed for.
+  
+  Benchmark tool can be found [here](https://github.com/yahoo/HaloDB/tree/master/benchmarks)  
   
 ## Test 1: Fill Sequential.
 Create a new db by inserting 500 million records in sorted key order.

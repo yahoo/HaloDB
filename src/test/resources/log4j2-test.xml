@@ -9,6 +9,7 @@
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d %-5p  [%c{1}] %m %n"/>
+            <RegexFilter regex=".*Completed scanning.*" onMatch="DENY" onMismatch="ACCEPT"/>
         </Console>
         <Async name="async">
             <AppenderRef ref="console"/>

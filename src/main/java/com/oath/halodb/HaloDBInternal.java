@@ -69,6 +69,7 @@ class HaloDBInternal {
 
     private volatile long noOfTombstonesCopiedDuringOpen = 0;
     private volatile long noOfTombstonesFoundDuringOpen = 0;
+    private volatile long nextSequenceNumber;
 
     private HaloDBInternal() {}
 
@@ -110,7 +111,13 @@ class HaloDBInternal {
             options.getFixedKeySize(), options.getMemoryPoolChunkSize()
         );
 
-        dbInternal.buildInMemoryIndex(options);
+        long maxSequenceNumber = dbInternal.buildInMemoryIndex(options);
+        if (maxSequenceNumber == -1l) {
+            dbInternal.nextSequenceNumber = 1;
+        } else {
+            dbInternal.nextSequenceNumber = maxSequenceNumber + 100;
+        }
+
         dbInternal.compactionManager.startCompactionThread();
 
         logger.info("Opened HaloDB {}", directory.getName());
@@ -397,20 +404,21 @@ class HaloDBInternal {
             .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
-    private void buildInMemoryIndex(HaloDBOptions options) throws IOException {
+    private long buildInMemoryIndex(HaloDBOptions options) throws IOException {
         //TODO: probably processing files in descending order is more efficient.
         List<Integer> indexFiles = FileUtils.listIndexFiles(dbDirectory);
 
         logger.info("About to scan {} index files to construct index ...", indexFiles.size());
 
         long start = System.currentTimeMillis();
+        long maxSequenceNumber = -1l;
 
         for (int fileId : indexFiles) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
-            // build the cache by scanning all index files. 
+            // build the cache by scanning all index files.
             int count = 0, inserted = 0;
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
@@ -418,6 +426,7 @@ class HaloDBInternal {
                 int recordOffset = indexFileEntry.getRecordOffset();
                 int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
+                maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
                 int valueOffset = Utils.getValueOffset(recordOffset, key);
                 int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
@@ -459,6 +468,7 @@ class HaloDBInternal {
                 TombstoneEntry entry = iterator.next();
                 byte[] key = entry.getKey();
                 long sequenceNumber = entry.getSequenceNumber();
+                maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
                 count++;
 
                 RecordMetaDataForCache existing = inMemoryIndex.get(key);
@@ -491,6 +501,8 @@ class HaloDBInternal {
         }
 
         logger.info("Completed scanning all key files in {}", (System.currentTimeMillis() - start)/1000);
+
+        return maxSequenceNumber;
     }
 
     HaloDBFile getHaloDBFile(int fileId) {
@@ -580,7 +592,7 @@ class HaloDBInternal {
     }
 
     private long getNextSequenceNumber() {
-        return System.nanoTime();
+        return nextSequenceNumber++;
     }
 
     int getCurrentWriteFileId() {

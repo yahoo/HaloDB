@@ -28,7 +28,6 @@ class InMemoryIndex {
     InMemoryIndex(int numberOfKeys, boolean useMemoryPool, int fixedKeySize, int memoryPoolChunkSize) {
         noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
         maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
-
         long start = System.currentTimeMillis();
         OffHeapHashTableBuilder<RecordMetaDataForCache> builder =
             OffHeapHashTableBuilder.<RecordMetaDataForCache>newBuilder()

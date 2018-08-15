@@ -28,7 +28,7 @@ public class HaloDBCompactionTest extends TestBase {
     private final int numberOfRecords = numberOfFiles * recordsPerFile;
 
     @Test(dataProvider = "Options")
-    public void testMerge(HaloDBOptions options) throws Exception {
+    public void testCompaction(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testCompaction");
 
         options.setMaxFileSize(recordsPerFile * recordSize);
@@ -41,23 +41,6 @@ public class HaloDBCompactionTest extends TestBase {
         Record[] records = insertAndUpdateRecords(numberOfRecords, db);
 
         TestUtils.waitForCompactionToComplete(db);
-
-        Map<String, List<Path>> map = Files.list(Paths.get(directory))
-            .filter(path -> Constants.DATA_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
-            .collect(Collectors.groupingBy(path -> "."+path.toFile().getName().split("\\.")[1]));
-
-        // 4 data files of size.
-        Assert.assertEquals(map.get(HaloDBFile.DATA_FILE_NAME).size(), 4);
-
-        //4 merged data files.
-        Assert.assertEquals(map.get(HaloDBFile.COMPACTED_DATA_FILE_NAME).size(), 4);
-
-        long actualIndexFileCount = Files.list(Paths.get(directory))
-            .filter(path -> Constants.INDEX_FILE_PATTERN.matcher(path.getFileName().toString()).matches())
-            .count();
-
-        // 8 index files.
-        Assert.assertEquals(actualIndexFileCount, 8);
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());

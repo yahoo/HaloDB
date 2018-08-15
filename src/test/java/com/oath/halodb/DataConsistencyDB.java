@@ -54,7 +54,8 @@ class DataConsistencyDB {
         }
     }
 
-    boolean compareValues(int keyIndex, ByteBuffer keyBuf) throws HaloDBException {
+    // return -1 if values don't match.
+    int compareValues(int keyIndex, ByteBuffer keyBuf) throws HaloDBException {
         ReentrantReadWriteLock lock = locks[keyIndex%numberOfLocks];
         try {
             lock.readLock().lock();
@@ -101,11 +102,12 @@ class DataConsistencyDB {
         return true;
     }
 
-    private boolean checkValues(long key, ByteBuffer keyBuf, HaloDB haloDB) throws HaloDBException {
+    // return -1 if values don't match.
+    private int checkValues(long key, ByteBuffer keyBuf, HaloDB haloDB) throws HaloDBException {
         byte[] mapValue = javaMap.get(keyBuf);
         byte[] dbValue = haloDB.get(keyBuf.array());
         if (Arrays.equals(mapValue, dbValue))
-            return true;
+            return dbValue == null ? 0 : dbValue.length;
 
         if (mapValue == null) {
             logger.error("Map value is null for key {} of length {} but HaloDB value has version {}",
@@ -121,7 +123,7 @@ class DataConsistencyDB {
                              .getVersionFromValue(mapValue));
         }
 
-        return false;
+        return -1;
     }
 
     boolean containsKey(byte[] key) throws HaloDBException {

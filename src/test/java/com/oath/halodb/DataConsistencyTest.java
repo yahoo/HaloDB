@@ -30,10 +30,10 @@ public class DataConsistencyTest extends TestBase {
     private volatile boolean foundNonMatchingValue;
 
     private static final int fixedKeySize = 16;
-    private static final int valueSize = 50;
+    private static final int maxValueSize = 100;
 
     private static final int noOfRecords = 100_000;
-    private static final int noOfTransactions = 1_000_000;
+    private static final int noOfTransactions = 2_000_000;
 
     private ByteBuffer[] keys;
 
@@ -72,6 +72,7 @@ public class DataConsistencyTest extends TestBase {
             }
         }
 
+        long start = System.currentTimeMillis();
         Reader[] readers = new Reader[10];
 
         for (int i = 0; i < readers.length; i++) {
@@ -80,11 +81,13 @@ public class DataConsistencyTest extends TestBase {
         }
 
         writer.join();
-        long totalReads = 0;
+        long totalReads = 0, totalReadSize = 0;
         for (Reader reader : readers) {
             reader.join();
             totalReads += reader.readCount;
+            totalReadSize += reader.readSize;
         }
+        long time = (System.currentTimeMillis() - start)/1000;
 
         Assert.assertFalse(foundNonMatchingValue);
         Assert.assertTrue(db.checkSize());
@@ -99,6 +102,8 @@ public class DataConsistencyTest extends TestBase {
         logger.info("Completed {} updates", writer.updateCount);
         logger.info("Completed {} deletes", writer.deleteCount);
         logger.info("Completed {} reads", totalReads);
+        logger.info("Reads per second {}. {} MB/second", totalReads/time, totalReadSize/1024/1024/time);
+        logger.info("Writes per second {}. {} KB/second", noOfTransactions/time, writer.totalWriteSize/1024/time);
     }
 
     class Writer extends Thread {
@@ -106,10 +111,12 @@ public class DataConsistencyTest extends TestBase {
         DataConsistencyDB db;
         long updateCount = 0;
         long deleteCount = 0;
+        volatile long totalWriteSize = 0;
         Set<Integer> deletedKeys = new HashSet<>(50_000);
 
         Writer(DataConsistencyDB db) {
             this.db = db;
+            setPriority(MAX_PRIORITY);
         }
 
         @Override
@@ -125,7 +132,9 @@ public class DataConsistencyTest extends TestBase {
                         }
 
                         keys[i] = ByteBuffer.wrap(key);
-                        db.put(i, keys[i], generateRandomValueWithVersion(updateCount));
+                        // we need at least 8 bytes for the version.
+                        int size = random.nextInt(maxValueSize) + 9;
+                        db.put(i, keys[i], generateRandomValueWithVersion(updateCount, size));
                     } catch (HaloDBException e) {
                         throw new RuntimeException(e);
                     }
@@ -140,6 +149,7 @@ public class DataConsistencyTest extends TestBase {
             try {
                 while (!foundNonMatchingValue && updateCount < noOfTransactions) {
                     int k = random.nextInt(noOfRecords);
+                    int size = random.nextInt(maxValueSize) + 9;
                     updateCount++;
                     try {
                         if (updateCount % 2 == 0) {
@@ -148,12 +158,14 @@ public class DataConsistencyTest extends TestBase {
                             deletedKeys.add(k);
                             if (deletedKeys.size() == 50_000) {
                                 int keyToAdd = deletedKeys.iterator().next();
-                                db.put(keyToAdd, keys[keyToAdd], generateRandomValueWithVersion(updateCount));
+                                db.put(keyToAdd, keys[keyToAdd], generateRandomValueWithVersion(updateCount, size));
+                                totalWriteSize += size;
                                 deletedKeys.remove(keyToAdd);
                             }
                         }
                         else {
-                            db.put(k, keys[k], generateRandomValueWithVersion(updateCount));
+                            db.put(k, keys[k], generateRandomValueWithVersion(updateCount, size));
+                            totalWriteSize += size;
                         }
                     } catch (HaloDBException e) {
                         throw new RuntimeException(e);
@@ -174,9 +186,11 @@ public class DataConsistencyTest extends TestBase {
 
         DataConsistencyDB db;
         volatile long readCount = 0;
+        volatile long readSize = 0;
 
         Reader(DataConsistencyDB db) {
             this.db = db;
+            setPriority(MIN_PRIORITY);
         }
 
         @Override
@@ -185,12 +199,13 @@ public class DataConsistencyTest extends TestBase {
             while (!updatesComplete) {
                 int i = random.nextInt(noOfRecords);
                 try {
-                    boolean isMatch = db.compareValues(i, keys[i]);
+                    int valueSize = db.compareValues(i, keys[i]);
                     readCount++;
-                    if (!isMatch) {
+                    if (valueSize == -1) {
                         foundNonMatchingValue = true;
                     }
-                    Assert.assertTrue(isMatch, "Values don't match for key " + i);
+                    Assert.assertNotEquals(valueSize, -1, "Values don't match for key " + i);
+                    readSize += valueSize;
                 } catch (HaloDBException e) {
                     throw new RuntimeException(e);
                 }
@@ -202,15 +217,15 @@ public class DataConsistencyTest extends TestBase {
         return random.nextInt(fixedKeySize) + 1;
     }
 
-    private byte[] generateRandomValueWithVersion(long version) {
-        byte[] value = randDataGenerator.getData(valueSize);
-        System.arraycopy(Longs.toByteArray(version), 0, value, valueSize - 8, 8);
+    private byte[] generateRandomValueWithVersion(long version, int size) {
+        byte[] value = randDataGenerator.getData(size);
+        System.arraycopy(Longs.toByteArray(version), 0, value, size - 8, 8);
         return value;
     }
 
     static long getVersionFromValue(byte[] value) {
         byte[] v = new byte[8];
-        System.arraycopy(value, valueSize-8, v, 0, 8);
+        System.arraycopy(value, value.length-8, v, 0, 8);
         return Longs.fromByteArray(v);
     }
 }

@@ -33,7 +33,7 @@ public class DataConsistencyTest extends TestBase {
     private static final int maxValueSize = 100;
 
     private static final int noOfRecords = 100_000;
-    private static final int noOfTransactions = 2_000_000;
+    private static final int noOfTransactions = 1_000_000;
 
     private ByteBuffer[] keys;
 

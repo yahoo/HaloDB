@@ -182,8 +182,7 @@ interleaved (although partial ordering for both is guaranteed).
 * HaloDB has been tested on Linux running on x86 and on MacOS. It may run on other platforms, but this hasn't been verified yet.
 
 ### Restrictions. 
-* Size of keys is restricted to 128 bytes. 
-* HaloDB supports only a single writer thread, and expects the client to make sure that there are no concurrent writes. 
+* Size of keys is restricted to 128 bytes.  
 * HaloDB doesn't order keys and hence doesn't support range scans    
 
 # Benchmarks.

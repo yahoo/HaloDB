@@ -5,13 +5,15 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author Pulkit Goel
@@ -22,32 +24,84 @@ public class SequenceNumberTest extends TestBase {
     public void testSequenceNumber(HaloDBOptions options) throws Exception {
         String directory = TestUtils.getTestDirectory("SequenceNumberTest", "testSequenceNumber");
 
-        int recordSize = 1024;
-        int recordNumber = 100;
+        int totalNumberOfRecords = 10;
 
+        // Write 10 records in the DB
         HaloDB db = getTestDB(directory, options);
+        TestUtils.insertRandomRecords(db, totalNumberOfRecords);
 
-        byte[] data = new byte[recordSize - Record.Header.HEADER_SIZE - 8 - 8];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = (byte)i;
-        }
+        // Iterate through all records, atleast one record should have 10 as the sequenceNumber
+        File file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
+        HaloDBFile.HaloDBFileIterator haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
-        Record[] records = new Record[recordNumber];
-        for (int i = 0; i < recordNumber; i++) {
-            byte[] key = Longs.toByteArray(i);
-            byte[] value = TestUtils.concatenateArrays(data, key);
-            records[i] = new Record(key, value);
-            db.put(records[i].getKey(), records[i].getValue());
-        }
-
-        // Iterate through all records, atleast one record should have 100 as the sequenceNumber
-        HaloDBIterator haloDBIterator = db.newIterator();
         List<Long> sequenceNumbers = new ArrayList<>();
-        while (haloDBIterator.hasNext()) {
-            Record record = haloDBIterator.next();
-            sequenceNumbers.add(record.getRecordMetaData().getSequenceNumber());
+        while (haloDBFileIterator.hasNext()) {
+            Record record = haloDBFileIterator.next();
+            sequenceNumbers.add(record.getSequenceNumber());
+        }
+        Assert.assertTrue(sequenceNumbers.contains(10L));
+        db.close();
+
+        // open and read the content again
+        HaloDB reopenedDb = getTestDBWithoutDeletingFiles(directory, options);
+        List<Record> records = new ArrayList<>();
+        reopenedDb.newIterator().forEachRemaining(records::add);
+
+        // Verify that the sequence number is still present after reopening the DB
+        sequenceNumbers = records.stream().map(record -> record.getRecordMetaData().getSequenceNumber()).collect(Collectors.toList());
+        Assert.assertTrue(sequenceNumbers.contains(10L));
+
+        // Write 10 records in the DB
+        TestUtils.insertRandomRecords(reopenedDb, totalNumberOfRecords);
+
+        // Iterate through all records, atleast one record should have 119 as the sequenceNumber (10 original records + 99 offset for reopening + 10 new records)
+        file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
+        haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
+
+        sequenceNumbers = new ArrayList<>();
+        while (haloDBFileIterator.hasNext()) {
+            Record record = haloDBFileIterator.next();
+            sequenceNumbers.add(record.getSequenceNumber());
+        }
+        Assert.assertTrue(sequenceNumbers.contains(119L));
+
+        // Delete the first 10 records from the DB
+        for (Record record : records) {
+            reopenedDb.delete(record.getKey());
         }
 
-        MatcherAssert.assertThat(100L, Matchers.isIn(sequenceNumbers));
+        // get the tombstone file.
+        File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
+        Assert.assertEquals(tombstoneFiles.length, 1);
+
+        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFiles[0], options);
+        tombstoneFile.open();
+        List<TombstoneEntry> tombstoneEntries = new ArrayList<>();
+        tombstoneFile.newIterator().forEachRemaining(tombstoneEntries::add);
+
+        Assert.assertEquals(tombstoneEntries.size(), 10);
+        for (TombstoneEntry tombstoneEntry : tombstoneEntries) {
+            // Each tombstoneEntry should have sequence number greater than or equal to 119 (10 original records + 99 offset for reopening + 10 new records)
+            Assert.assertTrue(tombstoneEntry.getSequenceNumber() > 119L);
+        }
+        reopenedDb.close();
+
+        // reopen the db and add the content again
+        reopenedDb = getTestDBWithoutDeletingFiles(directory, options);
+
+        // Write 10 records in the DB
+        TestUtils.insertRandomRecords(reopenedDb, totalNumberOfRecords);
+
+        // Iterate through all records, atleast one record should have 238 as the sequenceNumber (10 original records + 99 offset for reopening + 10 records + 10 tombstone records + 99 offset for reopening + 10 new records)
+        file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
+        haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
+
+        sequenceNumbers = new ArrayList<>();
+        while (haloDBFileIterator.hasNext()) {
+            Record record = haloDBFileIterator.next();
+            sequenceNumbers.add(record.getSequenceNumber());
+        }
+        Assert.assertTrue(sequenceNumbers.contains(238L));
+        reopenedDb.close();
     }
 }

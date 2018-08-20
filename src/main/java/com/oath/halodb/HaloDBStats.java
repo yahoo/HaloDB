@@ -37,6 +37,9 @@ public class HaloDBStats {
     private final long sizeOfFilesDeleted;
     private final long sizeReclaimed;
 
+    private final long compactionRateInInternal;
+    private final long compactionRateSinceBeginning;
+
     private final HaloDBOptions options;
 
     public HaloDBStats(long statsResetTime, long size, int numberOfFilesPendingCompaction,
@@ -44,7 +47,7 @@ public class HaloDBStats {
                        long maxSizePerSegment, SegmentStats[] segmentStats, long numberOfTombstonesFoundDuringOpen,
                        long numberOfTombstonesCleanedUpDuringOpen, long numberOfRecordsCopied,
                        long numberOfRecordsReplaced, long numberOfRecordsScanned, long sizeOfRecordsCopied,
-                       long sizeOfFilesDeleted, long sizeReclaimed, HaloDBOptions options) {
+                       long sizeOfFilesDeleted, long sizeReclaimed, long compactionRateSinceBeginning, HaloDBOptions options) {
         this.statsResetTime = statsResetTime;
         this.size = size;
         this.numberOfFilesPendingCompaction = numberOfFilesPendingCompaction;
@@ -61,6 +64,16 @@ public class HaloDBStats {
         this.sizeOfRecordsCopied = sizeOfRecordsCopied;
         this.sizeOfFilesDeleted = sizeOfFilesDeleted;
         this.sizeReclaimed = sizeReclaimed;
+        this.compactionRateSinceBeginning = compactionRateSinceBeginning;
+
+        long intervalTimeInSeconds = (System.currentTimeMillis() - statsResetTime)/1000;
+        if (intervalTimeInSeconds > 0) {
+            this.compactionRateInInternal = sizeOfRecordsCopied/intervalTimeInSeconds;
+        }
+        else {
+            this.compactionRateInInternal = 0;
+        }
+
         this.options = options;
     }
 
@@ -128,12 +141,22 @@ public class HaloDBStats {
         return segmentStats;
     }
 
+    public long getCompactionRateInInternal() {
+        return compactionRateInInternal;
+    }
+
+    public long getCompactionRateSinceBeginning() {
+        return compactionRateSinceBeginning;
+    }
+
     @Override
     public String toString() {
         return MoreObjects.toStringHelper("")
             .add("statsResetTime", statsResetTime)
             .add("size", size)
             .add("Options", options)
+            .add("CompactionJobRateInInterval", getUnit(compactionRateInInternal))
+            .add("CompactionJobRateSinceBeginning", getUnit(compactionRateSinceBeginning))
             .add("numberOfFilesPendingCompaction", numberOfFilesPendingCompaction)
             .add("numberOfRecordsCopied", numberOfRecordsCopied)
             .add("numberOfRecordsReplaced", numberOfRecordsReplaced)
@@ -168,6 +191,29 @@ public class HaloDBStats {
         }
         builder.append("]");
         return builder.toString();
+    }
+
+    private static final String gbRateUnit = " GB/second";
+    private static final String mbRateUnit = " MB/second";
+    private static final String kbRateUnit = " KB/second";
+
+    private static final long GB = 1024 * 1024 * 1024;
+    private static final long MB = 1024 * 1024;
+    private static final long KB = 1024;
+
+    private String getUnit(long value) {
+        long temp = value / GB;
+        if (temp >= 1) {
+            return temp + gbRateUnit;
+        }
+
+        temp = value / MB;
+        if (temp >= 1) {
+            return temp + mbRateUnit;
+        }
+
+        temp = value / KB;
+        return temp + kbRateUnit;
     }
 
 }

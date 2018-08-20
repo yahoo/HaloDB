@@ -95,6 +95,13 @@ public class HaloDBStatsTest extends TestBase {
                 db.put(records.get(i).getKey(), TestUtils.generateRandomByteArray(recordSize));
         }
 
+        TestUtils.waitForCompactionToComplete(db);
+
+        // compaction stats are 0 since compaction is disabled.
+        Assert.assertEquals(db.stats().getCompactionRateInInternal(), 0);
+        Assert.assertEquals(db.stats().getCompactionRateSinceBeginning(), 0);
+        Assert.assertNotEquals(db.stats().toString().length(), 0);
+
         db.close();
 
         options.setCompactionDisabled(false);
@@ -114,6 +121,9 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSizeOfFilesDeleted(), options.getMaxFileSize() * 10);
         Assert.assertEquals(stats.getSizeReclaimed(), options.getMaxFileSize() * 10 / 2);
         Assert.assertEquals(stats.getSize(), noOfRecords);
+        Assert.assertNotEquals(db.stats().getCompactionRateInInternal(), 0);
+        Assert.assertNotEquals(db.stats().getCompactionRateSinceBeginning(), 0);
+        Assert.assertNotEquals(db.stats().toString().length(), 0);
 
         db.resetStats();
         stats = db.stats();
@@ -125,6 +135,9 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSizeOfFilesDeleted(), 0);
         Assert.assertEquals(stats.getSizeReclaimed(), 0);
         Assert.assertEquals(stats.getSize(), noOfRecords);
+        Assert.assertEquals(db.stats().getCompactionRateInInternal(), 0);
+        Assert.assertNotEquals(db.stats().getCompactionRateSinceBeginning(), 0);
+        Assert.assertNotEquals(db.stats().toString().length(), 0);
     }
 
     @Test(dataProvider = "Options")

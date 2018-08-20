@@ -39,6 +39,8 @@ class CompactionManager {
     private volatile long numberOfRecordsScanned = 0;
     private volatile long sizeOfRecordsCopied = 0;
     private volatile long sizeOfFilesDeleted = 0;
+    private volatile long totalSizeOfRecordsCopied = 0;
+    private volatile long compactionStartTime = System.currentTimeMillis();
 
     private static final int STOP_SIGNAL = -10101;
 
@@ -107,6 +109,15 @@ class CompactionManager {
 
     long getSizeOfFilesDeleted() {
         return sizeOfFilesDeleted;
+    }
+
+    long getCompactionJobRateSinceBeginning() {
+        long timeInSeconds = (System.currentTimeMillis() - compactionStartTime)/1000;
+        long rate = 0;
+        if (timeInSeconds > 0) {
+            rate = totalSizeOfRecordsCopied / timeInSeconds;
+        }
+        return rate;
     }
 
     void resetStats() {
@@ -189,6 +200,7 @@ class CompactionManager {
                     compactionRateLimiter.acquire(recordSize);
                     rollOverCurrentWriteFile(recordSize);
                     sizeOfRecordsCopied += recordSize;
+                    totalSizeOfRecordsCopied += recordSize;
 
                     // fresh record, copy to merged file.
                     long transferred = readFrom.transferTo(recordOffset, recordSize, currentWriteFile.getChannel());
@@ -263,8 +275,11 @@ class CompactionManager {
     }
 
 
-    // Used only for tests. 
+    // Used only for tests. to be called only after all writes in the test have been performed.  
     boolean isCompactionComplete() {
+        if (dbInternal.options.isCompactionDisabled())
+            return true;
+
         if (compactionQueue.isEmpty()) {
             try {
                 submitFileForCompaction(STOP_SIGNAL);

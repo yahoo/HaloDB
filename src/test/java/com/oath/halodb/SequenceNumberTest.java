@@ -25,6 +25,7 @@ public class SequenceNumberTest extends TestBase {
         String directory = TestUtils.getTestDirectory("SequenceNumberTest", "testSequenceNumber");
 
         int totalNumberOfRecords = 10;
+        options.setMaxFileSize(1024 * 1024 * 1024);
 
         // Write 10 records in the DB
         HaloDB db = getTestDB(directory, options);
@@ -35,9 +36,11 @@ public class SequenceNumberTest extends TestBase {
         HaloDBFile.HaloDBFileIterator haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         List<Long> sequenceNumbers = new ArrayList<>();
+        int count = 1;
         while (haloDBFileIterator.hasNext()) {
             Record record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
+            Assert.assertEquals(record.getSequenceNumber(), count++);
         }
         Assert.assertTrue(sequenceNumbers.contains(10L));
         db.close();
@@ -49,6 +52,10 @@ public class SequenceNumberTest extends TestBase {
 
         // Verify that the sequence number is still present after reopening the DB
         sequenceNumbers = records.stream().map(record -> record.getRecordMetaData().getSequenceNumber()).collect(Collectors.toList());
+        count = 1;
+        for (long s : sequenceNumbers) {
+            Assert.assertEquals(s, count++);
+        }
         Assert.assertTrue(sequenceNumbers.contains(10L));
 
         // Write 10 records in the DB
@@ -59,9 +66,11 @@ public class SequenceNumberTest extends TestBase {
         haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         sequenceNumbers = new ArrayList<>();
+        count = 110;
         while (haloDBFileIterator.hasNext()) {
             Record record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
+            Assert.assertEquals(record.getSequenceNumber(), count++);
         }
         Assert.assertTrue(sequenceNumbers.contains(119L));
 
@@ -80,9 +89,10 @@ public class SequenceNumberTest extends TestBase {
         tombstoneFile.newIterator().forEachRemaining(tombstoneEntries::add);
 
         Assert.assertEquals(tombstoneEntries.size(), 10);
+        count = 120;
         for (TombstoneEntry tombstoneEntry : tombstoneEntries) {
             // Each tombstoneEntry should have sequence number greater than or equal to 119 (10 original records + 99 offset for reopening + 10 new records)
-            Assert.assertTrue(tombstoneEntry.getSequenceNumber() > 119L);
+            Assert.assertEquals(tombstoneEntry.getSequenceNumber(), count++);
         }
         reopenedDb.close();
 
@@ -97,9 +107,11 @@ public class SequenceNumberTest extends TestBase {
         haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         sequenceNumbers = new ArrayList<>();
+        count = 229;
         while (haloDBFileIterator.hasNext()) {
             Record record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
+            Assert.assertEquals(record.getSequenceNumber(), count++);
         }
         Assert.assertTrue(sequenceNumbers.contains(238L));
         reopenedDb.close();

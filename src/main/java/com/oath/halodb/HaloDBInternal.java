@@ -112,16 +112,17 @@ class HaloDBInternal {
         );
 
         long maxSequenceNumber = dbInternal.buildInMemoryIndex(options);
-        if (maxSequenceNumber == -1l) {
+        if (maxSequenceNumber == -1L) {
             dbInternal.nextSequenceNumber = 1;
+            logger.info("Didn't find any existing records; initializing max sequence number to 1");
         } else {
             dbInternal.nextSequenceNumber = maxSequenceNumber + 100;
+            logger.info("Found max sequence number {}, now starting from {}", maxSequenceNumber, dbInternal.nextSequenceNumber);
         }
 
         dbInternal.compactionManager.startCompactionThread();
 
         logger.info("Opened HaloDB {}", directory.getName());
-        logger.info("isCompactionDisabled - {}", options.isCompactionDisabled());
         logger.info("maxFileSize - {}", options.getMaxFileSize());
         logger.info("compactionThresholdPerFile - {}", options.getCompactionThresholdPerFile());
 
@@ -628,6 +629,7 @@ class HaloDBInternal {
             compactionManager.getSizeOfRecordsCopied(),
             compactionManager.getSizeOfFilesDeleted(),
             compactionManager.getSizeOfFilesDeleted()-compactionManager.getSizeOfRecordsCopied(),
+            compactionManager.getCompactionJobRateSinceBeginning(),
             options.clone()
         );
     }

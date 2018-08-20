@@ -26,12 +26,20 @@ class SegmentStats {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper("")
-            .add("noOfEntries", noOfEntries)
-            .add("numberOfChunks", numberOfChunks)
-            .add("numberOfSlots", numberOfSlots)
-            .add("freeListSize", freeListSize)
-            .toString();
+        MoreObjects.ToStringHelper helper =
+            MoreObjects.toStringHelper("").add("noOfEntries", this.noOfEntries);
+
+        // all these values will be -1 for non-memory pool, hence ignore. 
+        if (numberOfChunks != -1) {
+            helper.add("numberOfChunks", numberOfChunks);
+        }
+        if (numberOfSlots != -1) {
+            helper.add("numberOfSlots", numberOfSlots);
+        }
+        if (freeListSize != -1) {
+            helper.add("freeListSize", freeListSize);
+        }
+        return helper.toString();
     }
 
     @Override

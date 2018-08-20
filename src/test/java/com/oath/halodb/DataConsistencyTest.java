@@ -40,6 +40,8 @@ public class DataConsistencyTest extends TestBase {
     private RandomDataGenerator randDataGenerator;
     private Random random = new Random();
 
+    private HaloDB haloDB;
+
     @BeforeMethod
     public void init() {
         insertionComplete = false;
@@ -60,7 +62,7 @@ public class DataConsistencyTest extends TestBase {
 
         options.setNumberOfRecords(2 * noOfRecords);
 
-        HaloDB haloDB = getTestDB(directory, options);
+        haloDB = getTestDB(directory, options);
         DataConsistencyDB db = new DataConsistencyDB(haloDB, noOfRecords);
 
         Writer writer = new Writer(db);
@@ -104,6 +106,7 @@ public class DataConsistencyTest extends TestBase {
         logger.info("Completed {} reads", totalReads);
         logger.info("Reads per second {}. {} MB/second", totalReads/time, totalReadSize/1024/1024/time);
         logger.info("Writes per second {}. {} KB/second", noOfTransactions/time, writer.totalWriteSize/1024/time);
+        logger.info("Compaction rate {} KB/second", haloDB.stats().getCompactionRateSinceBeginning()/1024);
     }
 
     class Writer extends Thread {

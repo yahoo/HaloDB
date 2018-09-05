@@ -5,6 +5,7 @@
 package com.oath.halodb.benchmarks;
 
 import com.google.common.primitives.Longs;
+import com.google.common.util.concurrent.RateLimiter;
 
 import org.HdrHistogram.Histogram;
 
@@ -28,6 +29,9 @@ public class BenchmarkTool {
     private static final int numberOfReads = 640_000_000;
     private static final int numberOfReadThreads = 32;
     private static final int noOfReadsPerThread = numberOfReads / numberOfReadThreads; // 400 million.
+
+    private static final int writeMBPerSecond = 20 * 1024 * 1024;
+    private static final RateLimiter writeRateLimiter = RateLimiter.create(writeMBPerSecond);
 
     private static final int recordSize = 1024;
 
@@ -102,6 +106,7 @@ public class BenchmarkTool {
 
         for (int i = 0; i < numberOfRecords; i++) {
             value = randomDataGenerator.getData(recordSize);
+            writeRateLimiter.acquire(value.length);
             dataSize += (long)value.length;
 
             byte[] key = longToBytes(random.nextInt(numberOfRecords));
@@ -166,6 +171,7 @@ public class BenchmarkTool {
 
                 while (!isReadComplete) {
                     value = randomDataGenerator.getData(recordSize);
+                    writeRateLimiter.acquire(value.length);
                     dataSize += (long)value.length;
 
                     byte[] key = longToBytes(random.nextInt(numberOfRecords));

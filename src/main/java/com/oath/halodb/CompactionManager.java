@@ -269,6 +269,7 @@ class CompactionManager {
                     currentWriteFile.getIndexFile().flushToDisk();
                 }
                 currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
+                dbInternal.getDbDirectory().syncMetaData();
                 currentWriteFileOffset = 0;
             }
         }

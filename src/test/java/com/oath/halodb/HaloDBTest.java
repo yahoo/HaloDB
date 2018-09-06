@@ -334,7 +334,7 @@ public class HaloDBTest extends TestBase {
         // Make sure that the META file was written.
         Assert.assertTrue(Paths.get(directory, DBMetaData.METADATA_FILE_NAME).toFile().exists());
 
-        DBMetaData metaData = new DBMetaData(directory);
+        DBMetaData metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         // Make sure that the open flag was set on db open.
@@ -370,7 +370,7 @@ public class HaloDBTest extends TestBase {
         options.setMaxFileSize(maxFileSize);
         HaloDB db = getTestDB(directory, options);
 
-        DBMetaData metaData = new DBMetaData(directory);
+        DBMetaData metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         Assert.assertEquals(metaData.getMaxFileSize(), maxFileSize);

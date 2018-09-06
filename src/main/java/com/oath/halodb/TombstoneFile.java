@@ -113,7 +113,7 @@ class TombstoneFile {
      * Current file is deleted after copy.
      * This method is called if we detect an unclean shutdown.
      */
-    TombstoneFile repairFile() throws IOException {
+    TombstoneFile repairFile(DBDirectory dbDirectory) throws IOException {
         TombstoneFile repairFile = createRepairFile();
 
         logger.info("Repairing tombstone file {}. Records with the correct checksum will be copied to {}", getName(), repairFile.getName());
@@ -131,6 +131,7 @@ class TombstoneFile {
         logger.info("Recovered {} records from file {} with size {}. Size after repair {}.", count, getName(), getSize(), repairFile.getSize());
         repairFile.flushToDisk();
         Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        dbDirectory.syncMetaData();  
         repairFile.close();
         close();
         open();

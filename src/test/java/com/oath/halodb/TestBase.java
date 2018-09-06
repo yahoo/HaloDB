@@ -17,6 +17,7 @@ import java.io.IOException;
 public class TestBase {
 
     private String directory;
+    protected DBDirectory dbDirectory;
 
     private HaloDB db;
 
@@ -42,6 +43,11 @@ public class TestBase {
             throw new HaloDBException(e);
         }
         db = HaloDB.open(dir, options);
+        try {
+            dbDirectory = DBDirectory.open(new File(directory));
+        } catch (IOException e) {
+            throw new HaloDBException(e);
+        }
         return db;
     }
 
@@ -57,6 +63,8 @@ public class TestBase {
         if (db != null) {
             db.close();
             File dir = new File(directory);
+            if (dbDirectory != null)
+                dbDirectory.close();
             TestUtils.deleteDirectory(dir);
         }
     }

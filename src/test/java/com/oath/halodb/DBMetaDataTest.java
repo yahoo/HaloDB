@@ -21,16 +21,17 @@ import java.nio.file.Paths;
  */
 public class DBMetaDataTest {
 
-    private static final String directory = Paths.get("tmp", "DBMetaDataTest",  "testDBMetaData").toString();
+    private static final File directory = Paths.get("tmp", "DBMetaDataTest",  "testDBMetaData").toFile();
+    private DBDirectory dbDirectory;
 
     @Test
     public void testDBMetaData() throws IOException {
-        Path metaDataFile = Paths.get(directory, DBMetaData.METADATA_FILE_NAME);
+        Path metaDataFile = dbDirectory.getPath().resolve(DBMetaData.METADATA_FILE_NAME);
 
         // confirm that the file doesn't exist.
         Assert.assertFalse(Files.exists(metaDataFile));
 
-        DBMetaData metaData = new DBMetaData(directory);
+        DBMetaData metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         // file has not yet been created, return default values.
@@ -51,7 +52,7 @@ public class DBMetaDataTest {
         Assert.assertTrue(Files.exists(metaDataFile));
 
         // load again to read stored values.
-        metaData = new DBMetaData(directory);
+        metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         Assert.assertEquals(metaData.getVersion(), Versions.CURRENT_META_FILE_VERSION);
@@ -68,7 +69,7 @@ public class DBMetaDataTest {
         metaData.storeToFile();
 
         // load again to read stored values.
-        metaData = new DBMetaData(directory);
+        metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         Assert.assertEquals(metaData.getVersion(), Versions.CURRENT_META_FILE_VERSION + 10);
@@ -80,7 +81,7 @@ public class DBMetaDataTest {
 
     @Test
     public void testCheckSum() throws IOException {
-        DBMetaData metaData = new DBMetaData(directory);
+        DBMetaData metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         metaData.setVersion(Versions.CURRENT_META_FILE_VERSION);
@@ -90,7 +91,7 @@ public class DBMetaDataTest {
         metaData.setMaxFileSize(100);
         metaData.storeToFile();
 
-        metaData = new DBMetaData(directory);
+        metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();
 
         Assert.assertTrue(metaData.isValid());
@@ -99,12 +100,13 @@ public class DBMetaDataTest {
 
     @BeforeMethod
     public void createDirectory() throws IOException {
-        FileUtils.createDirectoryIfNotExists(new File(directory));
+        dbDirectory = DBDirectory.open(directory);
     }
 
     @AfterMethod
     public void deleteDirectory() throws IOException {
-        TestUtils.deleteDirectory(new File(directory));
+        dbDirectory.close();
+        TestUtils.deleteDirectory(directory);
     }
 
 }

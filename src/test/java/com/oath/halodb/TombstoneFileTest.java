@@ -26,6 +26,7 @@ import java.util.List;
 public class TombstoneFileTest {
 
     private File directory = new File(TestUtils.getTestDirectory("TombstoneFileTest"));
+    private DBDirectory dbDirectory;
     private TombstoneFile file;
     private File backingFile;
     private int fileId = 100;
@@ -34,7 +35,7 @@ public class TombstoneFileTest {
     @BeforeMethod
     public void before() throws IOException {
         TestUtils.deleteDirectory(directory);
-        FileUtils.createDirectoryIfNotExists(directory);
+        dbDirectory = DBDirectory.open(directory);
         file = TombstoneFile.create(directory, fileId, new HaloDBOptions());
         backingFile = directory.toPath().resolve(file.getName()).toFile();
         createdTime = TestUtils.getFileCreationTime(backingFile);
@@ -49,6 +50,7 @@ public class TombstoneFileTest {
     public void after() throws IOException {
         if (file != null)
             file.close();
+        dbDirectory.close();
         TestUtils.deleteDirectory(directory);
     }
 
@@ -69,7 +71,7 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile repairedFile = file.repairFile();
+        TombstoneFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         verifyData(repairedFile, records);
     }
@@ -91,7 +93,7 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile repairedFile = file.repairFile();
+        TombstoneFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         verifyData(repairedFile, records);
     }
@@ -114,7 +116,7 @@ public class TombstoneFileTest {
             channel.write(data);
         }
 
-        TombstoneFile repairedFile = file.repairFile();
+        TombstoneFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         verifyData(repairedFile, records);
     }

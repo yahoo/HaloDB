@@ -156,7 +156,7 @@ class HaloDBFile {
      * Index file is also recreated.
      * This method is called if we detect an unclean shutdown.
      */
-    HaloDBFile repairFile() throws IOException {
+    HaloDBFile repairFile(DBDirectory dbDirectory) throws IOException {
         HaloDBFile repairFile = createRepairFile();
 
         logger.info("Repairing file {}.", getName());
@@ -179,6 +179,7 @@ class HaloDBFile {
         repairFile.indexFile.flushToDisk();
         Files.move(repairFile.indexFile.getPath(), indexFile.getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
         Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        dbDirectory.syncMetaData();
         repairFile.close();
         close();
         return openForReading(backingFile.getParentFile(), getPath().toFile(), fileType, options);

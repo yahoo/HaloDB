@@ -19,9 +19,10 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
 
-public class HaloDBFileTest extends TestBase {
+public class HaloDBFileTest {
 
     private File directory = Paths.get("tmp", "HaloDBFileTest",  "testIndexFile").toFile();
+    private DBDirectory dbDirectory;
     private HaloDBFile file;
     private IndexFile indexFile;
     private int fileId = 100;
@@ -31,7 +32,7 @@ public class HaloDBFileTest extends TestBase {
     @BeforeMethod
     public void before() throws IOException {
         TestUtils.deleteDirectory(directory);
-        FileUtils.createDirectoryIfNotExists(directory);
+        dbDirectory = DBDirectory.open(directory);
         file = HaloDBFile.create(directory, fileId, new HaloDBOptions(), HaloDBFile.FileType.DATA_FILE);
         createdTime = TestUtils.getFileCreationTime(backingFile);
         indexFile = new IndexFile(fileId, directory, new HaloDBOptions());
@@ -48,6 +49,7 @@ public class HaloDBFileTest extends TestBase {
             file.close();
         if (indexFile != null)
             indexFile.close();
+        dbDirectory.close();
         TestUtils.deleteDirectory(directory);
     }
 
@@ -141,7 +143,7 @@ public class HaloDBFileTest extends TestBase {
            channel.write(data);
         }
 
-        HaloDBFile repairedFile = file.repairFile();
+        HaloDBFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         Assert.assertEquals(repairedFile.getPath(), file.getPath());
         verifyDataFile(list, repairedFile);
@@ -164,7 +166,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile repairedFile = file.repairFile();
+        HaloDBFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         Assert.assertEquals(repairedFile.getPath(), file.getPath());
         verifyDataFile(list, repairedFile);
@@ -181,7 +183,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile repairedFile = file.repairFile();
+        HaloDBFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         Assert.assertEquals(repairedFile.getPath(), file.getPath());
         verifyDataFile(list, repairedFile);
@@ -203,7 +205,7 @@ public class HaloDBFileTest extends TestBase {
             channel.write(data);
         }
 
-        HaloDBFile repairedFile = file.repairFile();
+        HaloDBFile repairedFile = file.repairFile(dbDirectory);
         Assert.assertNotEquals(TestUtils.getFileCreationTime(backingFile), createdTime);
         Assert.assertEquals(repairedFile.getPath(), file.getPath());
         verifyDataFile(list, repairedFile);

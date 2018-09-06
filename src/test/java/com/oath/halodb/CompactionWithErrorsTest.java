@@ -144,7 +144,7 @@ public class CompactionWithErrorsTest extends TestBase {
             compactionManager.startCompactionThread();
         }};
 
-        DBMetaData dbMetaData = new DBMetaData(directory);
+        DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.loadFromFileIfExists();
 
         // Since compaction thread was restarted after it crashed IOError flag must not be set.
@@ -176,7 +176,7 @@ public class CompactionWithErrorsTest extends TestBase {
         TestUtils.waitForCompactionToComplete(db);
         db.close();
 
-        DBMetaData dbMetaData = new DBMetaData(directory);
+        DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.loadFromFileIfExists();
 
         // Since there was an IOException while stopping compaction IOError flag must have been set. 

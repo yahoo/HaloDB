@@ -48,7 +48,7 @@ public class DBRepairTest extends TestBase {
         db.close();
 
         // trick the db to think that there was an unclean shutdown.
-        DBMetaData dbMetaData = new DBMetaData(directory);
+        DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 
@@ -106,7 +106,7 @@ public class DBRepairTest extends TestBase {
         db.close();
 
         // trick the db to think that there was an unclean shutdown.
-        DBMetaData dbMetaData = new DBMetaData(directory);
+        DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 
@@ -168,7 +168,7 @@ public class DBRepairTest extends TestBase {
         db.close();
 
         // trick the db to think that there was an unclean shutdown.
-        DBMetaData dbMetaData = new DBMetaData(directory);
+        DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.setOpen(true);
         dbMetaData.storeToFile();
 

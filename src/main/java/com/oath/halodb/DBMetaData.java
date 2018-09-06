@@ -42,19 +42,19 @@ class DBMetaData {
     private boolean ioError = false;
     private int maxFileSize = 0;
 
-    private final String dbDirectory;
+    private final DBDirectory dbDirectory;
 
     static final String METADATA_FILE_NAME = "META";
 
     private final static Object lock = new Object();
 
-    DBMetaData(String dbDirectory) {
+    DBMetaData(DBDirectory dbDirectory) {
         this.dbDirectory = dbDirectory;
     }
 
     void loadFromFileIfExists() throws IOException {
         synchronized (lock) {
-            Path metaFile = Paths.get(dbDirectory, METADATA_FILE_NAME);
+            Path metaFile = dbDirectory.getPath().resolve(METADATA_FILE_NAME);
             if (Files.exists(metaFile)) {
                 try (SeekableByteChannel channel = Files.newByteChannel(metaFile)) {
                     ByteBuffer buff = ByteBuffer.allocate(META_DATA_SIZE);
@@ -74,7 +74,7 @@ class DBMetaData {
     void storeToFile() throws IOException {
         synchronized (lock) {
             String tempFileName = METADATA_FILE_NAME + ".temp";
-            Path tempFile = Paths.get(dbDirectory, tempFileName);
+            Path tempFile = dbDirectory.getPath().resolve(tempFileName);
             Files.deleteIfExists(tempFile);
             try(FileChannel channel = FileChannel.open(tempFile, WRITE, CREATE, SYNC)) {
                 ByteBuffer buff = ByteBuffer.allocate(META_DATA_SIZE);
@@ -90,7 +90,8 @@ class DBMetaData {
 
                 buff.flip();
                 channel.write(buff);
-                Files.move(tempFile, Paths.get(dbDirectory, METADATA_FILE_NAME), REPLACE_EXISTING, ATOMIC_MOVE);
+                Files.move(tempFile, dbDirectory.getPath().resolve(METADATA_FILE_NAME), REPLACE_EXISTING, ATOMIC_MOVE);
+                dbDirectory.syncMetaData();
             }
         }
     }

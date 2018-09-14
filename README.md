@@ -256,7 +256,10 @@ HaloDB also doesn't support range scans and hence doesn't pay the cost associate
 for efficient range scans.
   
 # Contributors
-* Author: [Arjun Mannaly](https://github.com/amannaly) 
+* Author: [Arjun Mannaly](https://github.com/amannaly)
+
+# Contributing
+Contributions are most welcome. Please refer to the [CONTRIBUTING](https://github.com/yahoo/HaloDB/blob/master/CONTRIBUTING.md) guide 
 
 # License 
 HaloDB is released under the Apache License, Version 2.0  

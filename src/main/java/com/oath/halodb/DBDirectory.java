@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -16,10 +13,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 
 /**
+ * Represents the top level directory for a HaloDB instance. 
+ *
  * @author Arjun Mannaly
  */
 class DBDirectory {
-    private static final Logger logger = LoggerFactory.getLogger(DBDirectory.class);
 
     private final File dbDirectory;
     private final FileChannel directoryChannel;
@@ -62,9 +60,14 @@ class DBDirectory {
     }
 
     /**
-     * calling fsync on a directory works on Java 8 running on Linux and OSX.
-     * This may not work on other platforms. Therefore in case there is an exception
-     * we silently swallow it.
+     * In Linux the recommended way to flush directory metadata is to open a
+     * file descriptor for the directory and to call fsync on it. In Java opening a read-only file channel
+     * and calling force(true) will do the same for us. But this is an undocumented behavior
+     * in Java and could change in future versions.
+     * https://grokbase.com/t/lucene/dev/1519kz2s50/recent-java-9-commit-e5b66323ae45-breaks-fsync-on-directory
+     *
+     * This currently works on Linux and OSX but may not work on other platforms. Therefore, if there is
+     * an exception we silently swallow it.
      */
     void syncMetaData() {
         try {

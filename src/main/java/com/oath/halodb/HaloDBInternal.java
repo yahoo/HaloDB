@@ -305,7 +305,7 @@ class HaloDBInternal {
                 currentTombstoneFile.flushToDisk();
                 currentTombstoneFile.close();
             }
-            currentTombstoneFile = TombstoneFile.create(dbDirectory.getDirectory(), getNextFileId(), options);
+            currentTombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
         }
     }
 
@@ -351,7 +351,7 @@ class HaloDBInternal {
     }
 
     HaloDBFile createHaloDBFile(HaloDBFile.FileType fileType) throws IOException {
-        HaloDBFile file = HaloDBFile.create(dbDirectory.getDirectory(), getNextFileId(), options, fileType);
+        HaloDBFile file = HaloDBFile.create(dbDirectory, getNextFileId(), options, fileType);
         if(readFileMap.putIfAbsent(file.getFileId(), file) != null) {
             throw new IOException("Error while trying to create file " + file.getName() + " file with the given id already exists in the map");
         }
@@ -364,7 +364,7 @@ class HaloDBInternal {
         List<HaloDBFile> result = new ArrayList<>();
         for (File f : files) {
             HaloDBFile.FileType fileType = HaloDBFile.findFileType(f);
-            result.add(HaloDBFile.openForReading(dbDirectory.getDirectory(), f, fileType, options));
+            result.add(HaloDBFile.openForReading(dbDirectory, f, fileType, options));
         }
 
         return result;
@@ -414,7 +414,7 @@ class HaloDBInternal {
         long maxSequenceNumber = -1l;
 
         for (int fileId : indexFiles) {
-            IndexFile indexFile = new IndexFile(fileId, dbDirectory.getDirectory(), options);
+            IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
@@ -459,7 +459,7 @@ class HaloDBInternal {
         File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
-            TombstoneFile tombstoneFile = new TombstoneFile(file, options);
+            TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
             tombstoneFile.open();
             TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
@@ -545,7 +545,7 @@ class HaloDBInternal {
 
         File[] tombstoneFiles = dbDirectory.listTombstoneFiles();
         if (tombstoneFiles != null && tombstoneFiles.length > 0) {
-            TombstoneFile lastFile = new TombstoneFile(tombstoneFiles[tombstoneFiles.length-1], options);
+            TombstoneFile lastFile = new TombstoneFile(tombstoneFiles[tombstoneFiles.length-1], options, dbDirectory);
             try {
                 logger.info("Repairing {} file", lastFile.getName());
                 lastFile.open();
@@ -559,7 +559,7 @@ class HaloDBInternal {
 
     private FileLock getLock() throws HaloDBException {
         try {
-            FileLock lock = FileChannel.open(Paths.get(dbDirectory.getDirectory().getPath(), "LOCK"), StandardOpenOption.CREATE, StandardOpenOption.WRITE).tryLock();
+            FileLock lock = FileChannel.open(dbDirectory.getPath().resolve("LOCK"), StandardOpenOption.CREATE, StandardOpenOption.WRITE).tryLock();
             if (lock == null) {
                 logger.error("Error while opening db. Another process already holds a lock to this db.");
                 throw new HaloDBException("Another process already holds a lock for this db.");

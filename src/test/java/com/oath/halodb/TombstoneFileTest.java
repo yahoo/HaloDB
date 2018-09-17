@@ -36,7 +36,7 @@ public class TombstoneFileTest {
     public void before() throws IOException {
         TestUtils.deleteDirectory(directory);
         dbDirectory = DBDirectory.open(directory);
-        file = TombstoneFile.create(directory, fileId, new HaloDBOptions());
+        file = TombstoneFile.create(dbDirectory, fileId, new HaloDBOptions());
         backingFile = directory.toPath().resolve(file.getName()).toFile();
         createdTime = TestUtils.getFileCreationTime(backingFile);
         try {

@@ -37,6 +37,7 @@ class HaloDBFile {
 
     private FileChannel channel;
     private final File backingFile;
+    private final DBDirectory dbDirectory;
     private final int fileId;
 
     private IndexFile indexFile;
@@ -50,10 +51,11 @@ class HaloDBFile {
 
     private final FileType fileType;
 
-    private HaloDBFile(int fileId, File backingFile, IndexFile indexFile, FileType fileType,
+    private HaloDBFile(int fileId, File backingFile, DBDirectory dbDirectory, IndexFile indexFile, FileType fileType,
                        FileChannel channel, HaloDBOptions options) throws IOException {
         this.fileId = fileId;
         this.backingFile = backingFile;
+        this.dbDirectory = dbDirectory;
         this.indexFile = indexFile;
         this.fileType = fileType;
         this.channel = channel;
@@ -132,7 +134,7 @@ class HaloDBFile {
     void rebuildIndexFile() throws IOException {
         indexFile.delete();
 
-        indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
+        indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.create();
 
         HaloDBFileIterator iterator = new HaloDBFileIterator();
@@ -182,20 +184,20 @@ class HaloDBFile {
         dbDirectory.syncMetaData();
         repairFile.close();
         close();
-        return openForReading(backingFile.getParentFile(), getPath().toFile(), fileType, options);
+        return openForReading(dbDirectory, getPath().toFile(), fileType, options);
     }
 
     private HaloDBFile createRepairFile() throws IOException {
-        File repairFile = Paths.get(getPath().toString()+".repair").toFile();
+        File repairFile = dbDirectory.getPath().resolve(getName()+".repair").toFile();
         while (!repairFile.createNewFile()) {
             logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting and trying again", repairFile.getName());
             repairFile.delete();
         }
 
         FileChannel channel = new RandomAccessFile(repairFile, "rw").getChannel();
-        IndexFile indexFile = new IndexFile(fileId, backingFile.getParentFile(), options);
+        IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.createRepairFile();
-        return new HaloDBFile(fileId, repairFile, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, repairFile, dbDirectory, indexFile, fileType, channel, options);
     }
 
     private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
@@ -252,33 +254,33 @@ class HaloDBFile {
         return fileId;
     }
 
-    static HaloDBFile openForReading(File haloDBDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
+    static HaloDBFile openForReading(DBDirectory dbDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
         int fileId = HaloDBFile.getFileTimeStamp(filename);
         FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
-        IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+        IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.open();
 
-        return new HaloDBFile(fileId, filename, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, filename, dbDirectory, indexFile, fileType, channel, options);
     }
 
-    static HaloDBFile create(File haloDBDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
-        BiFunction<File, Integer, File> toFile = (fileType == FileType.DATA_FILE) ? HaloDBFile::getDataFile : HaloDBFile::getCompactedDataFile;
+    static HaloDBFile create(DBDirectory dbDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
+        BiFunction<DBDirectory, Integer, File> toFile = (fileType == FileType.DATA_FILE) ? HaloDBFile::getDataFile : HaloDBFile::getCompactedDataFile;
 
-        File file = toFile.apply(haloDBDirectory, fileId);
+        File file = toFile.apply(dbDirectory, fileId);
         while (!file.createNewFile()) {
             // file already exists try another one.
             fileId++;
-            file = toFile.apply(haloDBDirectory, fileId);
+            file = toFile.apply(dbDirectory, fileId);
         }
 
         FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
         //TODO: setting the length might improve performance.
         //file.setLength(max_);
 
-        IndexFile indexFile = new IndexFile(fileId, haloDBDirectory, options);
+        IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.create();
 
-        return new HaloDBFile(fileId, file, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, file, dbDirectory, indexFile, fileType, channel, options);
     }
 
     HaloDBFileIterator newIterator() throws IOException {
@@ -311,12 +313,12 @@ class HaloDBFile {
         return backingFile.toPath();
     }
 
-    private static File getDataFile(File haloDBDirectory, int fileId) {
-        return Paths.get(haloDBDirectory.getPath(), fileId + DATA_FILE_NAME).toFile();
+    private static File getDataFile(DBDirectory dbDirectory, int fileId) {
+        return dbDirectory.getPath().resolve(fileId + DATA_FILE_NAME).toFile();
     }
 
-    private static File getCompactedDataFile(File haloDBDirectory, int fileId) {
-        return Paths.get(haloDBDirectory.getPath(), fileId + COMPACTED_DATA_FILE_NAME).toFile();
+    private static File getCompactedDataFile(DBDirectory dbDirectory, int fileId) {
+        return dbDirectory.getPath().resolve(fileId + COMPACTED_DATA_FILE_NAME).toFile();
     }
 
     static FileType findFileType(File file) {

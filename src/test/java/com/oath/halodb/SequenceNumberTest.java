@@ -33,7 +33,7 @@ public class SequenceNumberTest extends TestBase {
 
         // Iterate through all records, atleast one record should have 10 as the sequenceNumber
         File file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
-        HaloDBFile.HaloDBFileIterator haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
+        HaloDBFile.HaloDBFileIterator haloDBFileIterator = HaloDBFile.openForReading(dbDirectory, file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         List<Long> sequenceNumbers = new ArrayList<>();
         int count = 1;
@@ -63,7 +63,7 @@ public class SequenceNumberTest extends TestBase {
 
         // Iterate through all records, atleast one record should have 119 as the sequenceNumber (10 original records + 99 offset for reopening + 10 new records)
         file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
-        haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
+        haloDBFileIterator = HaloDBFile.openForReading(dbDirectory, file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         sequenceNumbers = new ArrayList<>();
         count = 110;
@@ -83,7 +83,7 @@ public class SequenceNumberTest extends TestBase {
         File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
         Assert.assertEquals(tombstoneFiles.length, 1);
 
-        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFiles[0], options);
+        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFiles[0], options, dbDirectory);
         tombstoneFile.open();
         List<TombstoneEntry> tombstoneEntries = new ArrayList<>();
         tombstoneFile.newIterator().forEachRemaining(tombstoneEntries::add);
@@ -104,7 +104,7 @@ public class SequenceNumberTest extends TestBase {
 
         // Iterate through all records, atleast one record should have 238 as the sequenceNumber (10 original records + 99 offset for reopening + 10 records + 10 tombstone records + 99 offset for reopening + 10 new records)
         file = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
-        haloDBFileIterator = HaloDBFile.openForReading(new File(directory), file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
+        haloDBFileIterator = HaloDBFile.openForReading(dbDirectory, file, HaloDBFile.FileType.DATA_FILE, options).newIterator();
 
         sequenceNumbers = new ArrayList<>();
         count = 229;

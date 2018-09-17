@@ -25,7 +25,7 @@ class IndexFile {
     private static final Logger logger = LoggerFactory.getLogger(IndexFile.class);
 
     private final int fileId;
-    private final File dbDirectory;
+    private final DBDirectory dbDirectory;
     private File backingFile;
 
     private FileChannel channel;
@@ -37,7 +37,7 @@ class IndexFile {
     static final String INDEX_FILE_NAME = ".index";
     private static final String nullMessage = "Index file entry cannot be null";
 
-    IndexFile(int fileId, File dbDirectory, HaloDBOptions options) {
+    IndexFile(int fileId, DBDirectory dbDirectory, HaloDBOptions options) {
         this.fileId = fileId;
         this.dbDirectory = dbDirectory;
         this.options = options;
@@ -112,11 +112,11 @@ class IndexFile {
     }
 
     private File getIndexFile() {
-        return Paths.get(dbDirectory.getPath(), fileId + INDEX_FILE_NAME).toFile();
+        return dbDirectory.getPath().resolve(fileId + INDEX_FILE_NAME).toFile();
     }
 
     private File getRepairFile() {
-        return Paths.get(dbDirectory.getPath(), fileId + INDEX_FILE_NAME + ".repair").toFile();
+        return dbDirectory.getPath().resolve(fileId + INDEX_FILE_NAME + ".repair").toFile();
     }
 
     public class IndexFileIterator implements Iterator<IndexFileEntry> {

@@ -46,7 +46,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         // Therefore, there will be one tombstone file with 1024 records from the last data file.
         File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
         Assert.assertEquals(tombstoneFiles.length, 1);
-        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFiles[0], options);
+        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFiles[0], options, dbDirectory);
         tombstoneFile.open();
         TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
@@ -143,7 +143,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         Assert.assertEquals(tombstoneFilesAfterOpen.length, 1);
         Assert.assertNotEquals(tombstoneFilesAfterOpen[0].getName(), originalTombstoneFiles[0].getName());
 
-        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFilesAfterOpen[0], options);
+        TombstoneFile tombstoneFile = new TombstoneFile(tombstoneFilesAfterOpen[0], options, dbDirectory);
         tombstoneFile.open();
         TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
@@ -243,7 +243,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         List<TombstoneEntry> tombstones = new ArrayList<>();
         Assert.assertEquals(tombstoneFiles.length, 2);
         for (File f : tombstoneFiles) {
-            TombstoneFile tombstoneFile = new TombstoneFile(f, options);
+            TombstoneFile tombstoneFile = new TombstoneFile(f, options, dbDirectory);
             tombstoneFile.open();
             TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
             while (iterator.hasNext()) {

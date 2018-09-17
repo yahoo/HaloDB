@@ -43,10 +43,6 @@ class DBDirectory {
         return dbDirectory.toPath();
     }
 
-    File getDirectory() {
-        return dbDirectory;
-    }
-
     File[] listDataFiles() {
         return FileUtils.listDataFiles(dbDirectory);
     }

@@ -65,7 +65,7 @@ public class HaloDBFileCompactionTest extends TestBase {
 
         // the latest file will be the compacted file.
         File compactedFile = Arrays.stream(FileUtils.listDataFiles(new File(directory))).max(Comparator.comparing(File::getName)).get();
-        HaloDBFile.HaloDBFileIterator iterator = HaloDBFile.openForReading(new File(directory), compactedFile, HaloDBFile.FileType.COMPACTED_FILE, options).newIterator();
+        HaloDBFile.HaloDBFileIterator iterator = HaloDBFile.openForReading(dbDirectory, compactedFile, HaloDBFile.FileType.COMPACTED_FILE, options).newIterator();
 
         // make sure the the compacted file has the bottom half of two files.
         List<Record> mergedRecords = new ArrayList<>();

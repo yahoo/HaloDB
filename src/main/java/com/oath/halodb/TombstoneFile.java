@@ -30,6 +30,7 @@ class TombstoneFile {
 
     private final File backingFile;
     private FileChannel channel;
+    private final DBDirectory dbDirectory;
 
     private final HaloDBOptions options;
 
@@ -39,7 +40,7 @@ class TombstoneFile {
     static final String TOMBSTONE_FILE_NAME = ".tombstone";
     private static final String nullMessage = "Tombstone entry cannot be null";
 
-    static TombstoneFile create(File dbDirectory, int fileId, HaloDBOptions options)  throws IOException {
+    static TombstoneFile create(DBDirectory dbDirectory, int fileId, HaloDBOptions options)  throws IOException {
         File file = getTombstoneFile(dbDirectory, fileId);
 
         while (!file.createNewFile()) {
@@ -48,15 +49,16 @@ class TombstoneFile {
             file = getTombstoneFile(dbDirectory, fileId);
         }
 
-        TombstoneFile tombstoneFile = new TombstoneFile(file, options);
+        TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
         tombstoneFile.open();
 
         return tombstoneFile;
     }
 
-    TombstoneFile(File backingFile, HaloDBOptions options) {
+    TombstoneFile(File backingFile, HaloDBOptions options, DBDirectory dbDirectory) {
         this.backingFile = backingFile;
         this.options = options;
+        this.dbDirectory = dbDirectory;
     }
 
     void open() throws IOException {
@@ -139,13 +141,13 @@ class TombstoneFile {
     }
 
     private TombstoneFile createRepairFile()  throws IOException {
-        File repairFile = Paths.get(getPath().toString() + ".repair").toFile();
+        File repairFile = dbDirectory.getPath().resolve(getName()+".repair").toFile();
         while (!repairFile.createNewFile()) {
             logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting a trying again", repairFile.getName());
             repairFile.delete();
         }
 
-        TombstoneFile tombstoneFile = new TombstoneFile(repairFile, options);
+        TombstoneFile tombstoneFile = new TombstoneFile(repairFile, options, dbDirectory);
         tombstoneFile.open();
         return tombstoneFile;
     }
@@ -171,8 +173,8 @@ class TombstoneFile {
         return new TombstoneFile.TombstoneFileIterator(true);
     }
 
-    private static File getTombstoneFile(File dbDirectory, int fileId) {
-        return Paths.get(dbDirectory.getPath(), fileId + TOMBSTONE_FILE_NAME).toFile();
+    private static File getTombstoneFile(DBDirectory dbDirectory, int fileId) {
+        return dbDirectory.getPath().resolve(fileId + TOMBSTONE_FILE_NAME).toFile();
     }
 
     class TombstoneFileIterator implements Iterator<TombstoneEntry> {

@@ -33,9 +33,9 @@ public class HaloDBFileTest {
     public void before() throws IOException {
         TestUtils.deleteDirectory(directory);
         dbDirectory = DBDirectory.open(directory);
-        file = HaloDBFile.create(directory, fileId, new HaloDBOptions(), HaloDBFile.FileType.DATA_FILE);
+        file = HaloDBFile.create(dbDirectory, fileId, new HaloDBOptions(), HaloDBFile.FileType.DATA_FILE);
         createdTime = TestUtils.getFileCreationTime(backingFile);
-        indexFile = new IndexFile(fileId, directory, new HaloDBOptions());
+        indexFile = new IndexFile(fileId, dbDirectory, new HaloDBOptions());
         try {
             // wait for a second to make sure that the file creation time of the repaired file will be different.
             Thread.sleep(1000);

@@ -214,8 +214,7 @@ class HaloDBFile {
         unFlushedData += written;
 
         if (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes()) {
-            //TODO: since metadata is not flushed file corruption can happen when process crashes.
-            writeChannel.force(false);
+            writeChannel.force(true);
             unFlushedData = 0;
         }
         return written;

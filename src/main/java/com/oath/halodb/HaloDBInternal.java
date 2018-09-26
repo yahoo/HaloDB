@@ -294,6 +294,7 @@ class HaloDBInternal {
                 currentWriteFile.getIndexFile().flushToDisk();
             }
             currentWriteFile = createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
+            dbDirectory.syncMetaData();
         }
     }
 
@@ -306,6 +307,7 @@ class HaloDBInternal {
                 currentTombstoneFile.close();
             }
             currentTombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
+            dbDirectory.syncMetaData();
         }
     }
 

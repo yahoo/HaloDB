@@ -9,11 +9,11 @@ package com.oath.halodb;
 import java.nio.ByteBuffer;
 
 /**
- * Metadata for each key stored in the cache.
+ * Metadata stored in the in-memory index for each key.
  *
  * @author Arjun Mannaly
  */
-class RecordMetaDataForCache {
+class InMemoryIndexMetaData {
 
     private final int fileId;
     private final int valueOffset;
@@ -22,7 +22,7 @@ class RecordMetaDataForCache {
 
     static final int SERIALIZED_SIZE = 4 + 4 + 4 + 8;
 
-    RecordMetaDataForCache(int fileId, int valueOffset, int valueSize, long sequenceNumber) {
+    InMemoryIndexMetaData(int fileId, int valueOffset, int valueSize, long sequenceNumber) {
         this.fileId = fileId;
         this.valueOffset = valueOffset;
         this.valueSize = valueSize;
@@ -37,13 +37,13 @@ class RecordMetaDataForCache {
         byteBuffer.flip();
     }
 
-    static RecordMetaDataForCache deserialize(ByteBuffer byteBuffer) {
+    static InMemoryIndexMetaData deserialize(ByteBuffer byteBuffer) {
         int fileId = byteBuffer.getInt();
         int offset = byteBuffer.getInt();
         int size = byteBuffer.getInt();
         long sequenceNumber = byteBuffer.getLong();
 
-        return new RecordMetaDataForCache(fileId, offset, size, sequenceNumber);
+        return new InMemoryIndexMetaData(fileId, offset, size, sequenceNumber);
     }
 
     int getFileId() {

@@ -193,7 +193,7 @@ class CompactionManager {
                 int recordSize = indexFileEntry.getRecordSize();
                 recordsScanned++;
 
-                RecordMetaDataForCache currentRecordMetaData = dbInternal.getInMemoryIndex().get(key);
+                InMemoryIndexMetaData currentRecordMetaData = dbInternal.getInMemoryIndex().get(key);
 
                 if (isRecordFresh(indexFileEntry, currentRecordMetaData, idOfFileToCompact)) {
                     recordsCopied++;
@@ -224,7 +224,7 @@ class CompactionManager {
                     currentWriteFile.getIndexFile().write(newEntry);
 
                     int valueOffset = Utils.getValueOffset(currentWriteFileOffset, key);
-                    RecordMetaDataForCache newMetaData = new RecordMetaDataForCache(
+                    InMemoryIndexMetaData newMetaData = new InMemoryIndexMetaData(
                         currentWriteFile.getFileId(), valueOffset,
                         currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber()
                     );
@@ -256,7 +256,7 @@ class CompactionManager {
             logger.debug("Scanned {} records in file {} and copied {} records to {}.datac", recordsScanned, idOfFileToCompact, recordsCopied, getCurrentWriteFileId());
         }
 
-        private boolean isRecordFresh(IndexFileEntry entry, RecordMetaDataForCache metaData, int idOfFileToMerge) {
+        private boolean isRecordFresh(IndexFileEntry entry, InMemoryIndexMetaData metaData, int idOfFileToMerge) {
             return metaData != null
                    && metaData.getFileId() == idOfFileToMerge
                    && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey());

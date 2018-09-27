@@ -116,7 +116,7 @@ public class HaloDBIterator implements Iterator<Record> {
     }
 
     private Record readRecordFromDataFile(IndexFileEntry entry) throws IOException {
-        RecordMetaDataForCache meta = Utils.getMetaData(entry, currentFile.getFileId());
+        InMemoryIndexMetaData meta = Utils.getMetaData(entry, currentFile.getFileId());
         Record record = null;
         if (dbInternal.isRecordFresh(entry.getKey(), meta)) {
             byte[] value = currentFile.readFromFile(

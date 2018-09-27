@@ -218,7 +218,7 @@ public class HaloDBFileTest {
         while (indexFileIterator.hasNext()) {
             IndexFileEntry e = indexFileIterator.next();
             Record r = recordList.get(count++);
-            RecordMetaDataForCache meta = r.getRecordMetaData();
+            InMemoryIndexMetaData meta = r.getRecordMetaData();
             Assert.assertEquals(e.getKey(), r.getKey());
 
             int expectedOffset = meta.getValueOffset() - Record.Header.HEADER_SIZE - r.getKey().length;
@@ -232,7 +232,7 @@ public class HaloDBFileTest {
         List<Record> list = TestUtils.generateRandomData(100);
         for (Record record : list) {
             record.setSequenceNumber(100);
-            RecordMetaDataForCache meta = file.writeRecord(record);
+            InMemoryIndexMetaData meta = file.writeRecord(record);
             record.setRecordMetaData(meta);
         }
         return list;

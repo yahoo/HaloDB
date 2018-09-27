@@ -20,7 +20,7 @@ import java.io.IOException;
 class InMemoryIndex {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryIndex.class);
 
-    private final OffHeapHashTable<RecordMetaDataForCache> offHeapHashTable;
+    private final OffHeapHashTable<InMemoryIndexMetaData> offHeapHashTable;
 
     private final int noOfSegments;
     private final int maxSizeOfEachSegment;
@@ -29,13 +29,13 @@ class InMemoryIndex {
         noOfSegments = Ints.checkedCast(Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2));
         maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
         long start = System.currentTimeMillis();
-        OffHeapHashTableBuilder<RecordMetaDataForCache> builder =
-            OffHeapHashTableBuilder.<RecordMetaDataForCache>newBuilder()
-                .valueSerializer(new RecordMetaDataSerializer())
+        OffHeapHashTableBuilder<InMemoryIndexMetaData> builder =
+            OffHeapHashTableBuilder.<InMemoryIndexMetaData>newBuilder()
+                .valueSerializer(new InMemoryIndexMetaDataSerializer())
                 .capacity(Long.MAX_VALUE)
                 .segmentCount(noOfSegments)
                 .hashTableSize(maxSizeOfEachSegment)
-                .fixedValueSize(RecordMetaDataForCache.SERIALIZED_SIZE)
+                .fixedValueSize(InMemoryIndexMetaData.SERIALIZED_SIZE)
                 .loadFactor(1);
 
         if (useMemoryPool) {
@@ -44,10 +44,10 @@ class InMemoryIndex {
 
         this.offHeapHashTable = builder.build();
 
-        logger.info("Initialized the cache in {}", (System.currentTimeMillis() - start));
+        logger.debug("Allocated memory for the index in {}", (System.currentTimeMillis() - start));
     }
 
-    boolean put(byte[] key, RecordMetaDataForCache metaData) {
+    boolean put(byte[] key, InMemoryIndexMetaData metaData) {
         return offHeapHashTable.put(key, metaData);
     }
 
@@ -55,11 +55,11 @@ class InMemoryIndex {
         return offHeapHashTable.remove(key);
     }
 
-    boolean replace(byte[] key, RecordMetaDataForCache oldValue, RecordMetaDataForCache newValue) {
+    boolean replace(byte[] key, InMemoryIndexMetaData oldValue, InMemoryIndexMetaData newValue) {
         return offHeapHashTable.addOrReplace(key, oldValue, newValue);
     }
 
-    RecordMetaDataForCache get(byte[] key) {
+    InMemoryIndexMetaData get(byte[] key) {
         return offHeapHashTable.get(key);
     }
 

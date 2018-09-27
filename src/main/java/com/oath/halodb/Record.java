@@ -16,7 +16,7 @@ public class Record {
 
     private final byte[] key, value;
 
-    private RecordMetaDataForCache recordMetaData;
+    private InMemoryIndexMetaData recordMetaData;
 
     private Header header;
 
@@ -48,11 +48,11 @@ public class Record {
         return value;
     }
 
-    RecordMetaDataForCache getRecordMetaData() {
+    InMemoryIndexMetaData getRecordMetaData() {
         return recordMetaData;
     }
 
-    void setRecordMetaData(RecordMetaDataForCache recordMetaData) {
+    void setRecordMetaData(InMemoryIndexMetaData recordMetaData) {
         this.recordMetaData = recordMetaData;
     }
 

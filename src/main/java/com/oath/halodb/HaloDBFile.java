@@ -17,7 +17,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
@@ -109,11 +108,11 @@ class HaloDBFile {
         Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
         record.setHeader(header);
         int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
-        record.setRecordMetaData(new RecordMetaDataForCache(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
+        record.setRecordMetaData(new InMemoryIndexMetaData(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
         return record;
     }
 
-    RecordMetaDataForCache writeRecord(Record record) throws IOException {
+    InMemoryIndexMetaData writeRecord(Record record) throws IOException {
         writeToChannel(record.serialize(), channel);
 
         int recordSize = record.getRecordSize();
@@ -128,7 +127,7 @@ class HaloDBFile {
         indexFile.write(indexFileEntry);
 
         int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
-        return new RecordMetaDataForCache(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
+        return new InMemoryIndexMetaData(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
     }
 
     void rebuildIndexFile() throws IOException {

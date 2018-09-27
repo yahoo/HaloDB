@@ -18,7 +18,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -179,7 +178,7 @@ class HaloDBInternal {
             Record record = new Record(key, value);
             record.setSequenceNumber(getNextSequenceNumber());
             record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
-            RecordMetaDataForCache entry = writeRecordToFile(record);
+            InMemoryIndexMetaData entry = writeRecordToFile(record);
             markPreviousVersionAsStale(key);
 
             //TODO: implement getAndSet and use the return value for
@@ -195,7 +194,7 @@ class HaloDBInternal {
             logger.error("Tried {} attempts but read failed", attemptNumber-1);
             throw new HaloDBException("Tried " + attemptNumber + " attempts but failed.");
         }
-        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
+        InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
         if (metaData == null) {
             return null;
         }
@@ -221,7 +220,7 @@ class HaloDBInternal {
     }
 
     int get(byte[] key, ByteBuffer buffer) throws IOException {
-        RecordMetaDataForCache metaData = inMemoryIndex.get(key);
+        InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
         if (metaData == null) {
             return 0;
         }
@@ -254,9 +253,9 @@ class HaloDBInternal {
     void delete(byte[] key) throws IOException {
         writeLock.lock();
         try {
-            RecordMetaDataForCache metaData = inMemoryIndex.get(key);
+            InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
             if (metaData != null) {
-                //TODO: implement a getAndRemove method in keyCache.
+                //TODO: implement a getAndRemove method in InMemoryIndex.
                 inMemoryIndex.remove(key);
                 TombstoneEntry entry =
                     new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
@@ -280,7 +279,7 @@ class HaloDBInternal {
         metaData.storeToFile();
     }
 
-    private RecordMetaDataForCache writeRecordToFile(Record record) throws IOException, HaloDBException {
+    private InMemoryIndexMetaData writeRecordToFile(Record record) throws IOException, HaloDBException {
         rollOverCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);
     }
@@ -312,13 +311,13 @@ class HaloDBInternal {
     }
 
     private void markPreviousVersionAsStale(byte[] key) {
-        RecordMetaDataForCache recordMetaData = inMemoryIndex.get(key);
+        InMemoryIndexMetaData recordMetaData = inMemoryIndex.get(key);
         if (recordMetaData != null) {
             markPreviousVersionAsStale(key, recordMetaData);
         }
     }
 
-    private void markPreviousVersionAsStale(byte[] key, RecordMetaDataForCache recordMetaData) {
+    private void markPreviousVersionAsStale(byte[] key, InMemoryIndexMetaData recordMetaData) {
         int staleRecordSize = Utils.getRecordSize(key.length, recordMetaData.getValueSize());
         addFileToCompactionQueueIfThresholdCrossed(recordMetaData.getFileId(), staleRecordSize);
     }
@@ -420,7 +419,7 @@ class HaloDBInternal {
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
-            // build the cache by scanning all index files.
+            // build the in-memory index by scanning all index files.
             int count = 0, inserted = 0;
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
@@ -433,16 +432,16 @@ class HaloDBInternal {
                 int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
 
-                RecordMetaDataForCache existing = inMemoryIndex.get(key);
+                InMemoryIndexMetaData existing = inMemoryIndex.get(key);
 
                 if (existing == null) {
-                    // first version of the record that we have seen, add to cache.
-                    inMemoryIndex.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
+                    // first version of the record that we have seen, add to index.
+                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
                     inserted++;
                 }
                 else if (existing.getSequenceNumber() < sequenceNumber) {
-                    // a newer version of the record, replace existing record in cache with newer one.
-                    inMemoryIndex.put(key, new RecordMetaDataForCache(fileId, valueOffset, valueSize, sequenceNumber));
+                    // a newer version of the record, replace existing record in index with newer one.
+                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
 
                     // update stale data map for the previous version.
                     addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
@@ -457,7 +456,7 @@ class HaloDBInternal {
             indexFile.close();
         }
 
-        // Scan all the tombstone files and remove records from cache.
+        // Scan all the tombstone files and remove records from index.
         File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
@@ -473,9 +472,9 @@ class HaloDBInternal {
                 maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
                 count++;
 
-                RecordMetaDataForCache existing = inMemoryIndex.get(key);
+                InMemoryIndexMetaData existing = inMemoryIndex.get(key);
                 if (existing != null && existing.getSequenceNumber() < sequenceNumber) {
-                    // Found a tombstone record which happened after the version currently in cache; remove.
+                    // Found a tombstone record which happened after the version currently in index; remove.
                     inMemoryIndex.remove(key);
 
                     // update stale data map for the previous version.
@@ -587,15 +586,15 @@ class HaloDBInternal {
         return new HashSet<>(readFileMap.keySet());
     }
 
-    boolean isRecordFresh(byte[] key, RecordMetaDataForCache metaData) {
-        RecordMetaDataForCache metaDataFromCache = inMemoryIndex.get(key);
+    boolean isRecordFresh(byte[] key, InMemoryIndexMetaData metaData) {
+        InMemoryIndexMetaData currentMeta = inMemoryIndex.get(key);
 
         return
-            metaDataFromCache != null
+            currentMeta != null
             &&
-            metaData.getFileId() == metaDataFromCache.getFileId()
+            metaData.getFileId() == currentMeta.getFileId()
             &&
-            metaData.getValueOffset() == metaDataFromCache.getValueOffset();
+            metaData.getValueOffset() == currentMeta.getValueOffset();
     }
 
     private long getNextSequenceNumber() {
@@ -617,16 +616,16 @@ class HaloDBInternal {
     }
 
     HaloDBStats stats() {
-        OffHeapHashTableStats cacheStats = inMemoryIndex.stats();
+        OffHeapHashTableStats stats = inMemoryIndex.stats();
         return new HaloDBStats(
             statsResetTime,
-            cacheStats.getSize(),
+            stats.getSize(),
             compactionManager.noOfFilesPendingCompaction(),
             computeStaleDataMapForStats(),
-            cacheStats.getRehashCount(),
+            stats.getRehashCount(),
             inMemoryIndex.getNoOfSegments(),
             inMemoryIndex.getMaxSizeOfEachSegment(),
-            cacheStats.getSegmentStats(),
+            stats.getSegmentStats(),
             noOfTombstonesFoundDuringOpen,
             options.isCleanUpTombstonesDuringOpen() ? noOfTombstonesFoundDuringOpen - noOfTombstonesCopiedDuringOpen : 0,
             compactionManager.getNumberOfRecordsCopied(),

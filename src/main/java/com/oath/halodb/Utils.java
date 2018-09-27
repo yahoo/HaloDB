@@ -26,8 +26,8 @@ class Utils {
         return recordSize - Record.Header.HEADER_SIZE - key.length;
     }
 
-    static RecordMetaDataForCache getMetaData(IndexFileEntry entry, int fileId) {
-        return new RecordMetaDataForCache(fileId, Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()), Utils.getValueSize(entry.getRecordSize(), entry.getKey()), entry.getSequenceNumber());
+    static InMemoryIndexMetaData getMetaData(IndexFileEntry entry, int fileId) {
+        return new InMemoryIndexMetaData(fileId, Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()), Utils.getValueSize(entry.getRecordSize(), entry.getKey()), entry.getSequenceNumber());
     }
 
     static long toUnsignedIntFromInt(int value) {

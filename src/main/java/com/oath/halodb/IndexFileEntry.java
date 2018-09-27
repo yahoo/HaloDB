@@ -5,8 +5,6 @@
 
 package com.oath.halodb;
 
-import com.sun.scenario.effect.impl.prism.PrImage;
-
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 

@@ -126,7 +126,22 @@ is allocated in native memory, outside the Java heap.
     
             // Close the database.
             db.close();
-```   
+```
+Binaries for HaloDB are hosted on [Bintray](https://bintray.com/yahoo).   
+``` xml
+<dependency>
+  <groupId>com.oath.halodb</groupId>
+  <artifactId>halodb</artifactId>
+  <version>x.y.x</version> 
+</dependency>
+
+<repository>
+  <id>yahoo-bintray</id>
+  <name>yahoo-bintray</name>
+  <url>https://yahoo.bintray.com/maven</url>
+</repository>
+``` 
+   
 
 
 ### Read, Write and Space amplification.

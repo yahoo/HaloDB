@@ -19,22 +19,18 @@ import java.util.concurrent.atomic.AtomicLong;
 final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
 {
     private final HashTableValueSerializer<V> valueSerializer;
-    private long capacity;
 
     private final CheckSegment[] maps;
     private final long maxEntrySize;
     private final int segmentShift;
     private final long segmentMask;
     private final float loadFactor;
-    private final AtomicLong freeCapacity;
     private long putFailCount;
     private final Hasher hasher;
 
     CheckOffHeapHashTable(OffHeapHashTableBuilder<V> builder)
     {
-        capacity = builder.getCapacity();
         loadFactor = builder.getLoadFactor();
-        freeCapacity = new AtomicLong(capacity);
         hasher = Hasher.create(builder.getHashAlgorighm());
 
         int segments = builder.getSegmentCount();
@@ -44,7 +40,7 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
 
         maps = new CheckSegment[segments];
         for (int i = 0; i < maps.length; i++)
-            maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor(), freeCapacity);
+            maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor());
 
         valueSerializer = builder.getValueSerializer();
 
@@ -183,21 +179,6 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return maps.length;
     }
 
-    public long capacity()
-    {
-        return capacity;
-    }
-
-    public long memUsed()
-    {
-        return capacity - freeCapacity();
-    }
-
-    public long freeCapacity()
-    {
-        return freeCapacity.get();
-    }
-
     public float loadFactor()
     {
         return loadFactor;
@@ -209,15 +190,11 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
                                hitCount(),
                                missCount(),
                                size(),
-                               capacity(),
-                               freeCapacity(),
                                -1L,
                                putAddCount(),
                                putReplaceCount(),
                                putFailCount,
                                removeCount(),
-                               memUsed(),
-                               0L,
                                perSegmentStats()
         );
     }
@@ -260,15 +237,6 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         for (CheckSegment map : maps)
             missCount += map.missCount;
         return missCount;
-    }
-
-    public void setCapacity(long capacity)
-    {
-        if (capacity < 0L)
-            throw new IllegalArgumentException("New capacity " + capacity + " must not be smaller than current capacity");
-        long diff = capacity - this.capacity;
-        this.capacity = capacity;
-        freeCapacity.addAndGet(diff);
     }
 
     public void close()

@@ -82,23 +82,7 @@ interface OffHeapHashTable<V> extends Closeable {
 
     int segments();
 
-    long capacity();
-
-    long memUsed();
-
-    long freeCapacity();
-
     float loadFactor();
 
     OffHeapHashTableStats stats();
-
-    /**
-     * Modify the cache's capacity.
-     * Lowering the capacity will not immediately remove any entry nor will it immediately free allocated (off heap) memory.
-     * <p>
-     * Future operations will even allocate in flight, temporary memory - i.e. setting capacity to 0 does not
-     * disable the cache, it will continue to work but cannot add more data.
-     * </p>
-     */
-    void setCapacity(long capacity);
 }

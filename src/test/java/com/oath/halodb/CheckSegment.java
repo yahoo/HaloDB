@@ -16,11 +16,9 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * On-heap test-only counterpart of {@link SegmentNonMemoryPool} for {@link CheckOffHeapHashTable}.
  */
-final class CheckSegment
-{
+final class CheckSegment {
     private final Map<KeyBuffer, byte[]> map;
     private final LinkedList<KeyBuffer> lru = new LinkedList<>();
-    private final AtomicLong freeCapacity;
 
     long hitCount;
     long missCount;
@@ -29,16 +27,12 @@ final class CheckSegment
     long removeCount;
     long evictedEntries;
 
-    public CheckSegment(int initialCapacity, float loadFactor, AtomicLong freeCapacity)
-    {
+    public CheckSegment(int initialCapacity, float loadFactor) {
         this.map = new HashMap<>(initialCapacity, loadFactor);
-        this.freeCapacity = freeCapacity;
     }
 
     synchronized void clear()
     {
-        for (Map.Entry<KeyBuffer, byte[]> entry : map.entrySet())
-            freeCapacity.addAndGet(sizeOf(entry.getKey(), entry.getValue()));
         map.clear();
         lru.clear();
     }
@@ -61,12 +55,6 @@ final class CheckSegment
 
     synchronized boolean put(KeyBuffer keyBuffer, byte[] data, boolean ifAbsent, byte[] old)
     {
-        long sz = sizeOf(keyBuffer, data);
-        while (freeCapacity.get() < sz) {
-                remove(keyBuffer);
-                return false;
-            }
-
         byte[] existing = map.get(keyBuffer);
 
         if (ifAbsent && existing != null)
@@ -82,13 +70,10 @@ final class CheckSegment
 
         if (existing != null)
         {
-            freeCapacity.addAndGet(sizeOf(keyBuffer, existing));
             putReplaceCount++;
         }
         else
             putAddCount++;
-
-        freeCapacity.addAndGet(-sz);
 
         return true;
     }
@@ -100,7 +85,6 @@ final class CheckSegment
         {
             boolean r = lru.remove(keyBuffer);
             removeCount++;
-            freeCapacity.addAndGet(sizeOf(keyBuffer, old));
             return r;
         }
         return false;

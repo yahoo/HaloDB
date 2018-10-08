@@ -13,37 +13,27 @@ final class OffHeapHashTableStats {
 
     private final long hitCount;
     private final long missCount;
-    private final long capacity;
     private final long size;
     private final long rehashCount;
     private final long putAddCount;
     private final long putReplaceCount;
     private final long putFailCount;
     private final long removeCount;
-    private final long totalAllocated;
-    private final long lruCompactions;
     private final SegmentStats[] segmentStats;
 
     public OffHeapHashTableStats(long hitCount, long missCount,
-                                 long size, long capacity, long free, long rehashCount,
+                                 long size, long rehashCount,
                                  long putAddCount, long putReplaceCount, long putFailCount, long removeCount,
-                                 long totalAllocated, long lruCompactions, SegmentStats[] segmentStats) {
+                                 SegmentStats[] segmentStats) {
         this.hitCount = hitCount;
         this.missCount = missCount;
         this.size = size;
-        this.capacity = capacity;
         this.rehashCount = rehashCount;
         this.putAddCount = putAddCount;
         this.putReplaceCount = putReplaceCount;
         this.putFailCount = putFailCount;
         this.removeCount = removeCount;
-        this.totalAllocated = totalAllocated;
-        this.lruCompactions = lruCompactions;
         this.segmentStats = segmentStats;
-    }
-
-    public long getCapacity() {
-        return capacity;
     }
 
     public long getRehashCount() {
@@ -78,14 +68,6 @@ final class OffHeapHashTableStats {
         return removeCount;
     }
 
-    public long getTotalAllocated() {
-        return totalAllocated;
-    }
-
-    public long getLruCompactions() {
-        return lruCompactions;
-    }
-
     public SegmentStats[] getSegmentStats() {
         return segmentStats;
     }
@@ -95,12 +77,9 @@ final class OffHeapHashTableStats {
             .add("hitCount", hitCount)
             .add("missCount", missCount)
             .add("size", size)
-            .add("capacity", capacity)
             .add("rehashCount", rehashCount)
             .add("put(add/replace/fail)", Long.toString(putAddCount) + '/' + putReplaceCount + '/' + putFailCount)
             .add("removeCount", removeCount)
-            .add("totalAllocated", totalAllocated)
-            .add("lruCompactions", lruCompactions)
             .toString();
     }
 
@@ -138,7 +117,6 @@ final class OffHeapHashTableStats {
 
         OffHeapHashTableStats that = (OffHeapHashTableStats) o;
 
-        if (capacity != that.capacity) return false;
         if (hitCount != that.hitCount) return false;
         if (missCount != that.missCount) return false;
         if (putAddCount != that.putAddCount) return false;
@@ -155,7 +133,6 @@ final class OffHeapHashTableStats {
     public int hashCode() {
         int result = (int) (hitCount ^ (hitCount >>> 32));
         result = 31 * result + (int) (missCount ^ (missCount >>> 32));
-        result = 31 * result + (int) (capacity ^ (capacity >>> 32));
         result = 31 * result + (int) (size ^ (size >>> 32));
 //        result = 31 * result + (int) (rehashCount ^ (rehashCount >>> 32));
         result = 31 * result + (int) (putAddCount ^ (putAddCount >>> 32));

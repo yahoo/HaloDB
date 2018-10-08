@@ -134,30 +134,6 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
-    public long capacity()
-    {
-        long rProd = prod.capacity();
-        long rCheck = check.capacity();
-        Assert.assertEquals(rProd, rCheck);
-        return rProd;
-    }
-
-    public long memUsed()
-    {
-        long rProd = prod.memUsed();
-        long rCheck = check.memUsed();
-        Assert.assertEquals(rProd, rCheck);
-        return rProd;
-    }
-
-    public long freeCapacity()
-    {
-        long rProd = prod.freeCapacity();
-        long rCheck = check.freeCapacity();
-        Assert.assertEquals(rProd, rCheck, "capacity: " + capacity());
-        return rProd;
-    }
-
     public float loadFactor()
     {
         float rProd = prod.loadFactor();
@@ -172,12 +148,6 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         OffHeapHashTableStats rCheck = check.stats();
         Assert.assertEquals(rProd, rCheck);
         return rProd;
-    }
-
-    public void setCapacity(long capacity)
-    {
-        prod.setCapacity(capacity);
-        check.setCapacity(capacity);
     }
 
     public void close() throws IOException

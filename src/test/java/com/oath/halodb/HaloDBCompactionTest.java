@@ -6,16 +6,13 @@
 package com.oath.halodb;
 
 import com.google.common.primitives.Longs;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * @author Arjun Mannaly
@@ -90,6 +87,30 @@ public class HaloDBCompactionTest extends TestBase {
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
             Assert.assertEquals(actual, r.getValue());
+        }
+    }
+
+    @Test(dataProvider = "Options")
+    public void testSyncWrites(HaloDBOptions options) throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testSyncWrites");
+        options.enableSyncWrites(true);
+        HaloDB db = getTestDB(directory, options);
+        List<Record> records = TestUtils.insertRandomRecords(db, 10_000);
+        List<Record> current = new ArrayList<>();
+        for (int i = 0; i < records.size(); i++) {
+            if (i % 2 == 0) {
+                db.delete(records.get(i).getKey());
+            }
+            else {
+                current.add(records.get(i));
+            }
+        }
+        db.close();
+
+        db = getTestDBWithoutDeletingFiles(directory, options);
+        Assert.assertEquals(db.size(), current.size());
+        for (Record r : current) {
+            Assert.assertEquals(db.get(r.getKey()), r.getValue());
         }
     }
 

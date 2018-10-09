@@ -93,8 +93,8 @@ class TombstoneFile {
 
         writeOffset += written;
         unFlushedData += written;
-        if (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes()) {
-            channel.force(true);
+        if (options.isSyncWrites() || (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes())) {
+            flushToDisk();
             unFlushedData = 0;
         }
     }

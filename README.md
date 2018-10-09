@@ -64,8 +64,7 @@ is allocated in native memory, outside the Java heap.
             // depending on the number of records in the database,
             // could be a slow as we need to call _free_ for each record.
             options.setCleanUpInMemoryIndexOnClose(false);
-    
-    
+            
             // ** settings for memory pool **
             options.setUseMemoryPool(true);
     

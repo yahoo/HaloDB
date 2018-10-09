@@ -113,7 +113,7 @@ class HaloDBFile {
     }
 
     InMemoryIndexMetaData writeRecord(Record record) throws IOException {
-        writeToChannel(record.serialize(), channel);
+        writeToChannel(record.serialize());
 
         int recordSize = record.getRecordSize();
         int recordOffset = writeOffset;
@@ -199,7 +199,7 @@ class HaloDBFile {
         return new HaloDBFile(fileId, repairFile, dbDirectory, indexFile, fileType, channel, options);
     }
 
-    private long writeToChannel(ByteBuffer[] buffers, FileChannel writeChannel) throws IOException {
+    private long writeToChannel(ByteBuffer[] buffers) throws IOException {
         long toWrite = 0;
         for (ByteBuffer buffer : buffers) {
             toWrite += buffer.remaining();
@@ -207,13 +207,13 @@ class HaloDBFile {
 
         long written = 0;
         while (written < toWrite) {
-            written += writeChannel.write(buffers);
+            written += channel.write(buffers);
         }
 
         unFlushedData += written;
 
-        if (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes()) {
-            writeChannel.force(true);
+        if (options.isSyncWrites() || (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes())) {
+            flushToDisk();
             unFlushedData = 0;
         }
         return written;

@@ -123,6 +123,35 @@ public class HaloDBTest extends TestBase {
     }
 
     @Test(dataProvider = "Options")
+    public void testSyncWrite(HaloDBOptions options) throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testSyncWrite");
+
+        options.setCompactionDisabled(true);
+        options.setMaxFileSize(10 * 1024);
+        options.enableSyncWrites(true);
+
+        HaloDB db = getTestDB(directory, options);
+
+        int noOfRecords = 10_000;
+        List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
+        List<Record> updated = TestUtils.updateRecords(db, records);
+
+        List<Record> actual = new ArrayList<>();
+        db.newIterator().forEachRemaining(actual::add);
+
+        Assert.assertTrue(actual.containsAll(updated) && updated.containsAll(actual));
+
+        updated.forEach(record -> {
+            try {
+                byte[] value = db.get(record.getKey());
+                Assert.assertEquals(record.getValue(), value);
+            } catch (HaloDBException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Test(dataProvider = "Options")
     public void testToCheckThatLatestUpdateIsPickedAfterDBOpen(HaloDBOptions options) throws HaloDBException {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckThatLatestUpdateIsPickedAfterDBOpen");

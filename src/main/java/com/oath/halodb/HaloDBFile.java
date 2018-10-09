@@ -212,7 +212,7 @@ class HaloDBFile {
 
         unFlushedData += written;
 
-        if (options.isSyncWrites() || (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes())) {
+        if (options.isSyncWrite() || (options.getFlushDataSizeBytes() != -1 && unFlushedData > options.getFlushDataSizeBytes())) {
             flushToDisk();
             unFlushedData = 0;
         }

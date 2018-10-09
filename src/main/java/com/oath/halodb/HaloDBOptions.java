@@ -22,7 +22,8 @@ public class HaloDBOptions implements Cloneable {
     private long flushDataSizeBytes = -1;
 
     // Write call will sync data to disk before returning.
-    private boolean syncWrites = false;
+    // If enabled trades off write throughput for durability.
+    private boolean syncWrite = false;
 
     private int numberOfRecords = 1_000_000;
 
@@ -57,7 +58,7 @@ public class HaloDBOptions implements Cloneable {
             .add("compactionThresholdPerFile", compactionThresholdPerFile)
             .add("maxFileSize", maxFileSize)
             .add("flushDataSizeBytes", flushDataSizeBytes)
-            .add("syncWrites", syncWrites)
+            .add("syncWrite", syncWrite)
             .add("isCompactionDisabled", isCompactionDisabled)
             .add("numberOfRecords", numberOfRecords)
             .add("compactionJobRate", compactionJobRate)
@@ -160,11 +161,11 @@ public class HaloDBOptions implements Cloneable {
         this.memoryPoolChunkSize = memoryPoolChunkSize;
     }
 
-    public boolean isSyncWrites() {
-        return syncWrites;
+    public boolean isSyncWrite() {
+        return syncWrite;
     }
 
     public void enableSyncWrites(boolean syncWrites) {
-        this.syncWrites = syncWrites;
+        this.syncWrite = syncWrites;
     }
 }

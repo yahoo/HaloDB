@@ -128,42 +128,47 @@ class HaloDBInternal {
     }
 
     void close() throws IOException {
-        isClosing = true;
-
+        writeLock.lock();
         try {
-            if(!compactionManager.stopCompactionThread())
+            isClosing = true;
+
+            try {
+                if(!compactionManager.stopCompactionThread())
+                    setIOErrorFlag();
+            } catch (IOException e) {
+                logger.error("Error while stopping compaction thread. Setting IOError flag", e);
                 setIOErrorFlag();
-        } catch (IOException e) {
-            logger.error("Error while stopping compaction thread. Setting IOError flag", e);
-            setIOErrorFlag();
-        }
+            }
 
-        if (options.isCleanUpInMemoryIndexOnClose())
-            inMemoryIndex.close();
+            if (options.isCleanUpInMemoryIndexOnClose())
+                inMemoryIndex.close();
 
-        if (currentWriteFile != null) {
-            currentWriteFile.flushToDisk();
-            currentWriteFile.getIndexFile().flushToDisk();
-            currentWriteFile.close();
-        }
-        if (currentTombstoneFile != null) {
-            currentTombstoneFile.flushToDisk();
-            currentTombstoneFile.close();
-        }
+            if (currentWriteFile != null) {
+                currentWriteFile.flushToDisk();
+                currentWriteFile.getIndexFile().flushToDisk();
+                currentWriteFile.close();
+            }
+            if (currentTombstoneFile != null) {
+                currentTombstoneFile.flushToDisk();
+                currentTombstoneFile.close();
+            }
 
-        for (HaloDBFile file : readFileMap.values()) {
-            file.close();
-        }
+            for (HaloDBFile file : readFileMap.values()) {
+                file.close();
+            }
 
-        DBMetaData metaData = new DBMetaData(dbDirectory);
-        metaData.loadFromFileIfExists();
-        metaData.setOpen(false);
-        metaData.storeToFile();
+            DBMetaData metaData = new DBMetaData(dbDirectory);
+            metaData.loadFromFileIfExists();
+            metaData.setOpen(false);
+            metaData.storeToFile();
 
-        dbDirectory.close();
+            dbDirectory.close();
 
-        if (dbLock != null) {
-            dbLock.close();
+            if (dbLock != null) {
+                dbLock.close();
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -287,7 +292,7 @@ class HaloDBInternal {
     private void rollOverCurrentWriteFile(Record record) throws IOException, HaloDBException {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
 
-        if (currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.getMaxFileSize()) {
+        if ((currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.getMaxFileSize()) && !isClosing) {
             if (currentWriteFile != null) {
                 currentWriteFile.flushToDisk();
                 currentWriteFile.getIndexFile().flushToDisk();
@@ -300,7 +305,7 @@ class HaloDBInternal {
     private void rollOverCurrentTombstoneFile(TombstoneEntry entry) throws IOException {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
 
-        if (currentTombstoneFile == null || currentTombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) {
+        if ((currentTombstoneFile == null || currentTombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) && !isClosing) {
             if (currentTombstoneFile != null) {
                 currentTombstoneFile.flushToDisk();
                 currentTombstoneFile.close();

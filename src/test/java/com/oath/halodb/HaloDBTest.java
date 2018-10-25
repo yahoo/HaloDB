@@ -5,11 +5,12 @@
 
 package com.oath.halodb;
 
+import com.google.common.primitives.Longs;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -421,4 +422,45 @@ public class HaloDBTest extends TestBase {
         anotherDB.resetStats();
 
     }
+
+    @Test(expectedExceptions = HaloDBException.class)
+    public void testPutAfterClose() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAfterClose");
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        db.put(Longs.toByteArray(1), Longs.toByteArray(1));
+        db.close();
+        db.put(Longs.toByteArray(2), Longs.toByteArray(2));
+    }
+
+    @Test(expectedExceptions = HaloDBException.class)
+    public void testDeleteAfterClose() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteAfterClose");
+
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        db.put(Longs.toByteArray(1), Longs.toByteArray(1));
+        db.put(Longs.toByteArray(2), Longs.toByteArray(2));
+        db.delete(Longs.toByteArray(1));
+        db.close();
+        db.delete(Longs.toByteArray(2));
+    }
+
+    @Test(expectedExceptions = NullPointerException.class)
+    public void testPutAfterCloseWithoutWrites() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAfterCloseWithoutWrites");
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        db.close();
+        db.put(Longs.toByteArray(1), Longs.toByteArray(1));
+    }
+
+    @Test(expectedExceptions = NullPointerException.class)
+    public void testDeleteAfterCloseWithoutWrites() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteAfterCloseWithoutWrites");
+
+        HaloDB db = getTestDB(directory, new HaloDBOptions());
+        db.put(Longs.toByteArray(1), Longs.toByteArray(1));
+        Assert.assertEquals(db.get(Longs.toByteArray(1)), Longs.toByteArray(1));
+        db.close();
+        db.delete(Longs.toByteArray(1));
+    }
+
 }

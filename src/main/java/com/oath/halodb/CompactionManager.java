@@ -161,7 +161,7 @@ class CompactionManager {
                         break;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);
-                    copyFreshRecordsToMergedFile(fileToCompact);
+                    copyFreshRecordsToNewFile(fileToCompact);
                     logger.debug("Completed compacting {} to {}", fileToCompact, getCurrentWriteFileId());
                     dbInternal.markFileAsCompacted(fileToCompact);
                     dbInternal.deleteHaloDBFile(fileToCompact);
@@ -175,7 +175,7 @@ class CompactionManager {
         }
 
         // TODO: group and move adjacent fresh records together for performance.
-        private void copyFreshRecordsToMergedFile(int idOfFileToCompact) throws IOException {
+        private void copyFreshRecordsToNewFile(int idOfFileToCompact) throws IOException {
             HaloDBFile fileToCompact = dbInternal.getHaloDBFile(idOfFileToCompact);
             if (fileToCompact == null) {
                 logger.debug("File doesn't exist, was probably compacted already.");

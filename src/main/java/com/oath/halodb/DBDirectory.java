@@ -29,14 +29,25 @@ class DBDirectory {
 
     /**
      * Will create a new directory if one doesn't already exist.
+     * The channel is created to attempt fsync. Windows is known not to allow file channels on
+     * directories and fsync is not applicable - if there is an exception creating the channel
+     * we silently swallow it.
      */
     static DBDirectory open(File directory) throws IOException {
         FileUtils.createDirectoryIfNotExists(directory);
-        return new DBDirectory(directory, openReadOnlyChannel(directory));
+        FileChannel channel = null;
+        try {
+        	channel = openReadOnlyChannel(directory);
+        }
+        catch(IOException e) {
+        }
+        return new DBDirectory(directory, channel);
     }
 
     void close() throws IOException {
-        directoryChannel.close();
+        if (directoryChannel != null) {
+        	directoryChannel.close();
+        }
     }
 
     Path getPath() {
@@ -66,9 +77,11 @@ class DBDirectory {
      * an exception we silently swallow it.
      */
     void syncMetaData() {
-        try {
-            directoryChannel.force(true);
-        } catch (IOException e) {
+        if (directoryChannel != null) {
+            try {
+                directoryChannel.force(true);
+            } catch (IOException e) {
+            }
         }
     }
 

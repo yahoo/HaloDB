@@ -8,7 +8,7 @@
 
     <groupId>com.oath.halodb</groupId>
     <artifactId>halodb</artifactId>
-    <version>0.4.6-SNAPSHOT</version>
+    <version>0.4.6</version>
     <packaging>jar</packaging>
 
     <name>HaloDB</name>
@@ -93,7 +93,7 @@
     <scm>
         <url>https://github.com/yahoo/HaloDB</url>
         <developerConnection>scm:git:git@github.com:yahoo/HaloDB.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>v0.4.6</tag>
     </scm>
 
     <build>

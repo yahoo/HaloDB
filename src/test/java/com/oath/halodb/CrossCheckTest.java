@@ -59,8 +59,7 @@ public class CrossCheckTest
         OffHeapHashTableBuilder<byte[]> builder = OffHeapHashTableBuilder.<byte[]>newBuilder()
                                                                 .valueSerializer(HashTableTestUtils.byteArraySerializer)
                                                                 .hashMode(hashAlgorithm)
-                                                                .fixedValueSize(fixedValueSize)
-                                                                .capacity(Long.MAX_VALUE);
+                                                                .fixedValueSize(fixedValueSize);
         if (useMemoryPool)
             builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
 
@@ -71,8 +70,6 @@ public class CrossCheckTest
         else
             // use 16 segments by default to prevent differing test behaviour on varying test hardware
             builder.segmentCount(16);
-        if (maxEntrySize > 0)
-            builder.maxEntrySize(maxEntrySize);
 
         return new DoubleCheckOffHeapHashTableImpl<>(builder);
     }
@@ -190,7 +187,6 @@ public class CrossCheckTest
             .valueSerializer(HashTableTestUtils.byteArraySerializer)
             .hashMode(hashAlgorithm)
             .fixedValueSize(fixedValueSize)
-            .capacity(Long.MAX_VALUE)
             .hashTableSize(count/4)
             .segmentCount(1)
             .loadFactor(1);

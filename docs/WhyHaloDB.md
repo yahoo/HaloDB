@@ -1,14 +1,12 @@
  
 # HaloDB at Yahoo.
 
-At Yahoo, we built this high throughput, low latency distributed key-value database that runs in multiple data centers in the US, Europe, and Asia-Pacific regions. 
-The largest of these clusters stores around 80 billion records and handles, at peak, around 3 million read requests and 1 million write requests per second 
-with an SLA of 1 millisecond at the 99th percentile.
+At Yahoo, we built this high throughput, low latency distributed key-value database that runs in multiple data centers in the US, Europe, and Asia-Pacific regions.
+The database stores billions of records and handles millions of read and write requests per second with an SLA of 1 millisecond at the 99th percentile.  
  
 The data we have in this database must be persistent, and the working set is larger than what we can fit in memory. 
 Therefore, a key component of the database’s performance is a fast storage engine, for which we have relied on Kyoto Cabinet. Although Kyoto Cabinet has served us well, 
 it was designed primarily for a read-heavy workload and its write throughput started to be a bottleneck as we took on more write traffic. 
-
  
 There were also other issues we faced with Kyoto Cabinet; it takes hours to repair a corrupted db, or iterate over and update/delete records (which we have to do every night). 
 It also doesn't expose enough operational metrics or logs which makes resolving issues challenging. However, our primary concern was Kyoto Cabinet’s write performance, 

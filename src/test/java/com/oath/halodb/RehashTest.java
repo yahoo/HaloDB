@@ -32,7 +32,6 @@ public class RehashTest
                                                             .valueSerializer(HashTableTestUtils.byteArraySerializer)
                                                             .hashTableSize(64)
                                                             .segmentCount(4)
-                                                            .capacity(512 * 1024 * 1024)
                                                             .fixedValueSize(8)
                                                             .build())
         {

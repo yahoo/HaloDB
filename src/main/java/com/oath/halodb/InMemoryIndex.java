@@ -32,7 +32,6 @@ class InMemoryIndex {
         OffHeapHashTableBuilder<InMemoryIndexMetaData> builder =
             OffHeapHashTableBuilder.<InMemoryIndexMetaData>newBuilder()
                 .valueSerializer(new InMemoryIndexMetaDataSerializer())
-                .capacity(Long.MAX_VALUE)
                 .segmentCount(noOfSegments)
                 .hashTableSize(maxSizeOfEachSegment)
                 .fixedValueSize(InMemoryIndexMetaData.SERIALIZED_SIZE)

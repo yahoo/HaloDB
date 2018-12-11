@@ -34,11 +34,8 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
 
     private long rehashes;
     long evictedEntries;
-    private long expiredEntries;
 
     private final HashAlgorithm hashAlgorithm;
-
-    private volatile long putFailCount;
 
     private static final boolean throwOOME = true;
 
@@ -181,7 +178,6 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             long hashEntryAdr;
             if ((hashEntryAdr = Uns.allocate(HashTableUtil.allocLen(key.length, fixedValueLength), throwOOME)) == 0L) {
                 // entry too large to be inserted or OS is not able to provide enough memory
-                putFailCount++;
                 removeEntry(keySource(key));
                 return false;
             }

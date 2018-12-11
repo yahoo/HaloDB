@@ -54,7 +54,7 @@ Insert 500 million records into an empty db in random order.
 
 ## Why HaloDB is fast.
 HaloDB is not necessarily a better storage engine than RocksDB or KyotoCabinet. HaloDB was written for a specific type of workload, and therefore had
-the advantage of optimizing for that workload, the trade-offs that HaloDB makes might make it sub-optimal for certain other workloads. 
+the advantage of optimizing for that workload; the trade-offs that HaloDB makes might make it sub-optimal for other workloads (best to run benchmarks to verify). 
 HaloDB also offers only a small subset of features that RocksDB supports.  
    
 All writes to HaloDB are sequential writes to append-only log files. HaloDB uses a background compaction job to clean up stale data. 
@@ -68,8 +68,7 @@ Therefore each lookup request requires at most a single read from disk, giving u
 for HaloDB’s low read latencies. The trade-off here is that we need to store all the keys and their associated metadata in memory. HaloDB
 also need to scan all the keys during startup to build the in-memory index. This, depending on the number of keys, might take time.   
 
-HaloDB avoids doing in-place updates and doesn’t need record level locks, which also helps with performance even under high read and write throughput.
+HaloDB avoids doing in-place updates and don't need record level locks. A type of MVCC is inherent in the design of all log-structured storage systems. This also helps with performance even under high read and write throughput.
 
-HaloDB also doesn't support range scans and hence doesn't pay the cost associated with storing data in a format suitable 
-for efficient range scans.
+HaloDB also don't support range scans and therefore don't pay the cost associated with storing data in a format suitable for efficient range scans.
 

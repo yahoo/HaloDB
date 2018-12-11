@@ -3,13 +3,12 @@
 [![Build Status](https://travis-ci.org/yahoo/HaloDB.svg?branch=master)](https://travis-ci.org/yahoo/HaloDB)
 [![Download](https://api.bintray.com/packages/yahoo/maven/halodb/images/download.svg) ](https://bintray.com/yahoo/maven/halodb/_latestVersion)
 
-HaloDB is a fast, simple, embedded, persistent key-value storage engine written in Java. HaloDB is suitable for large datasets and IO bound workloads, 
-and handles high throughput for _both_ reads and writes at submillisecond latencies. 
+HaloDB is a fast and simple embedded key-value store written in Java. HaloDB is suitable for IO bound workloads, and is capable of handling high throughput reads and writes at submillisecond latencies. 
 
-HaloDB was written for a high-throughput, low latency distributed key-value database that powers Yahoo's DSP, and hence all its design choices and optimizations were
+HaloDB was written for a high-throughput, low latency distributed key-value database that powers multiple ad platforms at Yahoo, therefore all its design choices and optimizations were
 primarily for this use case.  
 
-Basic design principles employed in HaloDB were inspired by those of log-structured storage systems. Refer to this [document](https://github.com/yahoo/HaloDB/blob/master/docs/WhyHaloDB.md) for more details about the motivation for HaloDB and its inspirations.  
+Basic design principles employed in HaloDB are not new. Refer to this [document](https://github.com/yahoo/HaloDB/blob/master/docs/WhyHaloDB.md) for more details about the motivation for HaloDB and its inspirations.  
  
 HaloDB comprises of two main components: an index in memory which stores all the keys, and append-only log files on
 the persistent layer which stores all the data. To reduce Java garbage collection pressure the index 
@@ -172,8 +171,8 @@ In the event of a power loss HaloDB offers the following consistency guarantees:
 HaloDB stores all keys and their associated metadata in an index in memory. The size of this index, depending on the 
 number and length of keys, can be quite big. Therefore, storing this in the Java Heap is a non-starter for a 
 performance critical storage engine. HaloDB solves this problem by storing the index in native memory, 
-outside the heap. There are two variants of the hash table; one with a memory pool and the other 
-without it. Using the memory pool helps to reduce the memory footprint of the hash table and reduce 
+outside the heap. There are two variants of the index; one with a memory pool and the other 
+without it. Using the memory pool helps to reduce the memory footprint of the index and reduce 
 fragmentation, but requires fixed size keys. A billion 8 byte keys 
 currently takes around 44GB of memory with memory pool and around 64GB without memory pool.   
 
@@ -193,10 +192,11 @@ interleaved (although partial ordering for both is guaranteed).
 ### System requirements. 
 * HaloDB requires Java 8 to run, but has not yet been tested with newer Java versions.  
 * HaloDB has been tested on Linux running on x86 and on MacOS. It may run on other platforms, but this hasn't been verified yet.
+* Disable Transparent Huge Pages and swapping (vm.swappiness=0).
 
 ### Restrictions. 
 * Size of keys is restricted to 128 bytes.  
-* HaloDB doesn't order keys and hence doesn't support range scans    
+* HaloDB don't support range scans or ordered access.
 
 # Benchmarks.
 [Benchmarks](https://github.com/yahoo/HaloDB/blob/master/docs/benchmarks.md).

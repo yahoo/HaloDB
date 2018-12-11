@@ -143,7 +143,7 @@ Binaries for HaloDB are hosted on [Bintray](https://bintray.com/yahoo).
 
 
 ### Read, Write and Space amplification.
-Read amplification in HaloDB is always 1—for a read request it needs to do just one disk lookup—hence it is well suited for 
+Read amplification in HaloDB is always 1—for a read request it needs to do at most one disk lookup—hence it is well suited for 
 read latency critical workloads. HaloDB provides a configuration which can be tuned to control write amplification 
 and space amplification, both of which trade-off with each other; HaloDB has a background compaction thread which removes stale data 
 from the DB. The percentage of stale data at which a file is compacted can be controlled. Increasing this value will increase space amplification 

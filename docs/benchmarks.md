@@ -2,7 +2,8 @@
   
   Benchmarks were run to compare HaloDB against RocksDB and KyotoCabinet.
   KyotoCabinet was chosen as we were using it in production. RockDB was chosen as it is a well known storage engine
-  with good documentation.   
+  with good documentation and a large community. HaloDB and KyotoCabinet supports only a subset of RocksDB's features, therefore the comparison is not exactly fair to RocksDB.
+       
   All benchmarks were run on bare-metal box with the following specifications:
   * 2 x Xeon E5-2680 2.50GHz (HT enabled, 24 cores, 48 threads) 
   * 128 GB of RAM.
@@ -53,9 +54,9 @@ Insert 500 million records into an empty db in random order.
 ![HaloDB](https://lh3.googleusercontent.com/sJtr8EdXWyw6IjG9oUn6Vb4YAW-KDnfMcqYTDAYOLO3N3sxt-FM-4JaA8hHKQeA63yzHZ9wGvxtp9BXDu-moxJ5K-bqFY2XBXUu4J82TiQ6SFOwC5UI73BxKdg05iS7dzJfe-lQM491xi_7aHnEfkZXOyxy0c8-zz_v4LgbeWILxGKHaGLyqj18dRIKpMw1Gv8fi5kvhSDu8YfsCp6BqZCI3CYUqduKnnHjFK7WAIvyaC6pFr3PkpU4C1ATpW9SGSeATlqbWOZgzMAVu7lZYJEi7xb3HMOkrc6w5kawVnJ62QBh9DRrila5F7fsEbR_sUPbL_WTYHvxMC0NVA2TjSUffg0wo4VJ75251s75DSLuB-Y3jlZ9i9vM6SCvGoPfeizgf8TU8iIc-9Ws9v4nLqewufM8ft4vlyoIA6aqUB_NVOtN7_FXJ40irUoEDzKDUP-cVzWlFWIpP1HXasxmbzwP34S1_oiyn2pAcC3VpGZ5RuzF-vjapscRdKYiFOJE8S5ywiZZYcCvOxwS3lKpMNs4Y_qkgPen3PTDALteoLyV9EKm90EJEMNw6Pm_amM_wj0pk7qjPpTlkhcSspwPXPvnWLJR2EhldWSFq32R8fUsFuFX5dRXmy4ORpHScuCAu5KYx2dwQSCR0WLyDvX8rKPlhNha3nece=w1950-h1066-no)
 
 ## Why HaloDB is fast.
-HaloDB is not necessarily a better storage engine than RocksDB or KyotoCabinet. HaloDB was written for a specific type of workload, and therefore had
+HaloDB doesn't claim to be always better than RocksDB or KyotoCabinet. HaloDB was written for a specific type of workload, and therefore had
 the advantage of optimizing for that workload; the trade-offs that HaloDB makes might make it sub-optimal for other workloads (best to run benchmarks to verify). 
-HaloDB also offers only a small subset of features that RocksDB supports.  
+HaloDB also offers only a small subset of features compared to other storage engines like RocksDB.  
    
 All writes to HaloDB are sequential writes to append-only log files. HaloDB uses a background compaction job to clean up stale data. 
 The threshold at which a file is compacted can be tuned and this determines HaloDB's write amplification and space amplification. 
@@ -66,9 +67,9 @@ those of the index in memory. The trade-off here is that HaloDB will occupy more
 To lookup the value for a key its corresponding metadata is first read from the in-memory index and then the value is read from disk. 
 Therefore each lookup request requires at most a single read from disk, giving us a read amplification of 1, and is primarily responsible 
 for HaloDB’s low read latencies. The trade-off here is that we need to store all the keys and their associated metadata in memory. HaloDB
-also need to scan all the keys during startup to build the in-memory index. This, depending on the number of keys, might take time.   
+also need to scan all the keys during startup to build the in-memory index. This, depending on the number of keys, might take a few minutes.   
 
-HaloDB avoids doing in-place updates and don't need record level locks. A type of MVCC is inherent in the design of all log-structured storage systems. This also helps with performance even under high read and write throughput.
+HaloDB avoids doing in-place updates and doesn't need record level locks. A type of MVCC is inherent in the design of all log-structured storage systems. This also helps with performance even under high read and write throughput.
 
-HaloDB also don't support range scans and therefore don't pay the cost associated with storing data in a format suitable for efficient range scans.
+HaloDB also doesn't support range scans and therefore doesn't pay the cost associated with storing data in a format suitable for efficient range scans.
 

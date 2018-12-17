@@ -29,7 +29,6 @@ public class HashTableValueSerializerTest
     {
         try (OffHeapHashTable<byte[]> cache = OffHeapHashTableBuilder.<byte[]>newBuilder()
                                                             .valueSerializer(HashTableTestUtils.byteArraySerializerFailSerialize)
-                                                            .capacity(512L * 1024 * 1024)
                                                             .fixedValueSize(8)
                                                             .build())
         {

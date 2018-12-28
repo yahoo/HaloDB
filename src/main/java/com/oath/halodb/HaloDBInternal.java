@@ -76,53 +76,59 @@ class HaloDBInternal {
         checkIfOptionsAreCorrect(options);
 
         HaloDBInternal dbInternal = new HaloDBInternal();
-        dbInternal.dbDirectory = DBDirectory.open(directory);
+        try {
+            dbInternal.dbDirectory = DBDirectory.open(directory);
+            dbInternal.dbLock = dbInternal.getLock();
+            dbInternal.options = options;
 
-        dbInternal.dbLock = dbInternal.getLock();
+            int maxFileId = dbInternal.buildReadFileMap();
+            dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
 
-        dbInternal.options = options;
+            DBMetaData dbMetaData = new DBMetaData(dbInternal.dbDirectory);
+            dbMetaData.loadFromFileIfExists();
+            if (dbMetaData.getMaxFileSize() != 0 && dbMetaData.getMaxFileSize() != options.getMaxFileSize()) {
+                throw new IllegalArgumentException("File size cannot be changed after db was created. Current size " + dbMetaData.getMaxFileSize());
+            }
 
-        int maxFileId = dbInternal.buildReadFileMap();
-        dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
+            if (dbMetaData.isOpen() || dbMetaData.isIOError()) {
+                logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
+                // open flag is true, this might mean that the db was not cleanly closed the last time.
+                dbInternal.repairFiles();
+            }
+            dbMetaData.setOpen(true);
+            dbMetaData.setIOError(false);
+            dbMetaData.setVersion(Versions.CURRENT_META_FILE_VERSION);
+            dbMetaData.setMaxFileSize(options.getMaxFileSize());
+            dbMetaData.storeToFile();
 
-        DBMetaData dbMetaData = new DBMetaData(dbInternal.dbDirectory);
-        dbMetaData.loadFromFileIfExists();
-        if (dbMetaData.getMaxFileSize() != 0 && dbMetaData.getMaxFileSize() != options.getMaxFileSize()) {
-            throw new IllegalArgumentException("File size cannot be changed after db was created. Current size " + dbMetaData.getMaxFileSize());
+            dbInternal.compactionManager = new CompactionManager(dbInternal);
+
+            dbInternal.inMemoryIndex = new InMemoryIndex(
+                options.getNumberOfRecords(), options.isUseMemoryPool(),
+                options.getFixedKeySize(), options.getMemoryPoolChunkSize()
+            );
+
+            long maxSequenceNumber = dbInternal.buildInMemoryIndex(options);
+            if (maxSequenceNumber == -1L) {
+                dbInternal.nextSequenceNumber = 1;
+                logger.info("Didn't find any existing records; initializing max sequence number to 1");
+            } else {
+                dbInternal.nextSequenceNumber = maxSequenceNumber + 100;
+                logger.info("Found max sequence number {}, now starting from {}", maxSequenceNumber, dbInternal.nextSequenceNumber);
+            }
+
+            dbInternal.compactionManager.startCompactionThread();
+
+            logger.info("Opened HaloDB {}", directory.getName());
+            logger.info("maxFileSize - {}", options.getMaxFileSize());
+            logger.info("compactionThresholdPerFile - {}", options.getCompactionThresholdPerFile());
+        } catch (Exception e) {
+            // release the lock if open() failed.
+            if (dbInternal.dbLock != null) {
+                dbInternal.dbLock.close();
+            }
+            throw e;
         }
-
-        if (dbMetaData.isOpen() || dbMetaData.isIOError()) {
-            logger.info("DB was not shutdown correctly last time. Files may not be consistent, repairing them.");
-            // open flag is true, this might mean that the db was not cleanly closed the last time.
-            dbInternal.repairFiles();
-        }
-        dbMetaData.setOpen(true);
-        dbMetaData.setIOError(false);
-        dbMetaData.setVersion(Versions.CURRENT_META_FILE_VERSION);
-        dbMetaData.setMaxFileSize(options.getMaxFileSize());
-        dbMetaData.storeToFile();
-
-        dbInternal.compactionManager = new CompactionManager(dbInternal);
-
-        dbInternal.inMemoryIndex = new InMemoryIndex(
-            options.getNumberOfRecords(), options.isUseMemoryPool(),
-            options.getFixedKeySize(), options.getMemoryPoolChunkSize()
-        );
-
-        long maxSequenceNumber = dbInternal.buildInMemoryIndex(options);
-        if (maxSequenceNumber == -1L) {
-            dbInternal.nextSequenceNumber = 1;
-            logger.info("Didn't find any existing records; initializing max sequence number to 1");
-        } else {
-            dbInternal.nextSequenceNumber = maxSequenceNumber + 100;
-            logger.info("Found max sequence number {}, now starting from {}", maxSequenceNumber, dbInternal.nextSequenceNumber);
-        }
-
-        dbInternal.compactionManager.startCompactionThread();
-
-        logger.info("Opened HaloDB {}", directory.getName());
-        logger.info("maxFileSize - {}", options.getMaxFileSize());
-        logger.info("compactionThresholdPerFile - {}", options.getCompactionThresholdPerFile());
 
         return dbInternal;
     }

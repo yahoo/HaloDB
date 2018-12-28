@@ -15,6 +15,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import mockit.Mock;
+import mockit.MockUp;
+
 /**
  * @author Arjun Mannaly
  */
@@ -420,7 +423,40 @@ public class HaloDBTest extends TestBase {
         db.resetStats();
         HaloDB anotherDB = HaloDB.open(directory, new HaloDBOptions());
         anotherDB.resetStats();
+    }
 
+    @Test
+    public void testLockReleaseOnError() throws Throwable {
+
+        new MockUp<DBMetaData>() {
+            int count = 0;
+
+            @Mock
+            void loadFromFileIfExists() throws IOException {
+                System.out.println("Mock called");
+                if (count == 0) {
+                    // throw an exception the first time the method is called.
+                    count = 1;
+                    throw new IOException();
+                }
+            }
+        };
+
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testLockReleaseOnError");
+
+        HaloDB db = null;
+        try {
+            db = getTestDB(directory, new HaloDBOptions());
+        } catch (HaloDBException e) {
+            // swallow the mocked exception. 
+        }
+        // make sure open() failed.
+        Assert.assertNull(db);
+
+        // the lock should have been released when previous open() failed. 
+        HaloDB anotherDB = getTestDBWithoutDeletingFiles(directory, new HaloDBOptions());
+        anotherDB.put(Longs.toByteArray(1), Longs.toByteArray(1));
+        Assert.assertEquals(anotherDB.size(), 1);
     }
 
     @Test(expectedExceptions = HaloDBException.class)

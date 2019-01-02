@@ -61,7 +61,7 @@ public class DBDirectoryTest {
     }
 
     @Test
-    public void testSyncMetaDataNoError() {
+    public void testSyncMetaDataNoError() throws IOException {
         dbDirectory.syncMetaData();
     }
 

@@ -67,7 +67,7 @@ class DBDirectory {
         return FileUtils.listTombstoneFiles(dbDirectory);
     }
 
-    void syncMetaData() {
+    void syncMetaData() throws IOException {
         if (directoryChannel != null) {
             directoryChannel.force(true);
         }

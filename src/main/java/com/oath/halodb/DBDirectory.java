@@ -29,24 +29,25 @@ class DBDirectory {
 
     /**
      * Will create a new directory if one doesn't already exist.
-     * The channel is created to attempt fsync. Windows is known not to allow file channels on
-     * directories and fsync is not applicable - if there is an exception creating the channel
-     * we silently swallow it.
      */
     static DBDirectory open(File directory) throws IOException {
         FileUtils.createDirectoryIfNotExists(directory);
         FileChannel channel = null;
         try {
-        	channel = openReadOnlyChannel(directory);
+            channel = openReadOnlyChannel(directory);
         }
         catch(IOException e) {
+        // only swallow the exception if its Windows
+            if (!isWindows()) {
+                throw e;
+            }
         }
         return new DBDirectory(directory, channel);
     }
 
     void close() throws IOException {
         if (directoryChannel != null) {
-        	directoryChannel.close();
+            directoryChannel.close();
         }
     }
 
@@ -66,6 +67,12 @@ class DBDirectory {
         return FileUtils.listTombstoneFiles(dbDirectory);
     }
 
+    void syncMetaData() {
+        if (directoryChannel != null) {
+            directoryChannel.force(true);
+        }
+    }
+
     /**
      * In Linux the recommended way to flush directory metadata is to open a
      * file descriptor for the directory and to call fsync on it. In Java opening a read-only file channel
@@ -76,16 +83,11 @@ class DBDirectory {
      * This currently works on Linux and OSX but may not work on other platforms. Therefore, if there is
      * an exception we silently swallow it.
      */
-    void syncMetaData() {
-        if (directoryChannel != null) {
-            try {
-                directoryChannel.force(true);
-            } catch (IOException e) {
-            }
-        }
+    private static FileChannel openReadOnlyChannel(File dbDirectory) throws IOException {
+        return FileChannel.open(dbDirectory.toPath(), StandardOpenOption.READ);
     }
 
-    private static FileChannel openReadOnlyChannel(File dbDirectory) throws IOException {
-        return  FileChannel.open(dbDirectory.toPath(), StandardOpenOption.READ);
+    private static boolean isWindows() {
+        return System.getProperty("os.name", "generic").toLowerCase(java.util.Locale.ENGLISH).indexOf("win") != -1;
     }
 }

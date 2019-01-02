@@ -62,9 +62,12 @@ public class TestBase {
     public void closeDB() throws HaloDBException, IOException {
         if (db != null) {
             db.close();
+            db = null;
             File dir = new File(directory);
-            if (dbDirectory != null)
+            if (dbDirectory != null) {
                 dbDirectory.close();
+                dbDirectory = null;
+            }
             TestUtils.deleteDirectory(dir);
         }
     }

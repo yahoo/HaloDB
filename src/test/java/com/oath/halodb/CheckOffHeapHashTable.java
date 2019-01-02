@@ -21,7 +21,6 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
     private final HashTableValueSerializer<V> valueSerializer;
 
     private final CheckSegment[] maps;
-    private final long maxEntrySize;
     private final int segmentShift;
     private final long segmentMask;
     private final float loadFactor;
@@ -43,21 +42,12 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
             maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor());
 
         valueSerializer = builder.getValueSerializer();
-
-        maxEntrySize = builder.getMaxEntrySize();
     }
 
     public boolean put(byte[] key, V value)
     {
         KeyBuffer keyBuffer = keySource(key);
         byte[] data = value(value);
-
-        if (maxEntrySize > 0L && CheckSegment.sizeOf(keyBuffer, data) > maxEntrySize)
-        {
-            remove(key);
-            putFailCount++;
-            return false;
-        }
 
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, false, null);
@@ -69,13 +59,6 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         byte[] data = value(value);
         byte[] oldData = value(old);
 
-        if (maxEntrySize > 0L && CheckSegment.sizeOf(keyBuffer, data) > maxEntrySize)
-        {
-            remove(key);
-            putFailCount++;
-            return false;
-        }
-
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, false, oldData);
     }
@@ -84,13 +67,6 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
     {
         KeyBuffer keyBuffer = keySource(key);
         byte[] data = value(v);
-
-        if (maxEntrySize > 0L && CheckSegment.sizeOf(keyBuffer, data) > maxEntrySize)
-        {
-            remove(key);
-            putFailCount++;
-            return false;
-        }
 
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, true, null);

@@ -11,13 +11,11 @@ class OffHeapHashTableBuilder<V> {
 
     private int segmentCount;
     private int hashTableSize = 8192;
-    private long capacity;
     private int memoryPoolChunkSize = 2 * 1024 * 1024;
     private HashTableValueSerializer<V> valueSerializer;
     private float loadFactor = .75f;
     private int fixedKeySize = -1;
     private int fixedValueSize = -1;
-    private long maxEntrySize;
     private HashAlgorithm hashAlgorighm = HashAlgorithm.MURMUR3;
     private Hasher hasher;
     private boolean unlocked;
@@ -27,69 +25,9 @@ class OffHeapHashTableBuilder<V> {
         int cpus = Runtime.getRuntime().availableProcessors();
 
         segmentCount = roundUpToPowerOf2(cpus * 2, 1 << 30);
-        capacity = Math.min(cpus * 16, 64) * 1024 * 1024;
-
-        segmentCount = fromSystemProperties("segmentCount", segmentCount);
-        hashTableSize = fromSystemProperties("hashTableSize", hashTableSize);
-        capacity = fromSystemProperties("capacity", capacity);
-        memoryPoolChunkSize = fromSystemProperties("memoryPoolChunkSize", memoryPoolChunkSize);
-        loadFactor = fromSystemProperties("loadFactor", loadFactor);
-        maxEntrySize = fromSystemProperties("maxEntrySize", maxEntrySize);
-        hashAlgorighm = HashAlgorithm.valueOf(fromSystemProperties("hashAlgorighm", hashAlgorighm.name()));
-        unlocked = fromSystemProperties("unlocked", unlocked);
     }
 
-    public static final String SYSTEM_PROPERTY_PREFIX = "org.caffinitas.ohc.";
-
-    private static float fromSystemProperties(String name, float defaultValue) {
-        try {
-            return Float.parseFloat(System.getProperty(SYSTEM_PROPERTY_PREFIX + name, Float.toString(defaultValue)));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse system property " + SYSTEM_PROPERTY_PREFIX + name, e);
-        }
-    }
-
-    private static long fromSystemProperties(String name, long defaultValue) {
-        try {
-            return Long.parseLong(System.getProperty(SYSTEM_PROPERTY_PREFIX + name, Long.toString(defaultValue)));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse system property " + SYSTEM_PROPERTY_PREFIX + name, e);
-        }
-    }
-
-    private static int fromSystemProperties(String name, int defaultValue) {
-        try {
-            return Integer.parseInt(System.getProperty(SYSTEM_PROPERTY_PREFIX + name, Integer.toString(defaultValue)));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse system property " + SYSTEM_PROPERTY_PREFIX + name, e);
-        }
-    }
-
-    private static double fromSystemProperties(String name, double defaultValue) {
-        try {
-            return Double.parseDouble(System.getProperty(SYSTEM_PROPERTY_PREFIX + name, Double.toString(defaultValue)));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse system property " + SYSTEM_PROPERTY_PREFIX + name, e);
-        }
-    }
-
-    private static boolean fromSystemProperties(String name, boolean defaultValue) {
-        try {
-            return Boolean
-                .parseBoolean(System.getProperty(SYSTEM_PROPERTY_PREFIX + name, Boolean.toString(defaultValue)));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse system property " + SYSTEM_PROPERTY_PREFIX + name, e);
-        }
-    }
-
-    private static String fromSystemProperties(String name, String defaultValue) {
-        return System.getProperty(SYSTEM_PROPERTY_PREFIX + name, defaultValue);
-    }
-
-    private static <E extends Enum> E fromSystemProperties(String name, E defaultValue, Class<E> type) {
-        String value = fromSystemProperties(name, defaultValue.name());
-        return (E) Enum.valueOf(type, value.toUpperCase());
-    }
+    static final String SYSTEM_PROPERTY_PREFIX = "org.caffinitas.ohc.";
 
     static int roundUpToPowerOf2(int number, int max) {
         return number >= max
@@ -97,7 +35,7 @@ class OffHeapHashTableBuilder<V> {
                : (number > 1) ? Integer.highestOneBit((number - 1) << 1) : 1;
     }
 
-    public static <V> OffHeapHashTableBuilder<V> newBuilder() {
+    static <V> OffHeapHashTableBuilder<V> newBuilder() {
         return new OffHeapHashTableBuilder<>();
     }
 
@@ -142,18 +80,6 @@ class OffHeapHashTableBuilder<V> {
         return this;
     }
 
-    public long getCapacity() {
-        return capacity;
-    }
-
-    public OffHeapHashTableBuilder<V> capacity(long capacity) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("capacity:" + capacity);
-        }
-        this.capacity = capacity;
-        return this;
-    }
-
     public HashTableValueSerializer<V> getValueSerializer() {
         return valueSerializer;
     }
@@ -187,18 +113,6 @@ class OffHeapHashTableBuilder<V> {
         return this;
     }
 
-    public long getMaxEntrySize() {
-        return maxEntrySize;
-    }
-
-    public OffHeapHashTableBuilder<V> maxEntrySize(long maxEntrySize) {
-        if (maxEntrySize < 0) {
-            throw new IllegalArgumentException("maxEntrySize:" + maxEntrySize);
-        }
-        this.maxEntrySize = maxEntrySize;
-        return this;
-    }
-
     public int getFixedKeySize() {
         return fixedKeySize;
     }
@@ -213,16 +127,6 @@ class OffHeapHashTableBuilder<V> {
 
     public int getFixedValueSize() {
         return fixedValueSize;
-    }
-
-    public OffHeapHashTableBuilder<V> fixedEntrySize(int fixedKeySize, int fixedValueSize) {
-        if ((fixedKeySize > 0 || fixedValueSize > 0) &&
-            (fixedKeySize <= 0 || fixedValueSize <= 0)) {
-            throw new IllegalArgumentException("fixedKeySize:" + fixedKeySize + ",fixedValueSize:" + fixedValueSize);
-        }
-        this.fixedKeySize = fixedKeySize;
-        this.fixedValueSize = fixedValueSize;
-        return this;
     }
 
     public OffHeapHashTableBuilder<V> fixedValueSize(int fixedValueSize) {

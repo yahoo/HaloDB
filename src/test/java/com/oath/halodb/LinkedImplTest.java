@@ -38,8 +38,7 @@ public class LinkedImplTest
     static OffHeapHashTable<String> cache(long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
         OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.<String>newBuilder()
-                                                  .valueSerializer(HashTableTestUtils.stringSerializer)
-                                                  .capacity(capacity * HashTableTestUtils.ONE_MB);
+                                                  .valueSerializer(HashTableTestUtils.stringSerializer);
         if (hashTableSize > 0)
             builder.hashTableSize(hashTableSize);
         if (segments > 0)
@@ -47,8 +46,6 @@ public class LinkedImplTest
         else
             // use 16 segments by default to prevent differing test behaviour on varying test hardware
             builder.segmentCount(16);
-        if (maxEntrySize > 0)
-            builder.maxEntrySize(maxEntrySize);
 
         return builder.build();
     }

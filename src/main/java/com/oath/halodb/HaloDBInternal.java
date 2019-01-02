@@ -488,7 +488,6 @@ class HaloDBInternal {
 
                     if (options.isCleanUpTombstonesDuringOpen()) {
                         rollOverCurrentTombstoneFile(entry);
-                        dbDirectory.syncMetaData();
                         currentTombstoneFile.write(entry);
                         copied++;
                     }

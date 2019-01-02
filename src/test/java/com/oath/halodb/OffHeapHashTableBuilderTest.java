@@ -16,17 +16,7 @@ import java.util.HashSet;
 
 public class OffHeapHashTableBuilderTest
 {
-    @AfterMethod
-    public void clearProperties()
-    {
-        for (Object k : new HashSet(System.getProperties().keySet()))
-        {
-            String key = (String)k;
-            if (key.startsWith("org.caffinitas.ohc."))
-                System.getProperties().remove(key);
-        }
-    }
-
+    
     @Test
     public void testHashTableSize() throws Exception
     {
@@ -34,10 +24,6 @@ public class OffHeapHashTableBuilderTest
         Assert.assertEquals(builder.getHashTableSize(), 8192);
         builder.hashTableSize(12345);
         Assert.assertEquals(builder.getHashTableSize(), 12345);
-
-        System.setProperty("org.caffinitas.ohc.hashTableSize", "98765");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getHashTableSize(), 98765);
     }
 
     @Test
@@ -46,21 +32,6 @@ public class OffHeapHashTableBuilderTest
         OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.newBuilder();
         builder.memoryPoolChunkSize(12345);
         Assert.assertEquals(builder.getMemoryPoolChunkSize(), 12345);
-    }
-
-    @Test
-    public void testCapacity() throws Exception
-    {
-        int cpus = Runtime.getRuntime().availableProcessors();
-
-        OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getCapacity(), Math.min(cpus * 16, 64) * 1024 * 1024);
-        builder.capacity(12345);
-        Assert.assertEquals(builder.getCapacity(), 12345);
-
-        System.setProperty("org.caffinitas.ohc.capacity", "98765");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getCapacity(), 98765);
     }
 
     @Test
@@ -75,10 +46,6 @@ public class OffHeapHashTableBuilderTest
         Assert.assertEquals(builder.getSegmentCount(), segments);
         builder.segmentCount(12345);
         Assert.assertEquals(builder.getSegmentCount(), 12345);
-
-        System.setProperty("org.caffinitas.ohc.segmentCount", "98765");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getSegmentCount(), 98765);
     }
 
     @Test
@@ -88,23 +55,6 @@ public class OffHeapHashTableBuilderTest
         Assert.assertEquals(builder.getLoadFactor(), .75f);
         builder.loadFactor(12345);
         Assert.assertEquals(builder.getLoadFactor(), 12345.0f);
-
-        System.setProperty("org.caffinitas.ohc.loadFactor", "98765");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getLoadFactor(), 98765.0f);
-    }
-
-    @Test
-    public void testMaxEntrySize() throws Exception
-    {
-        OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getMaxEntrySize(), 0L);
-        builder.maxEntrySize(12345);
-        Assert.assertEquals(builder.getMaxEntrySize(), 12345);
-
-        System.setProperty("org.caffinitas.ohc.maxEntrySize", "98765");
-        builder = OffHeapHashTableBuilder.newBuilder();
-        Assert.assertEquals(builder.getMaxEntrySize(), 98765);
     }
 
     @Test

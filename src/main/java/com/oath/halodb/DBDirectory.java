@@ -37,7 +37,7 @@ class DBDirectory {
             channel = openReadOnlyChannel(directory);
         }
         catch(IOException e) {
-        // only swallow the exception if its Windows
+            // only swallow the exception if its Windows
             if (!isWindows()) {
                 throw e;
             }

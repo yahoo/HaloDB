@@ -136,6 +136,10 @@ class HaloDBInternal {
     void close() throws IOException {
         writeLock.lock();
         try {
+            if (isClosing) {
+                // instance already closed.
+                return;
+            }
             isClosing = true;
 
             try {

@@ -80,6 +80,19 @@ public final class HaloDB {
         return new HaloDBIterator(dbInternal);
     }
 
+    public void pauseCompaction() throws HaloDBException {
+        try {
+            dbInternal.pauseCompaction();
+        } catch (IOException | InterruptedException e) {
+            throw new HaloDBException("Error while trying to pause compaction thread", e);
+        }
+    }
+
+    public void resumeCompaction() {
+        dbInternal.resumeCompaction();
+    }
+
+
     // methods used in tests.
 
     @VisibleForTesting

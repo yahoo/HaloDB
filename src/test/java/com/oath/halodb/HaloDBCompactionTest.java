@@ -13,6 +13,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class HaloDBCompactionTest extends TestBase {
 
@@ -196,6 +198,64 @@ public class HaloDBCompactionTest extends TestBase {
         for (Record r : updatedRecords) {
             Assert.assertEquals(db.get(r.getKey()), r.getValue());
         }
+    }
+
+    @Test
+    public void testPauseAndResumeCompaction() throws HaloDBException, InterruptedException {
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testPauseAndResumeCompaction");
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.setMaxFileSize(10 * 1024);
+
+        // start compaction immediately after a record is updated.
+        options.setCompactionThresholdPerFile(.001);
+
+        HaloDB db = getTestDB(directory, options);
+
+        // insert 100 records of size 1kb into 100 files.
+        int noOfRecords = 1000;
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - Record.Header.HEADER_SIZE);
+        List<File> dataFiles = TestUtils.getDataFiles(directory);
+        db.pauseCompaction();
+
+        // update first record of each file.
+        List<Record> recordsToUpdate = IntStream.range(0, records.size()).filter(i -> i%10 == 0)
+            .mapToObj(i -> records.get(i)).collect(Collectors.toList());
+        TestUtils.updateRecordsWithSize(db, recordsToUpdate, 1024-Record.Header.HEADER_SIZE);
+        TestUtils.waitForCompactionToComplete(db);
+
+        // compaction was paused, therefore no compaction files must be present. 
+        Assert.assertFalse(TestUtils.getLatestCompactionFile(directory).isPresent());
+
+        // resume and pause compaction a few times.
+        // each is also called multiple times; duplicate calls shouldn't have any effect.
+        db.resumeCompaction();
+
+        Thread.sleep(5);
+        db.pauseCompaction();
+        db.pauseCompaction();
+        TestUtils.waitForCompactionToComplete(db);
+
+        Thread.sleep(100);
+        db.resumeCompaction();
+        db.resumeCompaction();
+
+        Thread.sleep(20);
+        db.pauseCompaction();
+        db.pauseCompaction();
+        db.pauseCompaction();
+        TestUtils.waitForCompactionToComplete(db);
+
+        Thread.sleep(100);
+        db.resumeCompaction();
+        db.resumeCompaction();
+        TestUtils.waitForCompactionToComplete(db);
+
+        // compaction files are present.
+        Assert.assertTrue(TestUtils.getLatestCompactionFile(directory).isPresent());
+
+        // all the data files created before update were deleted by compaction thread.
+        dataFiles.forEach(f -> Assert.assertFalse(f.exists(), "data file " + f.getName() + " still exists"));
     }
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws HaloDBException {

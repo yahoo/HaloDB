@@ -5,6 +5,7 @@
 
 package com.oath.halodb;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.RateLimiter;
 
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ class CompactionManager {
 
     private  final HaloDBInternal dbInternal;
 
-    private volatile boolean isRunning = true;
+    private volatile boolean isRunning = false;
 
     private final RateLimiter compactionRateLimiter;
 
@@ -47,7 +48,7 @@ class CompactionManager {
         this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
-    boolean stopCompactionThread() throws IOException {
+    synchronized boolean stopCompactionThread() throws IOException {
         isRunning = false;
         if (compactionThread != null) {
             try {
@@ -70,7 +71,30 @@ class CompactionManager {
     }
 
     synchronized void startCompactionThread() {
-        if (compactionThread == null) {
+        if (compactionThread == null && !dbInternal.options.isCompactionDisabled()) {
+            isRunning = true;
+            compactionThread = new CompactionThread();
+            compactionThread.start();
+        }
+    }
+
+    /**
+     * If a file is being compacted we wait for it complete before pausing,
+     * else we pause immediately. 
+     */
+    synchronized void pauseCompactionThread() throws IOException, InterruptedException {
+        logger.info("Pausing compaction thread ...");
+        isRunning = false;
+        if (compactionThread != null && compactionThread.isAlive()) {
+            compactionQueue.put(STOP_SIGNAL);
+            compactionThread.join();
+        }
+    }
+
+    synchronized void resumeCompaction() {
+        logger.info("Resuming compaction thread");
+        if (!isRunning && compactionThread != null && !compactionThread.isAlive()) {
+            isRunning = true;
             compactionThread = new CompactionThread();
             compactionThread.start();
         }
@@ -122,6 +146,10 @@ class CompactionManager {
             = numberOfRecordsScanned = sizeOfRecordsCopied = sizeOfFilesDeleted = 0;
     }
 
+    boolean isCompactionPaused() {
+        return !isRunning;
+    }
+
     private class CompactionThread extends Thread {
 
         private long unFlushedData = 0;
@@ -150,12 +178,14 @@ class CompactionManager {
             logger.info("Starting compaction thread ...");
             int fileToCompact = -1;
 
-            while (isRunning && !dbInternal.options.isCompactionDisabled()) {
+            while (isRunning) {
                 try {
                     fileToCompact = compactionQueue.take();
                     if (fileToCompact == STOP_SIGNAL) {
                         logger.debug("Received a stop signal.");
-                        break;
+                        // pausing/stopping compaction also requires isRunning flag to be set to false.
+                        // therefore we skip rest of the steps and check the status of isRunning.  
+                        continue;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);
                     copyFreshRecordsToNewFile(fileToCompact);
@@ -273,13 +303,21 @@ class CompactionManager {
     }
 
 
-    // Used only for tests. to be called only after all writes in the test have been performed.  
-    boolean isCompactionComplete() {
+    // Used only for tests. to be called only after all writes in the test have been performed.
+    @VisibleForTesting
+    synchronized boolean isCompactionComplete() {
         if (dbInternal.options.isCompactionDisabled())
+            return true;
+
+        // check if compaction was paused.
+        // since pause/resume methods are synchronized on the same object
+        // we just need to check the status of isRunning flag.
+        if (!isRunning)
             return true;
 
         if (compactionQueue.isEmpty()) {
             try {
+                isRunning = false;
                 submitFileForCompaction(STOP_SIGNAL);
                 compactionThread.join();
             } catch (InterruptedException e) {

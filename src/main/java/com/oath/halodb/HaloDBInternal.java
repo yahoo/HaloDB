@@ -291,6 +291,14 @@ class HaloDBInternal {
         metaData.storeToFile();
     }
 
+    void pauseCompaction() throws IOException, InterruptedException {
+        compactionManager.pauseCompactionThread();
+    }
+
+    void resumeCompaction() {
+        compactionManager.resumeCompaction();
+    }
+
     private InMemoryIndexMetaData writeRecordToFile(Record record) throws IOException, HaloDBException {
         rollOverCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);

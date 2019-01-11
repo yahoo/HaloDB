@@ -23,9 +23,9 @@ public class DBRepairTest extends TestBase {
         String directory = TestUtils.getTestDirectory("DBRepairTest", "testRepairDB");
 
         options.setMaxFileSize(1024 * 1024);
-        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
         int noOfRecords = 5 * 1024 + 512; // 5 files with 1024 records and 1 with 512 records. 
 
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
@@ -132,9 +132,9 @@ public class DBRepairTest extends TestBase {
         String directory = TestUtils.getTestDirectory("DBRepairTest", "testRepairWithMultipleTombstoneFiles");
 
         HaloDBOptions options = new HaloDBOptions();
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(320);
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfTombstonesPerFile = 10;
         int noOfFiles = 3;

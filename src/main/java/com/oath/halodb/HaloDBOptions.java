@@ -37,9 +37,6 @@ public class HaloDBOptions implements Cloneable {
 
     private int memoryPoolChunkSize = 16 * 1024 * 1024;
 
-    // used for testing.
-    private boolean isCompactionDisabled = false;
-
     // Just to avoid clients having to deal with CloneNotSupportedException
     public HaloDBOptions clone() {
         try {
@@ -56,7 +53,6 @@ public class HaloDBOptions implements Cloneable {
             .add("maxFileSize", maxFileSize)
             .add("flushDataSizeBytes", flushDataSizeBytes)
             .add("syncWrite", syncWrite)
-            .add("isCompactionDisabled", isCompactionDisabled)
             .add("numberOfRecords", numberOfRecords)
             .add("compactionJobRate", compactionJobRate)
             .add("cleanUpInMemoryIndexOnClose", cleanUpInMemoryIndexOnClose)
@@ -82,10 +78,6 @@ public class HaloDBOptions implements Cloneable {
         this.flushDataSizeBytes = flushDataSizeBytes;
     }
 
-    public void setCompactionDisabled(boolean compactionDisabled) {
-        isCompactionDisabled = compactionDisabled;
-    }
-
     public void setNumberOfRecords(int numberOfRecords) {
         this.numberOfRecords = numberOfRecords;
     }
@@ -108,10 +100,6 @@ public class HaloDBOptions implements Cloneable {
 
     public long getFlushDataSizeBytes() {
         return flushDataSizeBytes;
-    }
-
-    public boolean isCompactionDisabled() {
-        return isCompactionDisabled;
     }
 
     public int getNumberOfRecords() {

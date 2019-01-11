@@ -36,9 +36,8 @@ public class HaloDBIteratorTest extends TestBase {
     public void testWithDelete(HaloDBOptions options) throws HaloDBException {
         String directory =  TestUtils.getTestDirectory("HaloDBIteratorTest", "testWithEmptyDB");
 
-        options.setCompactionDisabled(true);
-
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
 
@@ -61,10 +60,10 @@ public class HaloDBIteratorTest extends TestBase {
     public void testPutAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutAndGetDB");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -79,10 +78,10 @@ public class HaloDBIteratorTest extends TestBase {
     public void testPutUpdateAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateAndGetDB");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -98,7 +97,6 @@ public class HaloDBIteratorTest extends TestBase {
     public void testPutUpdateCompactAndGetDB(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testPutUpdateMergeAndGetDB");
 
-        options.setCompactionDisabled(false);
         options.setMaxFileSize(10 * 1024);
         options.setCompactionThresholdPerFile(0.50);
 

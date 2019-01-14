@@ -30,7 +30,7 @@ class CompactionManager {
 
     private final BlockingQueue<Integer> compactionQueue;
 
-    private CompactionThread compactionThread;
+    private volatile CompactionThread compactionThread;
 
     private volatile long numberOfRecordsCopied = 0;
     private volatile long numberOfRecordsReplaced = 0;
@@ -72,6 +72,7 @@ class CompactionManager {
 
     synchronized void startCompactionThread() {
         if (isCompactionPaused()) {
+            logger.info("Starting compaction thread");
             isRunning = true;
             compactionThread = new CompactionThread();
             compactionThread.start();
@@ -143,7 +144,7 @@ class CompactionManager {
     }
 
     boolean isCompactionPaused() {
-        return !isRunning && (compactionThread == null || !compactionThread.isAlive());
+        return !isRunning || compactionThread == null || !compactionThread.isAlive();
     }
 
     private class CompactionThread extends Thread {

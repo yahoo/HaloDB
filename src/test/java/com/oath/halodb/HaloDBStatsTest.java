@@ -79,7 +79,7 @@ public class HaloDBStatsTest extends TestBase {
         options.setCompactionThresholdPerFile(0.50);
 
         HaloDB db = getTestDB(dir, options);
-        Assert.assertFalse(db.stats().isCompactionPaused());
+        Assert.assertTrue(db.stats().isCompactionRunning());
         db.pauseCompaction();
         
         // will create 10 files with 10 records each.
@@ -96,7 +96,7 @@ public class HaloDBStatsTest extends TestBase {
         TestUtils.waitForCompactionToComplete(db);
 
         // compaction stats are 0 since compaction is paused.
-        Assert.assertTrue(db.stats().isCompactionPaused());
+        Assert.assertFalse(db.stats().isCompactionRunning());
         Assert.assertEquals(db.stats().getCompactionRateInInternal(), 0);
         Assert.assertEquals(db.stats().getCompactionRateSinceBeginning(), 0);
         Assert.assertNotEquals(db.stats().toString().length(), 0);
@@ -104,7 +104,7 @@ public class HaloDBStatsTest extends TestBase {
         db.close();
 
         db = getTestDBWithoutDeletingFiles(dir, options);
-        Assert.assertFalse(db.stats().isCompactionPaused());
+        Assert.assertTrue(db.stats().isCompactionRunning());
 
         TestUtils.waitForCompactionToComplete(db);
 

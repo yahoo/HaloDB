@@ -37,11 +37,11 @@ public class HaloDBStats {
     private final long compactionRateInInternal;
     private final long compactionRateSinceBeginning;
 
-    private final boolean isCompactionPaused;
+    private final boolean isCompactionRunning;
 
     private final HaloDBOptions options;
 
-    public HaloDBStats(long statsResetTime, long size, boolean isCompactionPaused, int numberOfFilesPendingCompaction,
+    public HaloDBStats(long statsResetTime, long size, boolean isCompactionRunning, int numberOfFilesPendingCompaction,
                        Map<Integer, Double> staleDataPercentPerFile, long rehashCount, long numberOfSegments,
                        long maxSizePerSegment, SegmentStats[] segmentStats, long numberOfTombstonesFoundDuringOpen,
                        long numberOfTombstonesCleanedUpDuringOpen, long numberOfRecordsCopied,
@@ -64,7 +64,7 @@ public class HaloDBStats {
         this.sizeOfFilesDeleted = sizeOfFilesDeleted;
         this.sizeReclaimed = sizeReclaimed;
         this.compactionRateSinceBeginning = compactionRateSinceBeginning;
-        this.isCompactionPaused = isCompactionPaused;
+        this.isCompactionRunning = isCompactionRunning;
 
         long intervalTimeInSeconds = (System.currentTimeMillis() - statsResetTime)/1000;
         if (intervalTimeInSeconds > 0) {
@@ -149,8 +149,8 @@ public class HaloDBStats {
         return compactionRateSinceBeginning;
     }
 
-    public boolean isCompactionPaused() {
-        return isCompactionPaused;
+    public boolean isCompactionRunning() {
+        return isCompactionRunning;
     }
 
     @Override
@@ -159,7 +159,7 @@ public class HaloDBStats {
             .add("statsResetTime", statsResetTime)
             .add("size", size)
             .add("Options", options)
-            .add("isCompactionPaused", isCompactionPaused)
+            .add("isCompactionRunning", isCompactionRunning)
             .add("CompactionJobRateInInterval", getUnit(compactionRateInInternal))
             .add("CompactionJobRateSinceBeginning", getUnit(compactionRateSinceBeginning))
             .add("numberOfFilesPendingCompaction", numberOfFilesPendingCompaction)

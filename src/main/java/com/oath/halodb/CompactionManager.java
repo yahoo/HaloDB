@@ -144,7 +144,7 @@ class CompactionManager {
     }
 
     boolean isCompactionRunning() {
-        return isRunning || (compactionThread != null && compactionThread.isAlive());
+        return isRunning && compactionThread != null && compactionThread.isAlive();
     }
 
     private class CompactionThread extends Thread {

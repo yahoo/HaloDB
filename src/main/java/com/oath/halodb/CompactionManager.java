@@ -72,7 +72,6 @@ class CompactionManager {
 
     synchronized void startCompactionThread() {
         if (!isCompactionRunning()) {
-            logger.info("Starting compaction thread");
             isRunning = true;
             compactionThread = new CompactionThread();
             compactionThread.start();
@@ -155,7 +154,7 @@ class CompactionManager {
             super("CompactionThread");
 
             setUncaughtExceptionHandler((t, e) -> {
-                logger.error("Compaction thread crashed. Creating and running another thread. ", e);
+                logger.error("Compaction thread crashed", e);
                 if (currentWriteFile != null) {
                     try {
                         currentWriteFile.flushToDisk();
@@ -165,8 +164,17 @@ class CompactionManager {
                     currentWriteFile = null;
                 }
                 currentWriteFileOffset = 0;
-                isRunning = false;
-                startCompactionThread();
+                if (isRunning) {
+                    // There could be a deadlock if we try to create a new thread after stop or pause compaction
+                    // methods are called. Therefore we create a new thread only if isRunning flag is false.
+                    // (stop and pause compaction methods will set this flag to false.)
+                    logger.info("Creating and running another compaction thread.");
+                    isRunning = false;
+                    startCompactionThread();
+                }
+                else {
+                    logger.info("Not restarting compaction thread since isRunning flag turned off");
+                }
             });
         }
 

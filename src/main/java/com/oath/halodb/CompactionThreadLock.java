@@ -99,8 +99,10 @@ class CompactionThreadLock {
                 }
             }
             else if (thread == getExclusiveOwnerThread()) {
-                if (getState() != state) {
-                    throw new IllegalMonitorStateException();
+                if (currentState != state) {
+                    throw new IllegalMonitorStateException(
+                        "Invalid acquire operation. Current state " + currentState + " != " + state
+                    );
                 }
                 acquireCount.incrementAndGet();
                 if (acquireCount.get() < 0) // overflow
@@ -112,9 +114,16 @@ class CompactionThreadLock {
 
         @Override
         protected final boolean tryRelease(int state) {
-            if (Thread.currentThread() != getExclusiveOwnerThread() || getState() != state) {
-                throw new IllegalMonitorStateException();
+            if (Thread.currentThread() != getExclusiveOwnerThread()) {
+                throw new IllegalMonitorStateException("Lock is held by another thread");
             }
+            int currentState = getState();
+            if (currentState != state) {
+                throw new IllegalMonitorStateException(
+                    "Invalid release operation. Current state " + currentState + " != " + state
+                );
+            }
+
             if(acquireCount.decrementAndGet() == 0) {
                 setExclusiveOwnerThread(null);
                 setState(unlocked);

@@ -140,7 +140,7 @@ class HaloDBInternal {
             isClosing = true;
 
             try {
-                if(!compactionManager.stopCompactionThread())
+                if(!compactionManager.stopCompactionThread(true))
                     setIOErrorFlag();
             } catch (IOException e) {
                 logger.error("Error while stopping compaction thread. Setting IOError flag", e);

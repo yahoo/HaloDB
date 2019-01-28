@@ -42,39 +42,51 @@ class CompactionManager {
 
     private static final int STOP_SIGNAL = -10101;
 
+    private final CompactionThreadLock lock = new CompactionThreadLock();
+
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
         this.compactionRateLimiter = RateLimiter.create(dbInternal.options.getCompactionJobRate());
         this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
-    synchronized boolean stopCompactionThread() throws IOException {
-        isRunning = false;
-        if (compactionThread != null) {
-            try {
+    boolean stopCompactionThread(boolean closeCurrentWriteFile) throws IOException {
+        lock.acquireStopLock();
+        try {
+            isRunning = false;
+            if (isCompactionRunning()) {
                 // We don't want to call interrupt on compaction thread as it
                 // may interrupt IO operations and leave files in an inconsistent state.
                 // instead we use -10101 as a stop signal.
                 compactionQueue.put(STOP_SIGNAL);
                 compactionThread.join();
-                if (currentWriteFile != null) {
+                if (closeCurrentWriteFile && currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
                     currentWriteFile.getIndexFile().flushToDisk();
                     currentWriteFile.close();
                 }
-            } catch (InterruptedException e) {
-                logger.error("Error while waiting for compaction thread to stop", e);
-                return false;
             }
+        }
+        catch (InterruptedException e) {
+            logger.error("Error while waiting for compaction thread to stop", e);
+            return false;
+        }
+        finally {
+            lock.releaseStopLock();
         }
         return true;
     }
 
-    synchronized void startCompactionThread() {
-        if (!isCompactionRunning()) {
-            isRunning = true;
-            compactionThread = new CompactionThread();
-            compactionThread.start();
+    void startCompactionThread() {
+        lock.acquireStartLock();
+        try {
+            if (!isCompactionRunning()) {
+                isRunning = true;
+                compactionThread = new CompactionThread();
+                compactionThread.start();
+            }
+        } finally {
+            lock.releaseStartLock();
         }
     }
 
@@ -82,16 +94,12 @@ class CompactionManager {
      * If a file is being compacted we wait for it complete before pausing,
      * else we pause immediately. 
      */
-    synchronized void pauseCompactionThread() throws IOException, InterruptedException {
+    void pauseCompactionThread() throws IOException, InterruptedException {
         logger.info("Pausing compaction thread ...");
-        isRunning = false;
-        if (compactionThread != null && compactionThread.isAlive()) {
-            compactionQueue.put(STOP_SIGNAL);
-            compactionThread.join();
-        }
+        stopCompactionThread(false);
     }
 
-    synchronized void resumeCompaction() {
+    void resumeCompaction() {
         logger.info("Resuming compaction thread");
         startCompactionThread();
     }
@@ -143,7 +151,7 @@ class CompactionManager {
     }
 
     boolean isCompactionRunning() {
-        return isRunning && compactionThread != null && compactionThread.isAlive();
+        return compactionThread != null && compactionThread.isAlive();
     }
 
     private class CompactionThread extends Thread {
@@ -158,23 +166,25 @@ class CompactionManager {
                 if (currentWriteFile != null) {
                     try {
                         currentWriteFile.flushToDisk();
-                    } catch (IOException e1) {
-                        logger.error("Error while flushing " + currentWriteFile.getFileId() + " to disk", e);
+                    } catch (IOException ex) {
+                        logger.error("Error while flushing " + currentWriteFile.getFileId() + " to disk", ex);
                     }
                     currentWriteFile = null;
                 }
                 currentWriteFileOffset = 0;
-                if (isRunning) {
-                    // There could be a deadlock if we try to create a new thread after stop or pause compaction
-                    // methods are called. Therefore we create a new thread only if isRunning flag is false.
-                    // (stop and pause compaction methods will set this flag to false.)
-                    logger.info("Creating and running another compaction thread.");
-                    isRunning = false;
-                    startCompactionThread();
+
+                if (lock.acquireRestartLock()) {
+                    try {
+                        compactionThread = null;
+                        startCompactionThread();
+                    } finally {
+                        lock.releaseRestartLock();
+                    }
                 }
                 else {
-                    logger.info("Not restarting compaction thread since isRunning flag turned off");
+                    logger.info("Not restarting thread as the lock is held by stop compaction method.");
                 }
+
             });
         }
 
@@ -202,7 +212,6 @@ class CompactionManager {
                     logger.error(String.format("Error while compacting file %d to %d", fileToCompact, getCurrentWriteFileId()), e);
                 }
             }
-
             logger.info("Compaction thread stopped.");
         }
 

@@ -7,9 +7,6 @@ package com.oath.halodb;
 
 import com.google.common.base.MoreObjects;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBOptions implements Cloneable {
 
     // threshold of stale data at which file needs to be compacted.

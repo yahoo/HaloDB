@@ -10,9 +10,6 @@ import com.google.common.base.MoreObjects;
 import java.util.Arrays;
 import java.util.Map;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBStats {
 
     private final long statsResetTime;

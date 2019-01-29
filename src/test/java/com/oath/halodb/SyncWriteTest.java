@@ -11,9 +11,6 @@ import mockit.Invocation;
 import mockit.Mock;
 import mockit.MockUp;
 
-/**
- * @author Arjun Mannaly
- */
 public class SyncWriteTest extends TestBase {
 
     @Test

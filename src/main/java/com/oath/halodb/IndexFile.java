@@ -18,9 +18,6 @@ import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Objects;
 
-/**
- * @author Arjun Mannaly
- */
 class IndexFile {
     private static final Logger logger = LoggerFactory.getLogger(IndexFile.class);
 

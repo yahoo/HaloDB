@@ -3,9 +3,6 @@ package com.oath.halodb;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBOptionsTest  extends TestBase {
 
     @Test

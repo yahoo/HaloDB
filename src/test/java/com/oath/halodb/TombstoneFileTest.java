@@ -20,9 +20,6 @@ import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author Arjun Mannaly
- */
 public class TombstoneFileTest {
 
     private File directory = new File(TestUtils.getTestDirectory("TombstoneFileTest"));

@@ -11,9 +11,6 @@ import org.testng.annotations.DataProvider;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * @author Arjun Mannaly
- */
 public class TestBase {
 
     private String directory;

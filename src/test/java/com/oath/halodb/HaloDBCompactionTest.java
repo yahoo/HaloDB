@@ -14,9 +14,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBCompactionTest extends TestBase {
 
     private final int recordSize = 1024;

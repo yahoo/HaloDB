@@ -7,9 +7,6 @@ package com.oath.halodb;
 
 import java.util.Random;
 
-/**
- * @author Arjun Mannaly
- */
 class RandomDataGenerator {
 
     private final byte[] data;

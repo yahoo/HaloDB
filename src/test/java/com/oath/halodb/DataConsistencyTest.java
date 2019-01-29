@@ -18,9 +18,6 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * @author Arjun Mannaly
- */
 public class DataConsistencyTest extends TestBase {
     private static final Logger logger = LoggerFactory.getLogger(DataConsistencyTest.class);
 

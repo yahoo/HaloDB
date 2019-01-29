@@ -14,8 +14,6 @@ import java.io.IOException;
 
 /**
  * Hash table stored in native memory, outside Java heap.
- *
- * @author Arjun Mannaly
  */
 class InMemoryIndex {
     private static final Logger logger = LoggerFactory.getLogger(InMemoryIndex.class);

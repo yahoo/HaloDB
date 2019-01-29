@@ -4,9 +4,6 @@
  */
 package com.oath.halodb;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBException extends Exception {
     private static final long serialVersionUID = 1010101L;
 

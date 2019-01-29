@@ -24,9 +24,6 @@ import mockit.MockUp;
 import mockit.Mocked;
 import mockit.VerificationsInOrder;
 
-/**
- * @author Arjun Mannaly
- */
 public class CompactionWithErrorsTest extends TestBase {
 
     @Test

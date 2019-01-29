@@ -13,9 +13,6 @@ import java.util.zip.CRC32;
 
 import static com.oath.halodb.IndexFileEntry.*;
 
-/**
- * @author Arjun Mannaly
- */
 public class IndexFileEntryTest {
 
     @Test

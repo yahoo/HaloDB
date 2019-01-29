@@ -7,9 +7,6 @@ package com.oath.halodb;
 
 import com.google.common.base.MoreObjects;
 
-/**
- * @author Arjun Mannaly
- */
 class SegmentStats {
 
     private final long noOfEntries;

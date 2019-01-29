@@ -18,8 +18,6 @@ import static java.nio.file.StandardCopyOption.*;
 /**
  * Represents the Metadata for the DB, stored in METADATA_FILE_NAME,
  * and contains methods to operate on it.
- *
- * @author Arjun Mannaly
  */
 class DBMetaData {
 

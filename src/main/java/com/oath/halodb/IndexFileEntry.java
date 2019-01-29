@@ -10,8 +10,6 @@ import java.util.zip.CRC32;
 
 /**
  * This is what is stored in the index file.
- *
- * @author Arjun Mannaly
  */
 class IndexFileEntry {
 

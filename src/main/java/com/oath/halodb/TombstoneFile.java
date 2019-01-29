@@ -21,9 +21,6 @@ import java.util.Objects;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
-/**
- * @author Arjun Mannaly
- */
 class TombstoneFile {
     private static final Logger logger = LoggerFactory.getLogger(TombstoneFile.class);
 

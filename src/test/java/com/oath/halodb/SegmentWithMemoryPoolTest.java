@@ -16,9 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/**
- * @author Arjun Mannaly
- */
 public class SegmentWithMemoryPoolTest {
 
     @Test

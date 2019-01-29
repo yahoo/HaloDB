@@ -7,9 +7,6 @@ package com.oath.halodb;
 
 import java.util.regex.Pattern;
 
-/**
- * @author Arjun Mannaly
- */
 class Constants {
 
     // matches data and compacted files with extension .data and .datac respectively.

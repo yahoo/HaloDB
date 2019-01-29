@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-/**
- * @author Arjun Mannaly
- */
 class MemoryPoolHashEntries {
 
     /*

@@ -8,9 +8,6 @@ package com.oath.halodb;
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
-/**
- * @author Arjun Mannaly
- */
 class TombstoneEntry {
     //TODO: test.
 

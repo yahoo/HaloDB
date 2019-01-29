@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-/**
- * @author Arjun Mannaly
- */
 class Versions {
 
     static final int CURRENT_DATA_FILE_VERSION = 0;

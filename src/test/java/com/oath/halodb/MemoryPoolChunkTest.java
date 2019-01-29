@@ -13,9 +13,6 @@ import org.testng.annotations.Test;
 
 import java.util.Random;
 
-/**
- * @author Arjun Mannaly
- */
 public class MemoryPoolChunkTest {
 
     private MemoryPoolChunk chunk = null;

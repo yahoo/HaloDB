@@ -9,9 +9,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 
-/**
- * @author Arjun Mannaly
- */
 public class Record {
 
     private final byte[] key, value;

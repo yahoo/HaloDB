@@ -16,9 +16,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/**
- * @author Arjun Mannaly
- */
 public class DBRepairTest extends TestBase {
 
     @Test(dataProvider = "Options")

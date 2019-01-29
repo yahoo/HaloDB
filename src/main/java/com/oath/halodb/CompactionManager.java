@@ -15,9 +15,6 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-/**
- * @author Arjun Mannaly
- */
 class CompactionManager {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
 

@@ -18,8 +18,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Holds an instance of HaloDB and Java's ConcurrentHashMap.
  * Tests will use this to insert data into both and ensure that
  * the data in HaloDB is correct. 
- *
- * @author Arjun Mannaly
  */
 
 class DataConsistencyDB {

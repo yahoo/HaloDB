@@ -10,8 +10,6 @@ import java.nio.ByteBuffer;
 
 /**
  * Metadata stored in the in-memory index for each key.
- *
- * @author Arjun Mannaly
  */
 class InMemoryIndexMetaData {
 

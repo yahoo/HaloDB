@@ -32,9 +32,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * @author Arjun Mannaly
- */
 class HaloDBInternal {
     private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
 

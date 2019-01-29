@@ -11,9 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
-/**
- * @author Arjun Mannaly
- */
 public final class HaloDB {
 
     private HaloDBInternal dbInternal;

@@ -26,8 +26,6 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * Represents a data file and its associated index file.
- *
- * @author Arjun Mannaly
  */
 class HaloDBFile {
     private static final Logger logger = LoggerFactory.getLogger(HaloDBFile.class);

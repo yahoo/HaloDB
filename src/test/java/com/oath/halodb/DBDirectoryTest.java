@@ -22,9 +22,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * @author Arjun Mannaly
- */
 public class DBDirectoryTest {
 
     private static final File directory = Paths.get("tmp", "DBDirectoryTest").toFile();

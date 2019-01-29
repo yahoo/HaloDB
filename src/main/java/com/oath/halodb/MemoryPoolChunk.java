@@ -11,8 +11,6 @@ import static com.oath.halodb.MemoryPoolHashEntries.*;
 
 /**
  * Memory pool is divided into chunks of configurable size. This represents such a chunk.
- *
- * @author Arjun Mannaly
  */
 class MemoryPoolChunk {
 

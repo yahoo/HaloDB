@@ -17,9 +17,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBFileCompactionTest extends TestBase {
 
     @Test(dataProvider = "Options")

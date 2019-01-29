@@ -16,9 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-/**
- * @author Arjun Mannaly
- */
 public class DBMetaDataTest {
 
     private static final File directory = Paths.get("tmp", "DBMetaDataTest",  "testDBMetaData").toFile();

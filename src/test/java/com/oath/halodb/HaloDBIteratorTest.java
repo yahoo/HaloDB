@@ -20,9 +20,6 @@ import mockit.Invocation;
 import mockit.Mock;
 import mockit.MockUp;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBIteratorTest extends TestBase {
 
     @Test(expectedExceptions = NoSuchElementException.class, dataProvider = "Options")

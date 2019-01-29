@@ -11,9 +11,6 @@ import com.oath.halodb.histo.EstimatedHistogram;
 
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
-/**
- * @author Arjun Mannaly
- */
 abstract class Segment<V> {
 
     final HashTableValueSerializer<V> valueSerializer;

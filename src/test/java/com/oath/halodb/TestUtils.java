@@ -27,9 +27,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * @author Arjun Mannaly
- */
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
 

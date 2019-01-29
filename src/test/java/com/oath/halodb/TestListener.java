@@ -11,9 +11,6 @@ import org.testng.ITestContext;
 import org.testng.ITestListener;
 import org.testng.ITestResult;
 
-/**
- * @author Arjun Mannaly
- */
 public class TestListener implements ITestListener {
     private static final Logger logger = LoggerFactory.getLogger(TestListener.class);
 

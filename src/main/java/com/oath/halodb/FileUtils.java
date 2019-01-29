@@ -15,9 +15,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * @author Arjun Mannaly
- */
 class FileUtils {
 
     static void createDirectoryIfNotExists(File directory) throws IOException {

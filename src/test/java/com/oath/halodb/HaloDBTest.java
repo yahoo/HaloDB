@@ -18,9 +18,6 @@ import java.util.List;
 import mockit.Mock;
 import mockit.MockUp;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBTest extends TestBase {
 
     @Test(dataProvider = "Options")

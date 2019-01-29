@@ -13,9 +13,6 @@ import java.nio.channels.ClosedChannelException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBIterator implements Iterator<Record> {
     private static final Logger logger = LoggerFactory.getLogger(HaloDBIterator.class);
 

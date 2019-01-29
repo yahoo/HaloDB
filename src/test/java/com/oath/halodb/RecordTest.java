@@ -11,9 +11,6 @@ import org.testng.annotations.Test;
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
-/**
- * @author Arjun Mannaly
- */
 public class RecordTest {
 
     @Test

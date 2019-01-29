@@ -11,9 +11,6 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBStatsTest extends TestBase {
 
     @Test(dataProvider = "Options")

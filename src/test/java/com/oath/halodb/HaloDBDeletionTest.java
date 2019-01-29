@@ -15,9 +15,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-/**
- * @author Arjun Mannaly
- */
 public class HaloDBDeletionTest extends TestBase {
 
     @Test(dataProvider = "Options")

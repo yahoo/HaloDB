@@ -14,8 +14,6 @@ import java.util.List;
 
 /**
  * Represents the top level directory for a HaloDB instance. 
- *
- * @author Arjun Mannaly
  */
 class DBDirectory {
 

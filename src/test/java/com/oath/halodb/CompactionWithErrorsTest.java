@@ -154,7 +154,7 @@ public class CompactionWithErrorsTest extends TestBase {
         new MockUp<CompactionManager>() {
 
             @Mock
-            boolean stopCompactionThread() throws IOException {
+            boolean stopCompactionThread(boolean flag) throws IOException {
                 throw new IOException("Throwing mock IOException while stopping compaction thread.");
 
             }

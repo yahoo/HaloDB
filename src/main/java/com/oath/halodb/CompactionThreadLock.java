@@ -1,6 +1,6 @@
 package com.oath.halodb;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 class CompactionThreadLock {
@@ -9,6 +9,8 @@ class CompactionThreadLock {
     private static final int lockedByStart = 1;
     private static final int lockedByStop = 2;
     private static final int lockedByRestart = 3;
+
+    private static final AtomicIntegerArray lockAcquireCount = new AtomicIntegerArray(4);
 
     private final Sync sync = new Sync();
 
@@ -44,28 +46,15 @@ class CompactionThreadLock {
         return sync.getAcquireCount();
     }
 
-    /**
-     * Queries whether the given thread is waiting to acquire this
-     * lock. Note that because cancellations may occur at any time, a
-     * {@code true} return does not guarantee that this thread
-     * will ever acquire this lock.  This method is designed primarily for use
-     * in monitoring of the system state.
-     *
-     * @param thread the thread
-     * @return {@code true} if the given thread is queued waiting for this lock
-     * @throws NullPointerException if the thread is null
-     */
-     boolean hasQueuedThread(Thread thread) {
+    boolean hasQueuedThread(Thread thread) {
         return sync.isQueued(thread);
     }
 
     private static class Sync extends AbstractQueuedSynchronizer {
 
-        private final AtomicInteger acquireCount = new AtomicInteger(0);
-
         void lock(int state) {
             if (compareAndSetState(unlocked, state)) {
-                acquireCount.incrementAndGet();
+                lockAcquireCount.incrementAndGet(state);
                 setExclusiveOwnerThread(Thread.currentThread());
             }
             else
@@ -74,7 +63,7 @@ class CompactionThreadLock {
 
         boolean lockForRestart() {
             if (compareAndSetState(unlocked, lockedByRestart)) {
-                acquireCount.incrementAndGet();
+                lockAcquireCount.incrementAndGet(lockedByRestart);
                 setExclusiveOwnerThread(Thread.currentThread());
                 return true;
             }
@@ -93,19 +82,13 @@ class CompactionThreadLock {
             int currentState = getState();
             if (currentState == unlocked) {
                 if (compareAndSetState(unlocked, state)) {
-                    acquireCount.incrementAndGet();
                     setExclusiveOwnerThread(thread);
+                    lockAcquireCount.incrementAndGet(state);
                     return true;
                 }
             }
             else if (thread == getExclusiveOwnerThread()) {
-                if (currentState != state) {
-                    throw new IllegalMonitorStateException(
-                        "Invalid acquire operation. Current state " + currentState + " != " + state
-                    );
-                }
-                acquireCount.incrementAndGet();
-                if (acquireCount.get() < 0) // overflow
+                if (lockAcquireCount.incrementAndGet(state) < 0)
                     throw new Error("Maximum lock count exceeded");
                 return true;
             }
@@ -117,19 +100,21 @@ class CompactionThreadLock {
             if (Thread.currentThread() != getExclusiveOwnerThread()) {
                 throw new IllegalMonitorStateException("Lock is held by another thread");
             }
-            int currentState = getState();
-            if (currentState != state) {
+            if (lockAcquireCount.get(state) == 0) {
                 throw new IllegalMonitorStateException(
-                    "Invalid release operation. Current state " + currentState + " != " + state
+                    "Already released"
                 );
             }
+            lockAcquireCount.decrementAndGet(state);
 
-            if(acquireCount.decrementAndGet() == 0) {
-                setExclusiveOwnerThread(null);
-                setState(unlocked);
-                return true;
+            for (int i=0; i<lockAcquireCount.length(); i++) {
+                if (lockAcquireCount.get(i) != 0)
+                    return false;
             }
-            return false;
+
+            setExclusiveOwnerThread(null);
+            setState(unlocked);
+            return true;
         }
 
         Thread getOwner() {
@@ -137,7 +122,11 @@ class CompactionThreadLock {
         }
 
         int getAcquireCount() {
-            return acquireCount.get();
+            int count = 0;
+            for (int i=0; i<4; i++) {
+                count += lockAcquireCount.get(i);
+            }
+            return count;
         }
     }
 }

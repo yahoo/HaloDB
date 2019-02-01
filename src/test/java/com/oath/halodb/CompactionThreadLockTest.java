@@ -3,38 +3,80 @@ package com.oath.halodb;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CompactionThreadLockTest {
 
     @Test
     public void testLockBehavior() throws InterruptedException {
         final CompactionThreadLock lock = new CompactionThreadLock();
-        final Thread main = Thread.currentThread();
+        testLockBehavior(lock, lock::acquireStartLock, lock::releaseStartLock);
+        testLockBehavior(lock, lock::acquireStopLock, lock::releaseStopLock);
+        testLockBehavior(lock, lock::acquireRestartLock, lock::releaseRestartLock);
 
-        lock.acquireStopLock();
+        testLockBehavior(lock, lock::acquireStartLock, lock::releaseStartLock, lock::acquireStopLock, lock::releaseStopLock);
+        testLockBehavior(lock, lock::acquireStartLock, lock::releaseStartLock, lock::acquireRestartLock, lock::releaseRestartLock);
 
-        Thread t = new Thread(() -> {
-            Assert.assertEquals(lock.getOwner(), main);
-            lock.acquireStopLock();
-            Assert.assertEquals(lock.getOwner(), Thread.currentThread());
-            lock.releaseStopLock();
-            Assert.assertNull(lock.getOwner());
-        });
-        t.start();
-        Assert.assertEquals(lock.getOwner(), main);
-        waitForQueuedThread(lock, t, 10_000);
-        lock.releaseStopLock();
-        t.join();
+        testLockBehavior(lock, lock::acquireRestartLock, lock::releaseRestartLock, lock::acquireStartLock, lock::releaseStartLock);
+        testLockBehavior(lock, lock::acquireRestartLock, lock::releaseRestartLock, lock::acquireStopLock, lock::releaseStopLock);
+
+        testLockBehavior(lock, lock::acquireStopLock, lock::releaseStopLock, lock::acquireStartLock, lock::releaseStartLock);
     }
 
     @Test
     public void testReentrantBehavior() {
         final CompactionThreadLock lock = new CompactionThreadLock();
-
         testReentrantBehavior(lock, lock::acquireStartLock, lock::releaseStartLock);
         testReentrantBehavior(lock, lock::acquireStopLock, lock::releaseStopLock);
         testReentrantBehavior(lock, lock::acquireRestartLock, lock::releaseRestartLock);
+    }
+
+    @Test
+    public void testStopAndRestartLockBehavior() throws InterruptedException {
+        final CompactionThreadLock lock = new CompactionThreadLock();
+        final Thread main = Thread.currentThread();
+        AtomicBoolean threadSuccess = new AtomicBoolean(false);
+
+        Thread t1 = new Thread(() -> {
+            Assert.assertEquals(lock.getOwner(), main);
+            // return false without waiting since lock is another thread holds a stop lock.
+            Assert.assertFalse(lock.acquireRestartLock());
+            Assert.assertEquals(lock.getOwner(), main);
+            Assert.assertFalse(lock.hasQueuedThread(Thread.currentThread()));
+            threadSuccess.set(true);
+        });
+
+        // t2 will run when start lock is held, therefore
+        // it will wait will start lock is released.
+        Thread t2 = new Thread(() -> {
+            Assert.assertEquals(lock.getOwner(), main);
+            Assert.assertTrue(lock.acquireRestartLock());
+            Assert.assertEquals(lock.getOwner(), Thread.currentThread());
+            lock.releaseRestartLock();
+            Assert.assertNull(lock.getOwner());
+            threadSuccess.set(true);
+        });
+
+        // acquire and release stop lock.
+        // since stop lock is already held t1 will fail to acquire release lock.
+        lock.acquireStopLock();
+        t1.start();
+        Assert.assertEquals(lock.getOwner(), main);
+        Assert.assertFalse(lock.hasQueuedThread(t1));
+        t1.join(60_000);
+        Assert.assertTrue(threadSuccess.get());
+        threadSuccess.set(false);
+        lock.releaseStopLock();
+
+        // acquire and release start lock.
+        lock.acquireStartLock();
+        t2.start();
+        Assert.assertEquals(lock.getOwner(), main);
+        waitForQueuedThread(lock, t2, 60_000);
+        Assert.assertTrue(lock.hasQueuedThread(t2));
+        lock.releaseStartLock();
+        t2.join(60_000);
+        Assert.assertTrue(threadSuccess.get());
     }
 
     @Test
@@ -80,6 +122,52 @@ public class CompactionThreadLockTest {
         Assert.assertEquals(lock.getAcquireCount(), 0);
     }
 
+    private void testLockBehavior(CompactionThreadLock lock, Runnable lockMethod, Runnable unlockMethod) throws InterruptedException {
+        final Thread main = Thread.currentThread();
+        AtomicBoolean threadSuccess = new AtomicBoolean(false);
+
+        Thread t = new Thread(() -> {
+            Assert.assertEquals(lock.getOwner(), main);
+            lockMethod.run();
+            Assert.assertEquals(lock.getOwner(), Thread.currentThread());
+            unlockMethod.run();
+            Assert.assertNull(lock.getOwner());
+            threadSuccess.set(true);
+        });
+
+        lockMethod.run();
+        t.start();
+        Assert.assertEquals(lock.getOwner(), main);
+        waitForQueuedThread(lock, t, 60_000);
+        Assert.assertTrue(lock.hasQueuedThread(t));
+        unlockMethod.run();
+        t.join(60_000);
+        Assert.assertTrue(threadSuccess.get());
+    }
+
+    private void testLockBehavior(CompactionThreadLock lock, Runnable lockMethodA, Runnable unlockMethodA, Runnable lockMethodB, Runnable unlockMethodB) throws InterruptedException {
+        final Thread main = Thread.currentThread();
+        AtomicBoolean threadSuccess = new AtomicBoolean(false);
+
+        Thread t = new Thread(() -> {
+            Assert.assertEquals(lock.getOwner(), main);
+            lockMethodB.run();
+            Assert.assertEquals(lock.getOwner(), Thread.currentThread());
+            unlockMethodB.run();
+            Assert.assertNull(lock.getOwner());
+            threadSuccess.set(true);
+        });
+
+        lockMethodA.run();
+        t.start();
+        Assert.assertEquals(lock.getOwner(), main);
+        waitForQueuedThread(lock, t, 60_000);
+        Assert.assertTrue(lock.hasQueuedThread(t));
+        unlockMethodA.run();
+        t.join(60_000);
+        Assert.assertTrue(threadSuccess.get());
+    }
+
     private void shouldThrowException(Runnable releaseMethod) {
         try {
             releaseMethod.run();
@@ -87,10 +175,8 @@ public class CompactionThreadLockTest {
         } catch (Exception e) {}
     }
 
-    /**
-     * Spin-waits until lock.hasQueuedThread(t) becomes true.
-     */
-    void waitForQueuedThread(CompactionThreadLock lock, Thread t, long waitTimeInMs) {
+    // spins till thred t is queued to lock.
+    private void waitForQueuedThread(CompactionThreadLock lock, Thread t, long waitTimeInMs) {
         long startTime = System.currentTimeMillis();
         while (!lock.hasQueuedThread(t)) {
             if (System.currentTimeMillis() - startTime > waitTimeInMs)
@@ -98,48 +184,4 @@ public class CompactionThreadLockTest {
             Thread.yield();
         }
     }
-
-    public void testLock() {
-
-        final CompactionThreadLock lock = new CompactionThreadLock();
-
-        Thread t = new Thread(() -> {
-            lock.acquireStartLock();
-            System.out.println("Got start lock in thread.");
-            try {
-                Thread.sleep(20000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            lock.releaseStartLock();
-            System.out.println("Released lock in thread.");
-        });
-        t.setName("worker");
-        t.start();
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        lock.acquireStartLock();
-        System.out.println("Got start lock.");
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        lock.releaseStartLock();
-        System.out.println("Released lock.");
-
-        try {
-            t.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        Assert.assertTrue(1 == 1);
-
-    }
-
 }

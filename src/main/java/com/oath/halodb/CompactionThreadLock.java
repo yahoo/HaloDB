@@ -10,8 +10,6 @@ class CompactionThreadLock {
     private static final int lockedByStop = 2;
     private static final int lockedByRestart = 3;
 
-    private static final AtomicIntegerArray lockAcquireCount = new AtomicIntegerArray(4);
-
     private final Sync sync = new Sync();
 
     void acquireStartLock() {
@@ -51,6 +49,7 @@ class CompactionThreadLock {
     }
 
     private static class Sync extends AbstractQueuedSynchronizer {
+        private final AtomicIntegerArray lockAcquireCount = new AtomicIntegerArray(4);
 
         void lock(int state) {
             if (compareAndSetState(unlocked, state)) {

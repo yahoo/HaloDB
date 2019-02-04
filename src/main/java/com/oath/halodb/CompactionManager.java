@@ -321,10 +321,7 @@ class CompactionManager {
     @VisibleForTesting
     synchronized boolean isCompactionComplete() {
 
-        // check if compaction was paused.
-        // since pause/resume methods are synchronized on the same object
-        // we just need to check the status of isRunning flag.
-        if (!isRunning)
+        if (!isCompactionRunning())
             return true;
 
         if (compactionQueue.isEmpty()) {

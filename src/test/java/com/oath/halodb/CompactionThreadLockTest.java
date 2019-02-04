@@ -175,7 +175,7 @@ public class CompactionThreadLockTest {
         } catch (Exception e) {}
     }
 
-    // spins till thred t is queued to lock.
+    // spins till thread t is queued to lock.
     private void waitForQueuedThread(CompactionThreadLock lock, Thread t, long waitTimeInMs) {
         long startTime = System.currentTimeMillis();
         while (!lock.hasQueuedThread(t)) {

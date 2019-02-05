@@ -50,6 +50,7 @@ class CompactionManager {
         this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
+    // If a file is being compacted we wait for it complete before stopping.
     boolean stopCompactionThread(boolean closeCurrentWriteFile) throws IOException {
         lock.acquireStopLock();
         try {
@@ -90,10 +91,6 @@ class CompactionManager {
         }
     }
 
-    /**
-     * If a file is being compacted we wait for it complete before pausing,
-     * else we pause immediately. 
-     */
     void pauseCompactionThread() throws IOException, InterruptedException {
         logger.info("Pausing compaction thread ...");
         stopCompactionThread(false);
@@ -198,8 +195,8 @@ class CompactionManager {
                     fileToCompact = compactionQueue.take();
                     if (fileToCompact == STOP_SIGNAL) {
                         logger.debug("Received a stop signal.");
-                        // pausing/stopping compaction also requires isRunning flag to be set to false.
-                        // therefore we skip rest of the steps and check the status of isRunning.  
+                        // skip rest of the steps and check status of isRunning flag.
+                        // while pausing/stopping compaction isRunning flag must be set to false.
                         continue;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);

@@ -8,11 +8,11 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * start/stop/pause/resume/restart operations which require mutual exclusion.
  *
  * This class was written as it was difficult to achieve mutual exclusion
- * for those operations, and to reason about concurrent operations, with the concurrency
+ * for those operations and to reason about their concurrent execution with the concurrency
  * primitives that are part of Java's standard library.
  *
  * Proper synchronization was complicated primarily by the fact that when the compaction
- * thread crashes, we have to restart it, and this can happen anytime, even when any of the above
+ * thread crashes we have to restart it and this can happen anytime, even when any of the above
  * methods are called.
  *
  * A CompactionThreadLock instance provides a single reentrant lock which can be acquired/released
@@ -25,7 +25,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * if a stop() operation is already in progress and has acquired this lock. If true, then
  * the acquireRestartLock() operation would not wait and return immediately.
  *
- * In all other scenarios, if the lock is already held, acquire operation would would cause the
+ * In all other scenarios, if the lock is already held by another thread, acquire operation would would cause the
  * calling thread to wait until the lock has been released.
  *
  * The lock is also reentrant for all the acquire operations. For e.g. if a thread

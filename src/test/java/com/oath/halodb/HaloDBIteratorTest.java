@@ -52,6 +52,7 @@ public class HaloDBIteratorTest extends TestBase {
         // close and open the db again. 
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
         iterator = db.newIterator();
         Assert.assertFalse(iterator.hasNext());
     }

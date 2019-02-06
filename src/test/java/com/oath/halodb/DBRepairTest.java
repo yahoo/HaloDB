@@ -56,6 +56,7 @@ public class DBRepairTest extends TestBase {
         }
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         // latest file should have been repaired and replaced.
         Assert.assertNotEquals(
@@ -175,6 +176,7 @@ public class DBRepairTest extends TestBase {
         }
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         // latest file should have been repaired and replaced.
         Assert.assertNotEquals(

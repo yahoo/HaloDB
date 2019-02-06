@@ -140,8 +140,8 @@ public class HaloDBStatsTest extends TestBase {
     }
 
     @Test(dataProvider = "Options")
-    public void testKeyCacheStats(HaloDBOptions options) throws HaloDBException {
-        String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testKeyCacheStats");
+    public void testIndexStats(HaloDBOptions options) throws HaloDBException {
+        String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testIndexStats");
 
         int numberOfSegments = (int)Utils.roundUpToPowerOf2(Runtime.getRuntime().availableProcessors() * 2);
         int numberOfRecords = numberOfSegments * 1024;

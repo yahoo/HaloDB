@@ -80,6 +80,7 @@ public class HaloDBCompactionTest extends TestBase {
         db.close();
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());
@@ -125,6 +126,7 @@ public class HaloDBCompactionTest extends TestBase {
         db.close();
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         for (Record r : records) {
             byte[] actual = db.get(r.getKey());

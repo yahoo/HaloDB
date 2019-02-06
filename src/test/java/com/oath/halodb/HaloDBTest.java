@@ -106,6 +106,7 @@ public class HaloDBTest extends TestBase {
 
         // open and read contents again.
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -177,6 +178,7 @@ public class HaloDBTest extends TestBase {
 
         // open and read contents again.
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -241,6 +243,7 @@ public class HaloDBTest extends TestBase {
         db.close();
 
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);
@@ -334,6 +337,7 @@ public class HaloDBTest extends TestBase {
 
         db.close();
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);

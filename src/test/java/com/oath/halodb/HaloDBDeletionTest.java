@@ -48,7 +48,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testDeleteWithIterator(HaloDBOptions options) throws HaloDBException {
-            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
 
         HaloDB db = getTestDB(directory, options);
         db.pauseCompaction();
@@ -75,7 +75,7 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testDeleteAndInsert(HaloDBOptions options) throws HaloDBException {
-            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
 
         HaloDB db = getTestDB(directory, options);
         db.pauseCompaction();
@@ -147,6 +147,7 @@ public class HaloDBDeletionTest extends TestBase {
         db.close();
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         for (int i = 0; i < records.size(); i++) {
             byte[] actual = db.get(records.get(i).getKey());

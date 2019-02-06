@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 class CompactionManager {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
@@ -42,7 +43,8 @@ class CompactionManager {
 
     private static final int STOP_SIGNAL = -10101;
 
-    private final CompactionThreadLock lock = new CompactionThreadLock();
+    private final ReentrantLock startStopLock = new ReentrantLock();
+    private volatile boolean stopInProgress = false;
 
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
@@ -52,7 +54,8 @@ class CompactionManager {
 
     // If a file is being compacted we wait for it complete before stopping.
     boolean stopCompactionThread(boolean closeCurrentWriteFile) throws IOException {
-        lock.acquireStopLock();
+        stopInProgress = true;
+        startStopLock.lock();
         try {
             isRunning = false;
             if (isCompactionRunning()) {
@@ -73,13 +76,14 @@ class CompactionManager {
             return false;
         }
         finally {
-            lock.releaseStopLock();
+            stopInProgress = false;
+            startStopLock.unlock();
         }
         return true;
     }
 
     void startCompactionThread() {
-        lock.acquireStartLock();
+        startStopLock.lock();
         try {
             if (!isCompactionRunning()) {
                 isRunning = true;
@@ -87,7 +91,7 @@ class CompactionManager {
                 compactionThread.start();
             }
         } finally {
-            lock.releaseStartLock();
+            startStopLock.unlock();
         }
     }
 
@@ -170,12 +174,13 @@ class CompactionManager {
                 }
                 currentWriteFileOffset = 0;
 
-                if (lock.acquireRestartLock()) {
+                if (!stopInProgress) {
+                    startStopLock.lock();
                     try {
                         compactionThread = null;
                         startCompactionThread();
                     } finally {
-                        lock.releaseRestartLock();
+                        startStopLock.unlock();
                     }
                 }
                 else {

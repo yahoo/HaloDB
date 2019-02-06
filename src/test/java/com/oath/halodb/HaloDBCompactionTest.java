@@ -226,25 +226,30 @@ public class HaloDBCompactionTest extends TestBase {
         // resume and pause compaction a few times.
         // each is also called multiple times; duplicate calls shouldn't have any effect.
         db.resumeCompaction();
+        Assert.assertTrue(db.stats().isCompactionRunning());
 
         Thread.sleep(5);
         db.pauseCompaction();
         db.pauseCompaction();
+        Assert.assertFalse(db.stats().isCompactionRunning());
         TestUtils.waitForCompactionToComplete(db);
 
         Thread.sleep(100);
         db.resumeCompaction();
         db.resumeCompaction();
+        Assert.assertTrue(db.stats().isCompactionRunning());
 
         Thread.sleep(20);
         db.pauseCompaction();
         db.pauseCompaction();
         db.pauseCompaction();
+        Assert.assertFalse(db.stats().isCompactionRunning());
         TestUtils.waitForCompactionToComplete(db);
 
         Thread.sleep(100);
         db.resumeCompaction();
         db.resumeCompaction();
+        Assert.assertTrue(db.stats().isCompactionRunning());
         TestUtils.waitForCompactionToComplete(db);
 
         // compaction files are present.

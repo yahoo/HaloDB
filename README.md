@@ -202,7 +202,9 @@ interleaved (although partial ordering for both is guaranteed).
 ### System requirements. 
 * HaloDB requires Java 8 to run, but has not yet been tested with newer Java versions.  
 * HaloDB has been tested on Linux running on x86 and on MacOS. It may run on other platforms, but this hasn't been verified yet.
-* Disable Transparent Huge Pages and swapping (vm.swappiness=0).
+* For performance disable Transparent Huge Pages and swapping (vm.swappiness=0).
+* If a thread is interrupted JVM will close those file channels the thread was operating on.
+Therefore, don't interrupt threads while they are doing IO operations.
 
 ### Restrictions. 
 * Size of keys is restricted to 128 bytes.  

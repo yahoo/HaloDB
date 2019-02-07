@@ -44,8 +44,8 @@ public class HaloDBCompactionTest extends TestBase {
     }
 
     @Test(dataProvider = "Options")
-    public void testReOpenDBAfterMerge(HaloDBOptions options) throws HaloDBException {
-        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenDBAfterMerge");
+    public void testReOpenDBAfterCompaction(HaloDBOptions options) throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testReOpenDBAfterCompaction");
 
         options.setMaxFileSize(recordsPerFile * recordSize);
         options.setCompactionThresholdPerFile(0.5);

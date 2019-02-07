@@ -11,5 +11,6 @@ public class HaloDBOptionsTest  extends TestBase {
 
         HaloDB db = getTestDB(directory, new HaloDBOptions());
         Assert.assertFalse(db.stats().getOptions().isSyncWrite());
+        Assert.assertFalse(db.stats().getOptions().isCompactionDisabled());
     }
 }

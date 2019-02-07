@@ -207,9 +207,9 @@ public class TombstoneFileCleanUpTest extends TestBase {
 
         HaloDBOptions options = new HaloDBOptions();
         options.setCleanUpTombstonesDuringOpen(true);
+        options.setCompactionDisabled(true);
         options.setMaxFileSize(512);
         HaloDB db = getTestDB(directory, options);
-        db.pauseCompaction();
 
         int noOfRecordsPerFile = 8;
         int noOfFiles = 8;

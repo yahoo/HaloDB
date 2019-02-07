@@ -140,7 +140,7 @@ class HaloDBInternal {
             isClosing = true;
 
             try {
-                if(!compactionManager.stopCompactionThread())
+                if(!compactionManager.stopCompactionThread(true))
                     setIOErrorFlag();
             } catch (IOException e) {
                 logger.error("Error while stopping compaction thread. Setting IOError flag", e);
@@ -289,6 +289,14 @@ class HaloDBInternal {
         metaData.loadFromFileIfExists();
         metaData.setIOError(true);
         metaData.storeToFile();
+    }
+
+    void pauseCompaction() throws IOException, InterruptedException {
+        compactionManager.pauseCompactionThread();
+    }
+
+    void resumeCompaction() {
+        compactionManager.resumeCompaction();
     }
 
     private InMemoryIndexMetaData writeRecordToFile(Record record) throws IOException, HaloDBException {
@@ -631,6 +639,7 @@ class HaloDBInternal {
         return new HaloDBStats(
             statsResetTime,
             stats.getSize(),
+            compactionManager.isCompactionRunning(),
             compactionManager.noOfFilesPendingCompaction(),
             computeStaleDataMapForStats(),
             stats.getRehashCount(),

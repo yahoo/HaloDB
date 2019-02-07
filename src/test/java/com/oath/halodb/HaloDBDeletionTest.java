@@ -20,9 +20,9 @@ public class HaloDBDeletionTest extends TestBase {
     @Test(dataProvider = "Options")
     public void testSimpleDelete(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testSimpleDelete");
-        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -48,10 +48,10 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testDeleteWithIterator(HaloDBOptions options) throws HaloDBException {
-            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
-        options.setCompactionDisabled(true);
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteWithIterator");
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -75,10 +75,10 @@ public class HaloDBDeletionTest extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testDeleteAndInsert(HaloDBOptions options) throws HaloDBException {
-            String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
-        options.setCompactionDisabled(true);
+        String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndInsert");
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 100;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -130,9 +130,9 @@ public class HaloDBDeletionTest extends TestBase {
     @Test(dataProvider = "Options")
     public void testDeleteAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBDeletionTest", "testDeleteAndOpen");
-        options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -147,6 +147,7 @@ public class HaloDBDeletionTest extends TestBase {
         db.close();
 
         db = getTestDBWithoutDeletingFiles(directory, options);
+        db.pauseCompaction();
 
         for (int i = 0; i < records.size(); i++) {
             byte[] actual = db.get(records.get(i).getKey());

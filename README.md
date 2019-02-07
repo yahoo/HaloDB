@@ -121,6 +121,16 @@ is allocated in native memory, outside the Java heap.
     
             // reset stats
             db.resetStats();
+            
+            // pause background compaction thread.
+            // if a file is being compacted the thread
+            // will block until the compaction is complete.
+            db.pauseCompaction();
+            
+            // resume background compaction thread.
+            db.resumeCompaction();
+            
+            // repeatedly calling pause/resume compaction methods will have no effect.
     
             // Close the database.
             db.close();

@@ -24,9 +24,8 @@ public class HaloDBTest extends TestBase {
     public void testPutAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDB");
 
-        options.setCompactionDisabled(true);
-
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -50,10 +49,10 @@ public class HaloDBTest extends TestBase {
     public void testPutUpdateAndGetDB(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutUpdateAndGetDB");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -80,10 +79,10 @@ public class HaloDBTest extends TestBase {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testCreateCloseAndOpenDB");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -107,6 +106,7 @@ public class HaloDBTest extends TestBase {
 
         // open and read contents again.
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -127,11 +127,11 @@ public class HaloDBTest extends TestBase {
     public void testSyncWrite(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testSyncWrite");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
         options.enableSyncWrites(true);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -157,12 +157,11 @@ public class HaloDBTest extends TestBase {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckThatLatestUpdateIsPickedAfterDBOpen");
 
-        options.setCompactionDisabled(true);
-
         // sized to ensure that there will be two files.
         options.setMaxFileSize(1500);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         byte[] key = TestUtils.generateRandomByteArray(7);
         byte[] value = null;
@@ -179,6 +178,7 @@ public class HaloDBTest extends TestBase {
 
         // open and read contents again.
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> actual = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(actual::add);
@@ -192,10 +192,10 @@ public class HaloDBTest extends TestBase {
     public void testToCheckDelete(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testToCheckDelete");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -225,10 +225,10 @@ public class HaloDBTest extends TestBase {
     public void testDeleteCloseAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteCloseAndOpen");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -243,6 +243,7 @@ public class HaloDBTest extends TestBase {
         db.close();
 
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);
@@ -262,10 +263,10 @@ public class HaloDBTest extends TestBase {
     public void testDeleteAndInsert(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testDeleteAndInsert");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -307,10 +308,10 @@ public class HaloDBTest extends TestBase {
     public void testDeleteInsertCloseAndOpen(HaloDBOptions options) throws HaloDBException {
         String directory = TestUtils.getTestDirectory("tmp", "testDeleteInsertCloseAndOpen");
 
-        options.setCompactionDisabled(true);
         options.setMaxFileSize(10 * 1024);
 
         HaloDB db = getTestDB(directory, options);
+        db.pauseCompaction();
 
         int noOfRecords = 10_000;
         List<Record> records = TestUtils.insertRandomRecords(db, noOfRecords);
@@ -336,6 +337,7 @@ public class HaloDBTest extends TestBase {
 
         db.close();
         HaloDB openAgainDB = getTestDBWithoutDeletingFiles(directory, options);
+        openAgainDB.pauseCompaction();
 
         List<Record> remaining = new ArrayList<>();
         openAgainDB.newIterator().forEachRemaining(remaining::add);

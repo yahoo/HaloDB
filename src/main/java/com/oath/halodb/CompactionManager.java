@@ -5,6 +5,7 @@
 
 package com.oath.halodb;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.RateLimiter;
 
 import org.slf4j.Logger;
@@ -14,13 +15,14 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReentrantLock;
 
 class CompactionManager {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
 
     private  final HaloDBInternal dbInternal;
 
-    private volatile boolean isRunning = true;
+    private volatile boolean isRunning = false;
 
     private final RateLimiter compactionRateLimiter;
 
@@ -29,7 +31,7 @@ class CompactionManager {
 
     private final BlockingQueue<Integer> compactionQueue;
 
-    private CompactionThread compactionThread;
+    private volatile CompactionThread compactionThread;
 
     private volatile long numberOfRecordsCopied = 0;
     private volatile long numberOfRecordsReplaced = 0;
@@ -41,39 +43,66 @@ class CompactionManager {
 
     private static final int STOP_SIGNAL = -10101;
 
+    private final ReentrantLock startStopLock = new ReentrantLock();
+    private volatile boolean stopInProgress = false;
+
     CompactionManager(HaloDBInternal dbInternal) {
         this.dbInternal = dbInternal;
         this.compactionRateLimiter = RateLimiter.create(dbInternal.options.getCompactionJobRate());
         this.compactionQueue = new LinkedBlockingQueue<>();
     }
 
-    boolean stopCompactionThread() throws IOException {
-        isRunning = false;
-        if (compactionThread != null) {
-            try {
+    // If a file is being compacted we wait for it complete before stopping.
+    boolean stopCompactionThread(boolean closeCurrentWriteFile) throws IOException {
+        stopInProgress = true;
+        startStopLock.lock();
+        try {
+            isRunning = false;
+            if (isCompactionRunning()) {
                 // We don't want to call interrupt on compaction thread as it
                 // may interrupt IO operations and leave files in an inconsistent state.
                 // instead we use -10101 as a stop signal.
                 compactionQueue.put(STOP_SIGNAL);
                 compactionThread.join();
-                if (currentWriteFile != null) {
+                if (closeCurrentWriteFile && currentWriteFile != null) {
                     currentWriteFile.flushToDisk();
                     currentWriteFile.getIndexFile().flushToDisk();
                     currentWriteFile.close();
                 }
-            } catch (InterruptedException e) {
-                logger.error("Error while waiting for compaction thread to stop", e);
-                return false;
             }
+        }
+        catch (InterruptedException e) {
+            logger.error("Error while waiting for compaction thread to stop", e);
+            return false;
+        }
+        finally {
+            stopInProgress = false;
+            startStopLock.unlock();
         }
         return true;
     }
 
-    synchronized void startCompactionThread() {
-        if (compactionThread == null) {
-            compactionThread = new CompactionThread();
-            compactionThread.start();
+    void startCompactionThread() {
+        startStopLock.lock();
+        try {
+            if (!isCompactionRunning()) {
+                isRunning = true;
+                compactionThread = new CompactionThread();
+                compactionThread.start();
+            }
+        } finally {
+            startStopLock.unlock();
         }
+    }
+
+    void pauseCompactionThread() throws IOException, InterruptedException {
+        logger.info("Pausing compaction thread ...");
+        stopCompactionThread(false);
+    }
+
+    void resumeCompaction() {
+        logger.info("Resuming compaction thread");
+        startCompactionThread();
     }
 
     int getCurrentWriteFileId() {
@@ -122,6 +151,10 @@ class CompactionManager {
             = numberOfRecordsScanned = sizeOfRecordsCopied = sizeOfFilesDeleted = 0;
     }
 
+    boolean isCompactionRunning() {
+        return compactionThread != null && compactionThread.isAlive();
+    }
+
     private class CompactionThread extends Thread {
 
         private long unFlushedData = 0;
@@ -130,18 +163,30 @@ class CompactionManager {
             super("CompactionThread");
 
             setUncaughtExceptionHandler((t, e) -> {
-                logger.error("Compaction thread crashed. Creating and running another thread. ", e);
-                compactionThread = null;
+                logger.error("Compaction thread crashed", e);
                 if (currentWriteFile != null) {
                     try {
                         currentWriteFile.flushToDisk();
-                    } catch (IOException e1) {
-                        logger.error("Error while flushing " + currentWriteFile.getFileId() + " to disk", e);
+                    } catch (IOException ex) {
+                        logger.error("Error while flushing " + currentWriteFile.getFileId() + " to disk", ex);
                     }
                     currentWriteFile = null;
                 }
                 currentWriteFileOffset = 0;
-                startCompactionThread();
+
+                if (!stopInProgress) {
+                    startStopLock.lock();
+                    try {
+                        compactionThread = null;
+                        startCompactionThread();
+                    } finally {
+                        startStopLock.unlock();
+                    }
+                }
+                else {
+                    logger.info("Not restarting thread as the lock is held by stop compaction method.");
+                }
+
             });
         }
 
@@ -150,12 +195,14 @@ class CompactionManager {
             logger.info("Starting compaction thread ...");
             int fileToCompact = -1;
 
-            while (isRunning && !dbInternal.options.isCompactionDisabled()) {
+            while (isRunning) {
                 try {
                     fileToCompact = compactionQueue.take();
                     if (fileToCompact == STOP_SIGNAL) {
                         logger.debug("Received a stop signal.");
-                        break;
+                        // skip rest of the steps and check status of isRunning flag.
+                        // while pausing/stopping compaction isRunning flag must be set to false.
+                        continue;
                     }
                     logger.debug("Compacting {} ...", fileToCompact);
                     copyFreshRecordsToNewFile(fileToCompact);
@@ -167,7 +214,6 @@ class CompactionManager {
                     logger.error(String.format("Error while compacting file %d to %d", fileToCompact, getCurrentWriteFileId()), e);
                 }
             }
-
             logger.info("Compaction thread stopped.");
         }
 
@@ -273,13 +319,16 @@ class CompactionManager {
     }
 
 
-    // Used only for tests. to be called only after all writes in the test have been performed.  
-    boolean isCompactionComplete() {
-        if (dbInternal.options.isCompactionDisabled())
+    // Used only for tests. to be called only after all writes in the test have been performed.
+    @VisibleForTesting
+    synchronized boolean isCompactionComplete() {
+
+        if (!isCompactionRunning())
             return true;
 
         if (compactionQueue.isEmpty()) {
             try {
+                isRunning = false;
                 submitFileForCompaction(STOP_SIGNAL);
                 compactionThread.join();
             } catch (InterruptedException e) {

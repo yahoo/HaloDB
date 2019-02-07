@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
@@ -223,6 +224,12 @@ public class TestUtils {
         return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
             .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.DATA_FILE)
             .max(Comparator.comparing(File::getName));
+    }
+
+    static List<File> getDataFiles(String directory) {
+        return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
+            .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.DATA_FILE)
+            .collect(Collectors.toList());
     }
 
     static Optional<File> getLatestCompactionFile(String directory) {

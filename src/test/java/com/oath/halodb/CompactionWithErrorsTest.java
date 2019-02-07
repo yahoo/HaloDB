@@ -36,7 +36,7 @@ public class CompactionWithErrorsTest extends TestBase {
             public double acquire(int permits) {
                 if (++callCount == 3) {
                     // throw an exception when copying the third record. 
-                    throw new RuntimeException("Throwing mock exception form compaction thread.");
+                    throw new OutOfMemoryError("Throwing mock exception form compaction thread.");
                 }
                 return 10;
             }
@@ -135,7 +135,7 @@ public class CompactionWithErrorsTest extends TestBase {
             compactionManager.startCompactionThread();
 
             // called after db.close()
-            compactionManager.stopCompactionThread();
+            compactionManager.stopCompactionThread(true);
 
             // called when db.open() the second time. 
             compactionManager.startCompactionThread();
@@ -154,7 +154,7 @@ public class CompactionWithErrorsTest extends TestBase {
         new MockUp<CompactionManager>() {
 
             @Mock
-            boolean stopCompactionThread() throws IOException {
+            boolean stopCompactionThread(boolean flag) throws IOException {
                 throw new IOException("Throwing mock IOException while stopping compaction thread.");
 
             }

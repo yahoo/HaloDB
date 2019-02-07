@@ -114,7 +114,12 @@ class HaloDBInternal {
                 logger.info("Found max sequence number {}, now starting from {}", maxSequenceNumber, dbInternal.nextSequenceNumber);
             }
 
-            dbInternal.compactionManager.startCompactionThread();
+            if (!options.isCompactionDisabled()) {
+                dbInternal.compactionManager.startCompactionThread();
+            }
+            else {
+                logger.warn("Compaction is disabled in HaloDBOption. This should happen only in tests");
+            }
 
             logger.info("Opened HaloDB {}", directory.getName());
             logger.info("maxFileSize - {}", options.getMaxFileSize());

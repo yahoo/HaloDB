@@ -153,4 +153,17 @@ public class HaloDBOptions implements Cloneable {
     public void enableSyncWrites(boolean syncWrites) {
         this.syncWrite = syncWrites;
     }
+
+
+    // to be used only in tests.
+    private boolean isCompactionDisabled = false;
+    
+    // not visible to outside the package.
+    // to be used only in tests.
+    void setCompactionDisabled(boolean compactionDisabled) {
+        isCompactionDisabled = compactionDisabled;
+    }
+    boolean isCompactionDisabled() {
+        return isCompactionDisabled;
+    }
 }

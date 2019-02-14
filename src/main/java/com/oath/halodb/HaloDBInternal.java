@@ -381,11 +381,15 @@ class HaloDBInternal {
                 return false;
             }
 
-            return  true;
+            return true;
         } else {
             logger.info("snapshot not existed");
             return true;
         }
+    }
+
+    boolean contains(byte[] key) {
+        return inMemoryIndex.containsKey(key);
     }
 
     void delete(byte[] key) throws IOException {

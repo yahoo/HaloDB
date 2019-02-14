@@ -56,6 +56,10 @@ public final class HaloDB {
         }
     }
 
+    public boolean contains(byte[] key) {
+        return dbInternal.contains(key);
+    }
+
     public void close() throws HaloDBException {
         try {
             dbInternal.close();

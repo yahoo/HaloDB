@@ -414,6 +414,15 @@ class HaloDBInternal {
         return inMemoryIndex.size();
     }
 
+    int size(byte[] key) {
+        InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
+        if (metaData == null) {
+            return -1;
+        }
+
+        return metaData.getValueSize();
+    }
+
     void setIOErrorFlag() throws IOException {
         DBMetaData metaData = new DBMetaData(dbDirectory);
         metaData.loadFromFileIfExists();

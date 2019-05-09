@@ -51,17 +51,17 @@ Therefore it was decided to write a new storage engine from scratch; thus the Ha
 ## Performance test results on our production workload. 
 The following chart shows the results of performance tests that we ran with production data against a performance test box with the same hardware as production boxes. The read requests were kept at 50,000 QPS while the write QPS was increased.
 
-![SSD](https://lh3.googleusercontent.com/VKaFiNoM2zzyJ6TrGO6IHBcmT4pNUouGlhtYPQLwNfSyV2jvK1oBEvYevGaJ-AGYVHoM0M2VmOUx9U3KNmFXNyVbg6bHqwR-iAhAavtY6rF1JYFskCv4Vc8mLlGaS_LB2PthhpGwzRhB0FBGziIq5bvfTY-yuLKYbTgT8taWyeq1Dda6BvjSQ-jj1-d2IGixi6zADNOJ9XoVMQZxO6hGTECdzHgvZi7rqy95f2kGx1C4MIT6TwvEzavJztEBDZGS_fLNwnIHPVz5aNrzkC5GVSt80IelR4wllginxPsp0ja30dAc1bPFq4pjSHj-gWiXhqpAqTCTPmosqly8yuTQyV2QnXSI-X8TYSwgazsvgeMKmxnav7mTSA2mf1ljU1D34h0e_xiIRiQcTvEvhc_dvf9LKJWBfVEQdE4tfvfOHcfGotk868BO4zmsYcOOsWyQl4eg9gTMjdBBmcmnh8qwBIKGX3j0uc8zc6RITGcdFRFzh59sR3Gop0-cNk5HvKJlyzWSO0DQgDVzUeLrBj1FvV4zclAn3hoLmO8n51fKDy3lrctvhSxIH-wxSdy4hZWEQYGc8KdDHGpN4KCTwinEiqh5rsOIBhBc1JC9DFMgD7CI_gA1gvweVp25grC5AmxkuMMxG2nqZ2Kr99WLecC1QsDN0FP2CGmB=w1970-h1106-no) 
+![SSD](https://raw.githubusercontent.com/amannaly/HaloDB-images/master/images/ssd.png) 
 As you can see at the 99th percentile HaloDB read latency is an order of magnitude better than that of Kyoto Cabinet. 
 We recently upgraded our SSDs to PCIe NVMe SSDs. This has given us a significant performance boost and has narrowed the gap between HaloDB and Kyoto Cabinet, 
 but the difference is still significant:
 
-![PCIe NVMe SSD](https://lh3.googleusercontent.com/S7q5hJtfhso5oT1_4fm8IJeFBxi6FDIZHhDQZw3664BAOz-DIkIoRdvE8pTCfjmtNGV61iU1YPtUctBMSvjFJuvmLUU7jCVVXaijCZlEWX7PZguQ-AIbou3NvRlkWcJjRvCi2bIei4mIchReUlBaB9WG8VChzifMfjNbYx6n7KwOBX64lDZM3XG5ACNIvuORLhgs4NVLdjbJd30_rA-luKapvjX0VSw8xTMxtY0i9HXDcdyDN0Wk6ikzUJI54r29tMoyeiG6bzblOGPJXbH_jmp28oplvxRs6FwexK2dy0cQlasOI87esweNF0H4cqLEWWYbgipooxhBqY9ZIpxSiEmwBIpUpOCYfNe41waF94ZngzdIUtiAgE40oTViDcjA1wUtwfLmRVDNYU9j3OWnRdbfYJ5Ha1bYbZx9pil9ntMzCZuj1dEmI5I1_DwINIYjSNBDMorZ-LynFwmkEOoUPqpGxMdSB2CexH5p7CRAXfd6pA3m2hY-cmg8NAQHKfW_krKSYyfTlN0cLBA9-CaWappMnqMSAiD176MMQnNy1QxIrsLQ_fkMYCcS-pi39XILZTISZccWvZa84u2suZ7ampZQ8tFD2vTPGLgonlpryo5RXci1iXQRXxuToWW8c9jxCkbjOorilHZqh84C3vX9DkXN9qBTYNM5=w1970-h1100-no)
+![PCIe NVMe SSD](https://raw.githubusercontent.com/amannaly/HaloDB-images/master/images/pcie-ssd.png)
  
 Of course, these are results from performance tests, but nothing beats real data from hosts running in production.
 Following chart shows the 99th percentile latency from a production server before and after migration to HaloDB.
 
-![99th percentile in ms](https://lh3.googleusercontent.com/lg4VILxDcNwi2XOUCbJrFtKgTN7z08tLC6SpFyEyXqs4CDropEBAljQa5mf4LLG5fSOaXXKJs5HwEl15ID3x8JgVK7Acdz-tCyNVQouSdeOw6KAFZDN8L4_--ojDr3IxkI9rho7NEPuvm-yt80ZHF33jxKV5TlxsW7xXDxIe7OoOi9QkpwfID_QMTlJwfRBxOHf3G2PeHYRjc23UqO8Y1zDuDvRcqCF09oNM2w_K-3dpr6P5ihdOF5k054Nr4WXaNfdiMmjzKtvR8k5YGGTNSOunzVwc0YzI4TKKV3URTTjkEjhZzdl4DfHwjD8t507nPHpKh6OpUmlXcaUJkp7RHx5pGDTGTN86PMQxfNMizOm89NXc8ULivzCTZOdIMdX5BXtS0oza2N5ZgW9xRNcrj6GjY81AiiMfiHYVqAnRPXzhWTciwnzQ8AtZGihTjbnR6zKkrOQ00H1O-ZoeDcnWBPsP5KjAmXTyE3zXMXMRhZdc26yX9JGFctM7755h2NfK9rqXqz60sd6-0uaDTujipl7pLw_l7kAXTYiBHNwQsmE07HTVLWk-L_uA9Cnk_S017YWz64zP3bcnzOhuLAIOaTCzslBboPHX0g0WxR7MeLUgpj4mXpn6TUMKu95CmUFOa91HVwX-X3E1g2PXsESLznoZG_wE62kJ=w2092-h852-no) 
+![99th percentile in ms](https://raw.githubusercontent.com/amannaly/HaloDB-images/master/images/before-after.png) 
  
 HaloDB has thus given our production boxes a 50% improvement in capacity while consistently maintaining a sub-millisecond latency at the 99th percentile.
  

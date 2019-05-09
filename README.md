@@ -8,13 +8,13 @@ HaloDB is a fast and simple embedded key-value store written in Java. HaloDB is 
 HaloDB was written for a high-throughput, low latency distributed key-value database that powers multiple ad platforms at Yahoo, therefore all its design choices and optimizations were
 primarily for this use case.  
 
-Basic design principles employed in HaloDB are not new. Refer to this [document](https://github.com/yahoo/HaloDB/blob/master/docs/WhyHaloDB.md) for more details about the motivation for HaloDB and its inspirations.  
+Basic design principles employed in HaloDB are not new. Refer to this [document](docs/WhyHaloDB.md) for more details about the motivation for HaloDB and its inspirations.  
  
 HaloDB comprises of two main components: an index in memory which stores all the keys, and append-only log files on
 the persistent layer which stores all the data. To reduce Java garbage collection pressure the index 
 is allocated in native memory, outside the Java heap. 
 
-![HaloDB](https://lh3.googleusercontent.com/JxnA8Kznn2jZrG1ytAEo5OZ5OCrnfhDOaLfK1D30SZSz_Dl1IU2666fDc8lGGBW1zGSEjOBWw07C5eltiSmOvxc34OhO0nzqaSxGzE-AeVS8gihFp4E8NBFOnzmjkfsPsQO69x5x2Q=w1576-h872-no)
+![HaloDB](https://raw.githubusercontent.com/amannaly/HaloDB-images/master/images/halodb.png)
 
 ### Basic Operations. 
 ```java
@@ -211,7 +211,7 @@ Therefore, don't interrupt threads while they are doing IO operations.
 * HaloDB don't support range scans or ordered access.
 
 # Benchmarks.
-[Benchmarks](https://github.com/yahoo/HaloDB/blob/master/docs/benchmarks.md).
+[Benchmarks](docs/benchmarks.md).
   
 # Contributing
 Contributions are most welcome. Please refer to the [CONTRIBUTING](https://github.com/yahoo/HaloDB/blob/master/CONTRIBUTING.md) guide 

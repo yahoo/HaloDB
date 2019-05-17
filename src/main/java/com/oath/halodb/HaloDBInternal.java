@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -431,7 +431,6 @@ class HaloDBInternal {
     }
 
     private long buildInMemoryIndex(HaloDBOptions options) throws IOException {
-        //TODO: probably processing files in descending order is more efficient.
         List<Integer> indexFiles = dbDirectory.listIndexFiles();
 
         logger.info("About to scan {} index files to construct index ...", indexFiles.size());
@@ -439,49 +438,32 @@ class HaloDBInternal {
         long start = System.currentTimeMillis();
         long maxSequenceNumber = -1l;
 
+        List<ProcessIndexFileTask> indexFileTasks = new ArrayList<>();
         for (int fileId : indexFiles) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
-            indexFile.open();
-            IndexFile.IndexFileIterator iterator = indexFile.newIterator();
-
-            // build the in-memory index by scanning all index files.
-            int count = 0, inserted = 0;
-            while (iterator.hasNext()) {
-                IndexFileEntry indexFileEntry = iterator.next();
-                byte[] key = indexFileEntry.getKey();
-                int recordOffset = indexFileEntry.getRecordOffset();
-                int recordSize = indexFileEntry.getRecordSize();
-                long sequenceNumber = indexFileEntry.getSequenceNumber();
-                maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
-                int valueOffset = Utils.getValueOffset(recordOffset, key);
-                int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
-                count++;
-
-                InMemoryIndexMetaData existing = inMemoryIndex.get(key);
-
-                if (existing == null) {
-                    // first version of the record that we have seen, add to index.
-                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
-                    inserted++;
-                }
-                else if (existing.getSequenceNumber() < sequenceNumber) {
-                    // a newer version of the record, replace existing record in index with newer one.
-                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
-
-                    // update stale data map for the previous version.
-                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
-                    inserted++;
-                }
-                else {
-                    // stale data, update stale data map.
-                    addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
-                }
-            }
-            logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);
-            indexFile.close();
+            indexFileTasks.add(new ProcessIndexFileTask(indexFile, fileId));
         }
 
+        // The number of threads is based on actual test results
+        int nThreads = Integer.max(inMemoryIndex.getNoOfSegments() / 8, 2);
+        logger.info("Building index in parallel with {} threads", nThreads);
+        ExecutorService executor = Executors.newFixedThreadPool(nThreads);
+        try {
+            List<Future<Long>> results = executor.invokeAll(indexFileTasks);
+            for (Future<Long> result : results) {
+                maxSequenceNumber = Long.max(result.get(), maxSequenceNumber);
+            }
+        } catch (InterruptedException ie) {
+            throw new IOException("Building index is interrupted");
+
+        } catch (ExecutionException ee) {
+            throw new IOException("Error happened during building in-memory index", ee);
+        }
+        executor.shutdown();
+        logger.info("Completed scanning all index files in {}", (System.currentTimeMillis() - start) / 1000);
+
         // Scan all the tombstone files and remove records from index.
+        start = System.currentTimeMillis();
         File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
         logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
         for (File file : tombStoneFiles) {
@@ -526,9 +508,65 @@ class HaloDBInternal {
             noOfTombstonesFoundDuringOpen += count;
         }
 
-        logger.info("Completed scanning all key files in {}", (System.currentTimeMillis() - start)/1000);
+        logger.info("Completed scanning all tombstone files in {}", (System.currentTimeMillis() - start) / 1000);
 
         return maxSequenceNumber;
+    }
+
+    class ProcessIndexFileTask implements Callable<Long> {
+        private final IndexFile indexFile;
+        private final int fileId;
+
+        public ProcessIndexFileTask(IndexFile indexFile, int fileId) {
+            this.indexFile = indexFile;
+            this.fileId = fileId;
+        }
+
+        @Override
+        public Long call() throws IOException {
+            long maxSequenceNumber = -1;
+            indexFile.open();
+            IndexFile.IndexFileIterator iterator = indexFile.newIterator();
+
+            // build the in-memory index by scanning all index files.
+            int count = 0, inserted = 0;
+            while (iterator.hasNext()) {
+                IndexFileEntry indexFileEntry = iterator.next();
+                byte[] key = indexFileEntry.getKey();
+                int recordOffset = indexFileEntry.getRecordOffset();
+                int recordSize = indexFileEntry.getRecordSize();
+                long sequenceNumber = indexFileEntry.getSequenceNumber();
+                maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
+                int valueOffset = Utils.getValueOffset(recordOffset, key);
+                int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
+                count++;
+
+                InMemoryIndexMetaData metaData = new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber);
+
+                if (!inMemoryIndex.putIfAbsent(key, metaData)) {
+                    while (true) {
+                        InMemoryIndexMetaData existing = inMemoryIndex.get(key);
+                        if (existing.getSequenceNumber() >= sequenceNumber) {
+                            // stale data, update stale data map.
+                            addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
+                            break;
+                        }
+                        if (inMemoryIndex.replace(key, existing, metaData)) {
+                            // update stale data map for the previous version.
+                            addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                            inserted++;
+                            break;
+                        }
+                    }
+                } else {
+                    inserted++;
+                }
+            }
+            logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);
+            indexFile.close();
+
+            return maxSequenceNumber;
+        }
     }
 
     HaloDBFile getHaloDBFile(int fileId) {

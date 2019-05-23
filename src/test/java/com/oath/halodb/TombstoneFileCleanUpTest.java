@@ -5,8 +5,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class TombstoneFileCleanUpTest extends TestBase {
@@ -234,22 +233,22 @@ public class TombstoneFileCleanUpTest extends TestBase {
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // Since keyLength was 19 tombstone entry is 32 bytes.
+        // Since keyLength was 18, plus header length 14, tombstone entry is 32 bytes.
         // Since file size is 512 there would be two tombstone files both of which should be copied.
         File[] tombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
-        List<TombstoneEntry> tombstones = new ArrayList<>();
+        Set<String> tombstones = new HashSet<>();
         Assert.assertEquals(tombstoneFiles.length, 2);
         for (File f : tombstoneFiles) {
             TombstoneFile tombstoneFile = new TombstoneFile(f, options, dbDirectory);
             tombstoneFile.open();
             TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
             while (iterator.hasNext()) {
-                tombstones.add(iterator.next());
+                tombstones.add(Arrays.toString(iterator.next().getKey()));
             }
         }
 
         for (int i = 0; i < tombstones.size(); i++) {
-            Assert.assertEquals(tombstones.get(i).getKey(), records.get(i).getKey());
+            Assert.assertTrue(tombstones.contains(Arrays.toString(records.get(i).getKey())));
         }
 
         HaloDBStats stats = db.stats();

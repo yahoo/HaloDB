@@ -330,7 +330,7 @@ class HaloDBInternal {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
 
         if ((tombstoneFile == null ||
-            tombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) && !isClosing) {
+            tombstoneFile.getWriteOffset() + size > options.getMaxTombstoneFileSize()) && !isClosing) {
             if (tombstoneFile != null) {
                 tombstoneFile.flushToDisk();
                 tombstoneFile.close();

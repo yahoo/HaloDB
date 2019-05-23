@@ -14,6 +14,8 @@ public class HaloDBOptions implements Cloneable {
 
     private int maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
+    private int maxTombstoneFileSize = 0; /* use maxFileSize by default unless set explicitly */
+
      // Data will be flushed to disk after flushDataSizeBytes have been written.
      // -1 disables explicit flushing and let the kernel handle it.
     private long flushDataSizeBytes = -1;
@@ -51,6 +53,7 @@ public class HaloDBOptions implements Cloneable {
         return MoreObjects.toStringHelper("")
             .add("compactionThresholdPerFile", compactionThresholdPerFile)
             .add("maxFileSize", maxFileSize)
+            .add("maxTombstoneFileSize", getMaxTombstoneFileSize())
             .add("flushDataSizeBytes", flushDataSizeBytes)
             .add("syncWrite", syncWrite)
             .add("numberOfRecords", numberOfRecords)
@@ -72,6 +75,13 @@ public class HaloDBOptions implements Cloneable {
             throw new IllegalArgumentException("maxFileSize should be > 0");
         }
         this.maxFileSize = maxFileSize;
+    }
+
+    public void setMaxTombstoneFileSize(int maxFileSize) {
+        if (maxFileSize <= 0) {
+            throw new IllegalArgumentException("maxFileSize should be > 0");
+        }
+        this.maxTombstoneFileSize = maxFileSize;
     }
 
     public void setFlushDataSizeBytes(long flushDataSizeBytes) {
@@ -96,6 +106,10 @@ public class HaloDBOptions implements Cloneable {
 
     public int getMaxFileSize() {
         return maxFileSize;
+    }
+
+    public int getMaxTombstoneFileSize() {
+        return maxTombstoneFileSize > 0 ? maxTombstoneFileSize : maxFileSize;
     }
 
     public long getFlushDataSizeBytes() {

@@ -8,6 +8,7 @@ package com.oath.halodb;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 
+import com.google.common.util.concurrent.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -625,6 +626,61 @@ class HaloDBInternal {
         }
 
         staleDataPerFileMap.remove(fileId);
+    }
+
+    /**
+     * If options.isCleanUpTombstonesDuringOpen set to true, all inactive entries,
+     * i.e. physically deleted records, will be dropped during db open.
+     * Refer to ProcessTombstoneFileTask class and buildInMemoryIndex()
+     * To shorten db open time, active entries, i.e. not physically deleted
+     * records, in each tombstone file are rolled over to a corresponding
+     * new tombstone file. Therefore, the new tombstone file size might be very
+     * small depends on number of active entries in each tombstone file.
+     * A tombstone file won't be deleted as long as it has at least 1 active
+     * entry. This function provide a way to merge small tombstone files in
+     * offline mode. options.maxTombstoneFileSize still apply to merged file
+     */
+    void mergeTombstoneFiles() throws IOException {
+        if (!options.isCleanUpTombstonesDuringOpen()) {
+            logger.info("CleanUpTombstonesDuringOpen is not enabled, returning");
+            return;
+        }
+
+        File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
+
+        logger.info("About to merge {} tombstone files ...", tombStoneFiles.length);
+        TombstoneFile mergedTombstoneFile = null;
+
+        // Use compaction job rate as write rate limiter to avoid IO impact
+        final RateLimiter rateLimiter = RateLimiter.create(options.getCompactionJobRate());
+
+        for (File file : tombStoneFiles) {
+            TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
+            if (currentTombstoneFile != null && tombstoneFile.getName().equals(currentTombstoneFile.getName())) {
+                continue; // not touch current tombstone file
+            }
+
+            tombstoneFile.open();
+            TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
+
+            long count = 0;
+            while (iterator.hasNext()) {
+                TombstoneEntry entry = iterator.next();
+                rateLimiter.acquire(entry.size());
+                count++;
+                mergedTombstoneFile = rollOverTombstoneFile(entry, mergedTombstoneFile);
+                mergedTombstoneFile.write(entry);
+            }
+            if (count > 0) {
+                logger.debug("Merged {} tombstones from {} to {}",
+                    count, tombstoneFile.getName(), mergedTombstoneFile.getName());
+            }
+            tombstoneFile.close();
+            tombstoneFile.delete();
+        }
+
+        logger.info("Tombstone files count, before merge:{}, after merge:{}",
+            tombStoneFiles.length, dbDirectory.listTombstoneFiles().length);
     }
 
     private void repairFiles() {

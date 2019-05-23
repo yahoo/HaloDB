@@ -255,4 +255,106 @@ public class TombstoneFileCleanUpTest extends TestBase {
         Assert.assertEquals(noOfRecords/2, stats.getNumberOfTombstonesFoundDuringOpen());
         Assert.assertEquals(0, stats.getNumberOfTombstonesCleanedUpDuringOpen());
     }
+
+    @Test
+    public void testMergeTombstoneFiles() throws IOException, HaloDBException {
+        String directory = TestUtils.getTestDirectory("TombstoneFileCleanUpTest", "testMergeTombstoneFiles");
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.setCompactionThresholdPerFile(0.4);
+        options.setMaxFileSize(16 * 1024);
+        options.setMaxTombstoneFileSize(2 * 1024);
+        HaloDB db = getTestDB(directory, options);
+
+        // Record size: header 18 + key 18 + value 28 = 64 bytes
+        // Tombstone entry size: header 14 + key 18 = 32 bytes
+        // Each data file will store 16 * 1024 / 64 = 256 records
+        // Each tombstone file will store 2 * 1024 / 32 = 64 entries
+        // Total data files 2048 / 256 = 8
+        // Total tombstone original file count (1024 / 2 + 1024 / 4) / 64 = 12
+        // After cleanup, tombstone file count 1024 / 4 / 64 = 4
+        int keyLength = 18;
+        int valueLength = 28;
+        int noOfRecords = 2048;
+        List<Record> records = new ArrayList<>();
+        for (int i = 0; i < noOfRecords; i++) {
+            Record r = new Record(TestUtils.generateRandomByteArray(keyLength), TestUtils.generateRandomByteArray(valueLength));
+            records.add(r);
+            db.put(r.getKey(), r.getValue());
+        }
+
+        // The deletion strategy is:
+        // Delete total 1/2 records from first half and 1/4 from second half in turn
+        // so that each tombstone file contains entries from both parts
+        // Because first half has 50% records deleted, the files which hold first
+        // half records will be compacted and tombstone entries will be inactive
+        // Tombstone entries of second part are still active
+        int mid = records.size() / 2;
+        for (int i = 0; i < mid; i++) {
+            if (i % 2 == 0) {
+                db.delete(records.get(i).getKey());
+            }
+            if (i % 4 == 0) {
+                db.delete((records.get(i+mid).getKey()));
+            }
+        }
+        TestUtils.waitForCompactionToComplete(db);
+
+        db.close();
+
+        File[] original = FileUtils.listTombstoneFiles(new File(directory));
+        // See comments above how 12 is calculated
+        Assert.assertEquals(original.length, 12);
+
+        // disable CleanUpTombstonesDuringOpen, all original tombstone files preserved
+        options.setCleanUpTombstonesDuringOpen(false);
+        db = getTestDBWithoutDeletingFiles(directory, options);
+
+        File[] current = FileUtils.listTombstoneFiles(new File(directory));
+        Assert.assertEquals(current.length, original.length);
+        for (int i = 0; i < original.length; i++) {
+            Assert.assertEquals(current[i].getName(), original[i].getName());
+        }
+
+        db.close();
+        options.setCleanUpTombstonesDuringOpen(true);
+        db = getTestDBWithoutDeletingFiles(directory, options);
+
+        // all original tombstone files are rolled over to new ones with inactive entries dropped
+        // total tombstone file count are same because not merge during db open
+        // listTombstoneFiles return a sorted file list
+        current = FileUtils.listTombstoneFiles(new File(directory));
+        Assert.assertEquals(current.length, original.length);
+        Assert.assertTrue(getFileId(current[0].getName()) > getFileId(original[original.length-1].getName()));
+
+        // Merge tombstone files and verify file number reduced
+        db.mergeTombstoneFiles();
+
+        original = current;
+        current = FileUtils.listTombstoneFiles(new File(directory));
+        // See comments above how 4 is calculated
+        Assert.assertEquals(current.length, 4);
+        Assert.assertTrue(getFileId(current[0].getName()) > getFileId(original[original.length-1].getName()));
+
+        // Test mergeTombstoneFiles with currentTombstoneFile present
+        // Delete 1 record to initialize currentTombstoneFile
+        db.delete(records.get(1).getKey());
+        original = current;
+        current = FileUtils.listTombstoneFiles(new File(directory));
+        Assert.assertEquals(current.length, original.length + 1);
+
+        // Merge tombstone files again, verify tombstones roll over to new files, file count keep same
+        db.mergeTombstoneFiles();
+        original = current;
+        current = FileUtils.listTombstoneFiles(new File(directory));
+        Assert.assertEquals(current.length, original.length);
+        // Verify currentTombstoneFile is not rolled over
+        Assert.assertEquals(current[0].getName(), original[original.length-1].getName());
+
+        db.close();
+    }
+
+    private int getFileId(String fileName) {
+        return Integer.parseInt(fileName.substring(0, fileName.indexOf(".")));
+    }
 }

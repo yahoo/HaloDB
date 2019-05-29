@@ -788,6 +788,8 @@ class HaloDBInternal {
             inMemoryIndex.getNoOfSegments(),
             inMemoryIndex.getMaxSizeOfEachSegment(),
             stats.getSegmentStats(),
+            dbDirectory.listDataFiles().length,
+            dbDirectory.listTombstoneFiles().length,
             noOfTombstonesFoundDuringOpen.get(),
             options.isCleanUpTombstonesDuringOpen() ?
                 noOfTombstonesFoundDuringOpen.get() - noOfTombstonesCopiedDuringOpen.get() : 0,

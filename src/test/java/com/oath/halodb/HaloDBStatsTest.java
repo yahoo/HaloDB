@@ -85,10 +85,13 @@ public class HaloDBStatsTest extends TestBase {
         int noOfRecords = 100;
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, recordSize);
 
+        Assert.assertEquals(db.stats().getNumberOfDataFiles(), 10);
+        Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 0);
+
         // update 50% of records in each file. 
         for (int i = 0; i < records.size(); i++) {
             if (i % 10 < 5)
-                db.put(records.get(i).getKey(), TestUtils.generateRandomByteArray(recordSize));
+                db.put(records.get(i).getKey(), TestUtils.generateRandomByteArray(records.get(i).getValue().length));
         }
 
         TestUtils.waitForCompactionToComplete(db);
@@ -98,6 +101,8 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(db.stats().getCompactionRateInInternal(), 0);
         Assert.assertEquals(db.stats().getCompactionRateSinceBeginning(), 0);
         Assert.assertNotEquals(db.stats().toString().length(), 0);
+        Assert.assertEquals(db.stats().getNumberOfDataFiles(), 15);
+        Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 0);
 
         db.close();
 
@@ -122,6 +127,33 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertNotEquals(db.stats().getCompactionRateInInternal(), 0);
         Assert.assertNotEquals(db.stats().getCompactionRateSinceBeginning(), 0);
         Assert.assertNotEquals(db.stats().toString().length(), 0);
+        Assert.assertEquals(db.stats().getNumberOfDataFiles(), 10);
+        Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 0);
+
+        // delete the 50% of records
+        for (int i = 0; i < records.size(); i++) {
+            if (i % 10 < 5)
+                db.delete(records.get(i).getKey());
+        }
+
+        // restart compaction thread because it was stopped by TestUtils.waitForCompactionToComplete(db)
+        db.resumeCompaction();
+
+        TestUtils.waitForCompactionToComplete(db);
+        Assert.assertEquals(db.stats().getNumberOfDataFiles(), 5);
+        Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 1);
+
+        db.close();
+
+        // all delete records have been removed by compaction job, so no record copied at reopen
+        options.setCleanUpTombstonesDuringOpen(true);
+        db = getTestDBWithoutDeletingFiles(dir, options);
+        stats = db.stats();
+        Assert.assertEquals(stats.getSize(), noOfRecords / 2);
+        Assert.assertEquals(db.stats().getNumberOfTombstonesCleanedUpDuringOpen(), noOfRecords / 2);
+        Assert.assertEquals(db.stats().getNumberOfTombstonesFoundDuringOpen(), noOfRecords / 2);
+        Assert.assertEquals(db.stats().getNumberOfDataFiles(), 5);
+        Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 0);
 
         db.resetStats();
         stats = db.stats();
@@ -132,7 +164,7 @@ public class HaloDBStatsTest extends TestBase {
         Assert.assertEquals(stats.getSizeOfRecordsCopied(), 0);
         Assert.assertEquals(stats.getSizeOfFilesDeleted(), 0);
         Assert.assertEquals(stats.getSizeReclaimed(), 0);
-        Assert.assertEquals(stats.getSize(), noOfRecords);
+        Assert.assertEquals(stats.getSize(), noOfRecords / 2);
         Assert.assertEquals(db.stats().getCompactionRateInInternal(), 0);
         Assert.assertNotEquals(db.stats().getCompactionRateSinceBeginning(), 0);
         Assert.assertNotEquals(db.stats().toString().length(), 0);

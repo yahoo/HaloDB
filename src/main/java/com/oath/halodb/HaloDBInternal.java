@@ -451,8 +451,7 @@ class HaloDBInternal {
             indexFileTasks.add(new ProcessIndexFileTask(indexFile, fileId));
         }
 
-        // The number of threads is based on actual test results
-        int nThreads = Integer.max(inMemoryIndex.getNoOfSegments() / 8, 2);
+        int nThreads = options.getBuildIndexThreads();
         logger.info("Building index in parallel with {} threads", nThreads);
 
         ExecutorService executor = Executors.newFixedThreadPool(nThreads);

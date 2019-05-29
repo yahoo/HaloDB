@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class HaloDBStatsTest extends TestBase {
 
@@ -199,4 +200,38 @@ public class HaloDBStatsTest extends TestBase {
         Arrays.fill(expected, s);
         Assert.assertEquals(stats.getSegmentStats(), expected);
     }
+
+    @Test(dataProvider = "Options")
+    public void testStatsToStringMap(HaloDBOptions options) throws HaloDBException {
+        String dir = TestUtils.getTestDirectory("HaloDBStatsTest", "testStatsToStringMap");
+
+        HaloDB db = getTestDB(dir, options);
+
+        HaloDBStats stats = db.stats();
+        Map<String, String> map = stats.toStringMap();
+        Assert.assertEquals(map.size(), 22);
+        Assert.assertNotNull(map.get("statsResetTime"));
+        Assert.assertNotNull(map.get("size"));
+        Assert.assertNotNull(map.get("Options"));
+        Assert.assertNotNull(map.get("isCompactionRunning"));
+        Assert.assertNotNull(map.get("CompactionJobRateInInterval"));
+        Assert.assertNotNull(map.get("CompactionJobRateSinceBeginning"));
+        Assert.assertNotNull(map.get("numberOfFilesPendingCompaction"));
+        Assert.assertNotNull(map.get("numberOfRecordsCopied"));
+        Assert.assertNotNull(map.get("numberOfRecordsReplaced"));
+        Assert.assertNotNull(map.get("numberOfRecordsScanned"));
+        Assert.assertNotNull(map.get("sizeOfRecordsCopied"));
+        Assert.assertNotNull(map.get("sizeOfFilesDeleted"));
+        Assert.assertNotNull(map.get("sizeReclaimed"));
+        Assert.assertNotNull(map.get("rehashCount"));
+        Assert.assertNotNull(map.get("maxSizePerSegment"));
+        Assert.assertNotNull(map.get("numberOfDataFiles"));
+        Assert.assertNotNull(map.get("numberOfTombstoneFiles"));
+        Assert.assertNotNull(map.get("numberOfTombstonesFoundDuringOpen"));
+        Assert.assertNotNull(map.get("numberOfTombstonesCleanedUpDuringOpen"));
+        Assert.assertNotNull(map.get("segmentStats"));
+        Assert.assertNotNull(map.get("numberOfSegments"));
+        Assert.assertNotNull(map.get("staleDataPercentPerFile"));
+    }
+
 }

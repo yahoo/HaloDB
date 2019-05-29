@@ -8,6 +8,7 @@ package com.oath.halodb;
 import com.google.common.base.MoreObjects;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 public class HaloDBStats {
@@ -194,6 +195,34 @@ public class HaloDBStats {
             .add("numberOfSegments", numberOfSegments)
             .add("staleDataPercentPerFile", staleDataMapToString())
             .toString();
+    }
+
+    public Map<String, String> toStringMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("statsResetTime", String.valueOf(statsResetTime));
+        map.put("size", String.valueOf(size));
+        map.put("Options", String.valueOf(options));
+        map.put("isCompactionRunning", String.valueOf(isCompactionRunning));
+        map.put("CompactionJobRateInInterval", String.valueOf(getUnit(compactionRateInInternal)));
+        map.put("CompactionJobRateSinceBeginning", String.valueOf(getUnit(compactionRateSinceBeginning)));
+        map.put("numberOfFilesPendingCompaction", String.valueOf(numberOfFilesPendingCompaction));
+        map.put("numberOfRecordsCopied", String.valueOf(numberOfRecordsCopied));
+        map.put("numberOfRecordsReplaced", String.valueOf(numberOfRecordsReplaced));
+        map.put("numberOfRecordsScanned", String.valueOf(numberOfRecordsScanned));
+        map.put("sizeOfRecordsCopied", String.valueOf(sizeOfRecordsCopied));
+        map.put("sizeOfFilesDeleted", String.valueOf(sizeOfFilesDeleted));
+        map.put("sizeReclaimed", String.valueOf(sizeReclaimed));
+        map.put("rehashCount", String.valueOf(rehashCount));
+        map.put("maxSizePerSegment", String.valueOf(maxSizePerSegment));
+        map.put("numberOfDataFiles", String.valueOf(numberOfDataFiles));
+        map.put("numberOfTombstoneFiles", String.valueOf(numberOfTombstoneFiles));
+        map.put("numberOfTombstonesFoundDuringOpen", String.valueOf(numberOfTombstonesFoundDuringOpen));
+        map.put("numberOfTombstonesCleanedUpDuringOpen", String.valueOf(numberOfTombstonesCleanedUpDuringOpen));
+        map.put("segmentStats", String.valueOf(Arrays.toString(segmentStats)));
+        map.put("numberOfSegments", String.valueOf(numberOfSegments));
+        map.put("staleDataPercentPerFile", String.valueOf(staleDataMapToString()));
+
+        return map;
     }
 
     private String staleDataMapToString() {

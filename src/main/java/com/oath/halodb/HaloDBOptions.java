@@ -14,7 +14,9 @@ public class HaloDBOptions implements Cloneable {
 
     private int maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
-    private int maxTombstoneFileSize = 0; /* use maxFileSize by default unless set explicitly */
+    // To keep backward compatibility, initialize to 0 which means
+    // it will fall back to use maxFileSize, see the getter below
+    private int maxTombstoneFileSize = 0;
 
      // Data will be flushed to disk after flushDataSizeBytes have been written.
      // -1 disables explicit flushing and let the kernel handle it.

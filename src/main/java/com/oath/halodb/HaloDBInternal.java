@@ -462,7 +462,6 @@ class HaloDBInternal {
             }
         } catch (InterruptedException ie) {
             throw new IOException("Building index is interrupted");
-
         } catch (ExecutionException ee) {
             throw new IOException("Error happened during building in-memory index", ee);
         }
@@ -485,7 +484,6 @@ class HaloDBInternal {
             }
         } catch (InterruptedException ie) {
             throw new IOException("Building index is interrupted");
-
         } catch (ExecutionException ee) {
             throw new IOException("Error happened during building in-memory index", ee);
         }

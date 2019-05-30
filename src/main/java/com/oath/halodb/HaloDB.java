@@ -92,6 +92,14 @@ public final class HaloDB {
         dbInternal.resumeCompaction();
     }
 
+    public void mergeTombstoneFiles() throws HaloDBException{
+        try {
+            dbInternal.mergeTombstoneFiles();
+        } catch (IOException e) {
+            throw new HaloDBException("Error while merging tombstone files", e);
+        }
+    }
+
 
     // methods used in tests.
 

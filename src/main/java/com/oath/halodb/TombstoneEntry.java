@@ -53,6 +53,10 @@ class TombstoneEntry {
         return checkSum;
     }
 
+    int size() {
+        return TOMBSTONE_ENTRY_HEADER_SIZE + key.length;
+    }
+
     ByteBuffer[] serialize() {
         byte keySize = (byte)key.length;
         ByteBuffer header = ByteBuffer.allocate(TOMBSTONE_ENTRY_HEADER_SIZE);

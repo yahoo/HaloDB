@@ -8,6 +8,7 @@ package com.oath.halodb;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 
+import com.google.common.util.concurrent.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,8 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -63,8 +65,8 @@ class HaloDBInternal {
 
     private static final int maxReadAttempts = 5;
 
-    private volatile long noOfTombstonesCopiedDuringOpen = 0;
-    private volatile long noOfTombstonesFoundDuringOpen = 0;
+    private AtomicLong noOfTombstonesCopiedDuringOpen;
+    private AtomicLong noOfTombstonesFoundDuringOpen;
     private volatile long nextSequenceNumber;
 
     private HaloDBInternal() {}
@@ -80,6 +82,9 @@ class HaloDBInternal {
 
             int maxFileId = dbInternal.buildReadFileMap();
             dbInternal.nextFileId = new AtomicInteger(maxFileId + 10);
+
+            dbInternal.noOfTombstonesCopiedDuringOpen = new AtomicLong(0);
+            dbInternal.noOfTombstonesFoundDuringOpen = new AtomicLong(0);
 
             DBMetaData dbMetaData = new DBMetaData(dbInternal.dbDirectory);
             dbMetaData.loadFromFileIfExists();
@@ -276,7 +281,7 @@ class HaloDBInternal {
                 inMemoryIndex.remove(key);
                 TombstoneEntry entry =
                     new TombstoneEntry(key, getNextSequenceNumber(), -1, Versions.CURRENT_TOMBSTONE_FILE_VERSION);
-                rollOverCurrentTombstoneFile(entry);
+                currentTombstoneFile = rollOverTombstoneFile(entry, currentTombstoneFile);
                 currentTombstoneFile.write(entry);
                 markPreviousVersionAsStale(key, metaData);
             }
@@ -322,17 +327,19 @@ class HaloDBInternal {
         }
     }
 
-    private void rollOverCurrentTombstoneFile(TombstoneEntry entry) throws IOException {
+    private TombstoneFile rollOverTombstoneFile(TombstoneEntry entry, TombstoneFile tombstoneFile) throws IOException {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
 
-        if ((currentTombstoneFile == null || currentTombstoneFile.getWriteOffset() + size > options.getMaxFileSize()) && !isClosing) {
-            if (currentTombstoneFile != null) {
-                currentTombstoneFile.flushToDisk();
-                currentTombstoneFile.close();
+        if ((tombstoneFile == null ||
+            tombstoneFile.getWriteOffset() + size > options.getMaxTombstoneFileSize()) && !isClosing) {
+            if (tombstoneFile != null) {
+                tombstoneFile.flushToDisk();
+                tombstoneFile.close();
             }
-            currentTombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
+            tombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
             dbDirectory.syncMetaData();
         }
+        return tombstoneFile;
     }
 
     private void markPreviousVersionAsStale(byte[] key) {
@@ -431,7 +438,6 @@ class HaloDBInternal {
     }
 
     private long buildInMemoryIndex(HaloDBOptions options) throws IOException {
-        //TODO: probably processing files in descending order is more efficient.
         List<Integer> indexFiles = dbDirectory.listIndexFiles();
 
         logger.info("About to scan {} index files to construct index ...", indexFiles.size());
@@ -439,8 +445,66 @@ class HaloDBInternal {
         long start = System.currentTimeMillis();
         long maxSequenceNumber = -1l;
 
+        List<ProcessIndexFileTask> indexFileTasks = new ArrayList<>();
         for (int fileId : indexFiles) {
             IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
+            indexFileTasks.add(new ProcessIndexFileTask(indexFile, fileId));
+        }
+
+        int nThreads = options.getBuildIndexThreads();
+        logger.info("Building index in parallel with {} threads", nThreads);
+
+        ExecutorService executor = Executors.newFixedThreadPool(nThreads);
+        try {
+            List<Future<Long>> results = executor.invokeAll(indexFileTasks);
+            for (Future<Long> result : results) {
+                maxSequenceNumber = Long.max(result.get(), maxSequenceNumber);
+            }
+        } catch (InterruptedException ie) {
+            throw new IOException("Building index is interrupted");
+        } catch (ExecutionException ee) {
+            throw new IOException("Error happened during building in-memory index", ee);
+        }
+        logger.info("Completed scanning all index files in {}s", (System.currentTimeMillis() - start) / 1000);
+
+        // Scan all the tombstone files and remove records from index.
+        start = System.currentTimeMillis();
+        File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
+        logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
+        List<ProcessTombstoneFileTask> tombstoneFileTasks = new ArrayList<>();
+        for (File file : tombStoneFiles) {
+            TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
+            tombstoneFileTasks.add(new ProcessTombstoneFileTask(tombstoneFile));
+        }
+
+        try {
+            List<Future<Long>> results = executor.invokeAll(tombstoneFileTasks);
+            for (Future<Long> result : results) {
+                maxSequenceNumber = Long.max(result.get(), maxSequenceNumber);
+            }
+        } catch (InterruptedException ie) {
+            throw new IOException("Building index is interrupted");
+        } catch (ExecutionException ee) {
+            throw new IOException("Error happened during building in-memory index", ee);
+        }
+        executor.shutdown();
+        logger.info("Completed scanning all tombstone files in {}s", (System.currentTimeMillis() - start) / 1000);
+
+        return maxSequenceNumber;
+    }
+
+    class ProcessIndexFileTask implements Callable<Long> {
+        private final IndexFile indexFile;
+        private final int fileId;
+
+        public ProcessIndexFileTask(IndexFile indexFile, int fileId) {
+            this.indexFile = indexFile;
+            this.fileId = fileId;
+        }
+
+        @Override
+        public Long call() throws IOException {
+            long maxSequenceNumber = -1;
             indexFile.open();
             IndexFile.IndexFileIterator iterator = indexFile.newIterator();
 
@@ -457,39 +521,51 @@ class HaloDBInternal {
                 int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
 
-                InMemoryIndexMetaData existing = inMemoryIndex.get(key);
+                InMemoryIndexMetaData metaData = new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber);
 
-                if (existing == null) {
-                    // first version of the record that we have seen, add to index.
-                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
+                if (!inMemoryIndex.putIfAbsent(key, metaData)) {
+                    while (true) {
+                        InMemoryIndexMetaData existing = inMemoryIndex.get(key);
+                        if (existing.getSequenceNumber() >= sequenceNumber) {
+                            // stale data, update stale data map.
+                            addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
+                            break;
+                        }
+                        if (inMemoryIndex.replace(key, existing, metaData)) {
+                            // update stale data map for the previous version.
+                            addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                            inserted++;
+                            break;
+                        }
+                    }
+                } else {
                     inserted++;
-                }
-                else if (existing.getSequenceNumber() < sequenceNumber) {
-                    // a newer version of the record, replace existing record in index with newer one.
-                    inMemoryIndex.put(key, new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber));
-
-                    // update stale data map for the previous version.
-                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
-                    inserted++;
-                }
-                else {
-                    // stale data, update stale data map.
-                    addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
                 }
             }
             logger.debug("Completed scanning index file {}. Found {} records, inserted {} records", fileId, count, inserted);
             indexFile.close();
+
+            return maxSequenceNumber;
+        }
+    }
+
+    class ProcessTombstoneFileTask implements Callable<Long> {
+        private final TombstoneFile tombstoneFile;
+
+        public ProcessTombstoneFileTask(TombstoneFile tombstoneFile) {
+            this.tombstoneFile = tombstoneFile;
         }
 
-        // Scan all the tombstone files and remove records from index.
-        File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
-        logger.info("About to scan {} tombstone files ...", tombStoneFiles.length);
-        for (File file : tombStoneFiles) {
-            TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
+        @Override
+        public Long call() throws IOException {
+            long maxSequenceNumber = -1;
             tombstoneFile.open();
+
+            TombstoneFile rolloverFile = null;
+
             TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
-            int count = 0, deleted = 0, copied = 0;
+            long count = 0, active = 0, copied = 0;
             while (iterator.hasNext()) {
                 TombstoneEntry entry = iterator.next();
                 byte[] key = entry.getKey();
@@ -503,32 +579,35 @@ class HaloDBInternal {
                     inMemoryIndex.remove(key);
 
                     // update stale data map for the previous version.
-                    addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
-                    deleted++;
+                    addFileToCompactionQueueIfThresholdCrossed(
+                        existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                    active++;
 
                     if (options.isCleanUpTombstonesDuringOpen()) {
-                        rollOverCurrentTombstoneFile(entry);
-                        currentTombstoneFile.write(entry);
+                        rolloverFile = rollOverTombstoneFile(entry, rolloverFile);
+                        rolloverFile.write(entry);
                         copied++;
                     }
                 }
             }
-            logger.debug("Completed scanning tombstone file {}. Found {} tombstones, deleted {} records", file.getName(), count, deleted);
+            logger.debug("Completed scanning tombstone file {}. Found {} tombstones, {} are still active",
+                tombstoneFile.getName(), count, active);
             tombstoneFile.close();
 
             if (options.isCleanUpTombstonesDuringOpen()) {
-                logger.info("Copied {} tombstones from {}. Deleting the file", copied, tombstoneFile.getName());
-                if (currentTombstoneFile != null)
-                    currentTombstoneFile.flushToDisk();
+                logger.debug("Copied {} out of {} tombstones. Deleting {}", copied, count, tombstoneFile.getName());
+                if (rolloverFile != null) {
+                    logger.debug("Closing rollover tombstone file {}", rolloverFile.getName());
+                    rolloverFile.flushToDisk();
+                    rolloverFile.close();
+                }
                 tombstoneFile.delete();
             }
-            noOfTombstonesCopiedDuringOpen += copied;
-            noOfTombstonesFoundDuringOpen += count;
+            noOfTombstonesCopiedDuringOpen.addAndGet(copied);
+            noOfTombstonesFoundDuringOpen.addAndGet(count);
+
+            return maxSequenceNumber;
         }
-
-        logger.info("Completed scanning all key files in {}", (System.currentTimeMillis() - start)/1000);
-
-        return maxSequenceNumber;
     }
 
     HaloDBFile getHaloDBFile(int fileId) {
@@ -544,6 +623,61 @@ class HaloDBInternal {
         }
 
         staleDataPerFileMap.remove(fileId);
+    }
+
+    /**
+     * If options.isCleanUpTombstonesDuringOpen set to true, all inactive entries,
+     * i.e. physically deleted records, will be dropped during db open.
+     * Refer to ProcessTombstoneFileTask class and buildInMemoryIndex()
+     * To shorten db open time, active entries, i.e. not physically deleted
+     * records, in each tombstone file are rolled over to a corresponding
+     * new tombstone file. Therefore, the new tombstone file size might be very
+     * small depends on number of active entries in each tombstone file.
+     * A tombstone file won't be deleted as long as it has at least 1 active
+     * entry. This function provide a way to merge small tombstone files in
+     * offline mode. options.maxTombstoneFileSize still apply to merged file
+     */
+    void mergeTombstoneFiles() throws IOException {
+        if (!options.isCleanUpTombstonesDuringOpen()) {
+            logger.info("CleanUpTombstonesDuringOpen is not enabled, returning");
+            return;
+        }
+
+        File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
+
+        logger.info("About to merge {} tombstone files ...", tombStoneFiles.length);
+        TombstoneFile mergedTombstoneFile = null;
+
+        // Use compaction job rate as write rate limiter to avoid IO impact
+        final RateLimiter rateLimiter = RateLimiter.create(options.getCompactionJobRate());
+
+        for (File file : tombStoneFiles) {
+            TombstoneFile tombstoneFile = new TombstoneFile(file, options, dbDirectory);
+            if (currentTombstoneFile != null && tombstoneFile.getName().equals(currentTombstoneFile.getName())) {
+                continue; // not touch current tombstone file
+            }
+
+            tombstoneFile.open();
+            TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
+
+            long count = 0;
+            while (iterator.hasNext()) {
+                TombstoneEntry entry = iterator.next();
+                rateLimiter.acquire(entry.size());
+                count++;
+                mergedTombstoneFile = rollOverTombstoneFile(entry, mergedTombstoneFile);
+                mergedTombstoneFile.write(entry);
+            }
+            if (count > 0) {
+                logger.debug("Merged {} tombstones from {} to {}",
+                    count, tombstoneFile.getName(), mergedTombstoneFile.getName());
+            }
+            tombstoneFile.close();
+            tombstoneFile.delete();
+        }
+
+        logger.info("Tombstone files count, before merge:{}, after merge:{}",
+            tombStoneFiles.length, dbDirectory.listTombstoneFiles().length);
     }
 
     private void repairFiles() {
@@ -651,8 +785,11 @@ class HaloDBInternal {
             inMemoryIndex.getNoOfSegments(),
             inMemoryIndex.getMaxSizeOfEachSegment(),
             stats.getSegmentStats(),
-            noOfTombstonesFoundDuringOpen,
-            options.isCleanUpTombstonesDuringOpen() ? noOfTombstonesFoundDuringOpen - noOfTombstonesCopiedDuringOpen : 0,
+            dbDirectory.listDataFiles().length,
+            dbDirectory.listTombstoneFiles().length,
+            noOfTombstonesFoundDuringOpen.get(),
+            options.isCleanUpTombstonesDuringOpen() ?
+                noOfTombstonesFoundDuringOpen.get() - noOfTombstonesCopiedDuringOpen.get() : 0,
             compactionManager.getNumberOfRecordsCopied(),
             compactionManager.getNumberOfRecordsReplaced(),
             compactionManager.getNumberOfRecordsScanned(),

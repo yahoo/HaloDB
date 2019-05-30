@@ -21,9 +21,11 @@ public class TestBase {
     @DataProvider(name = "Options")
     public Object[][] optionData() {
         HaloDBOptions options = new HaloDBOptions();
+        options.setBuildIndexThreads(2);
         HaloDBOptions withMemoryPool = new HaloDBOptions();
         withMemoryPool.setUseMemoryPool(true);
         withMemoryPool.setMemoryPoolChunkSize(1024 * 1024);
+        withMemoryPool.setBuildIndexThreads(2);
 
         return new Object[][] {
             {options},

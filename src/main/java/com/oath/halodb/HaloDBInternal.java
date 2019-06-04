@@ -69,6 +69,8 @@ class HaloDBInternal {
     private AtomicLong noOfTombstonesFoundDuringOpen;
     private volatile long nextSequenceNumber;
 
+    private volatile boolean isTombstoneFilesMerging = false;
+
     private HaloDBInternal() {}
 
     static HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
@@ -124,6 +126,13 @@ class HaloDBInternal {
             }
             else {
                 logger.warn("Compaction is disabled in HaloDBOption. This should happen only in tests");
+            }
+
+            // merge tombstone files at background if clean up set to true
+            if (options.isCleanUpTombstonesDuringOpen()) {
+                dbInternal.isTombstoneFilesMerging = true;
+                Thread t = new Thread(() -> { dbInternal.mergeTombstoneFiles(); });
+                t.start();
             }
 
             logger.info("Opened HaloDB {}", directory.getName());
@@ -637,12 +646,7 @@ class HaloDBInternal {
      * entry. This function provide a way to merge small tombstone files in
      * offline mode. options.maxTombstoneFileSize still apply to merged file
      */
-    void mergeTombstoneFiles() throws IOException {
-        if (!options.isCleanUpTombstonesDuringOpen()) {
-            logger.info("CleanUpTombstonesDuringOpen is not enabled, returning");
-            return;
-        }
-
+    private void mergeTombstoneFiles() {
         File[] tombStoneFiles = dbDirectory.listTombstoneFiles();
 
         logger.info("About to merge {} tombstone files ...", tombStoneFiles.length);
@@ -657,27 +661,32 @@ class HaloDBInternal {
                 continue; // not touch current tombstone file
             }
 
-            tombstoneFile.open();
-            TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
+            try {
+                tombstoneFile.open();
+                TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
-            long count = 0;
-            while (iterator.hasNext()) {
-                TombstoneEntry entry = iterator.next();
-                rateLimiter.acquire(entry.size());
-                count++;
-                mergedTombstoneFile = rollOverTombstoneFile(entry, mergedTombstoneFile);
-                mergedTombstoneFile.write(entry);
+                long count = 0;
+                while (iterator.hasNext()) {
+                    TombstoneEntry entry = iterator.next();
+                    rateLimiter.acquire(entry.size());
+                    count++;
+                    mergedTombstoneFile = rollOverTombstoneFile(entry, mergedTombstoneFile);
+                    mergedTombstoneFile.write(entry);
+                }
+                if (count > 0) {
+                    logger.debug("Merged {} tombstones from {} to {}",
+                        count, tombstoneFile.getName(), mergedTombstoneFile.getName());
+                }
+                tombstoneFile.close();
+                tombstoneFile.delete();
+            } catch (IOException e) {
+                logger.error("IO exception when merging tombstone file", e);
             }
-            if (count > 0) {
-                logger.debug("Merged {} tombstones from {} to {}",
-                    count, tombstoneFile.getName(), mergedTombstoneFile.getName());
-            }
-            tombstoneFile.close();
-            tombstoneFile.delete();
         }
 
         logger.info("Tombstone files count, before merge:{}, after merge:{}",
             tombStoneFiles.length, dbDirectory.listTombstoneFiles().length);
+        isTombstoneFilesMerging = false;
     }
 
     private void repairFiles() {
@@ -824,5 +833,10 @@ class HaloDBInternal {
     @VisibleForTesting
     boolean isCompactionComplete() {
         return compactionManager.isCompactionComplete();
+    }
+
+    @VisibleForTesting
+    boolean isTombstoneFilesMerging() {
+        return isTombstoneFilesMerging;
     }
 }

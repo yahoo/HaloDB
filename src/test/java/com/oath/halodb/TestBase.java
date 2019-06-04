@@ -54,6 +54,7 @@ public class TestBase {
         this.directory = directory;
         File dir = new File(directory);
         db = HaloDB.open(dir, options);
+        TestUtils.waitForTombstoneFileMergeComplete(db);
         return db;
     }
 

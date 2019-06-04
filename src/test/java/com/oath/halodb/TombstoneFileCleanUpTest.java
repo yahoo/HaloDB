@@ -314,37 +314,18 @@ public class TombstoneFileCleanUpTest extends TestBase {
         options.setCleanUpTombstonesDuringOpen(true);
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // all original tombstone files are rolled over to new ones with inactive entries dropped
-        // total tombstone file count are same because not merge during db open
-        // listTombstoneFiles return a sorted file list
-        current = FileUtils.listTombstoneFiles(new File(directory));
-        Assert.assertEquals(current.length, original.length);
-        Assert.assertTrue(getFileId(current[0].getName()) > getFileId(original[original.length-1].getName()));
-
-        // Merge tombstone files and verify file number reduced
-        db.mergeTombstoneFiles();
-
         original = current;
         current = FileUtils.listTombstoneFiles(new File(directory));
         // See comments above how 4 is calculated
         Assert.assertEquals(current.length, 4);
+        // All tombstone files are rolled over to new files
         Assert.assertTrue(getFileId(current[0].getName()) > getFileId(original[original.length-1].getName()));
 
-        // Test mergeTombstoneFiles with currentTombstoneFile present
-        // Delete 1 record to initialize currentTombstoneFile
+        // Delete 1 record and verify currentTombstoneFile is initialized
         db.delete(records.get(1).getKey());
         original = current;
         current = FileUtils.listTombstoneFiles(new File(directory));
         Assert.assertEquals(current.length, original.length + 1);
-
-        // Merge tombstone files again, verify tombstones roll over to new files, file count keep same
-        db.mergeTombstoneFiles();
-        original = current;
-        current = FileUtils.listTombstoneFiles(new File(directory));
-        Assert.assertEquals(current.length, original.length);
-        // Verify currentTombstoneFile is not rolled over
-        Assert.assertEquals(current[0].getName(), original[original.length-1].getName());
-
         db.close();
     }
 

@@ -255,7 +255,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
     public void testMergeTombstoneFiles(HaloDBOptions options) throws IOException, HaloDBException {
         String directory = TestUtils.getTestDirectory("TombstoneFileCleanUpTest", "testMergeTombstoneFiles");
 
-        options.setCompactionThresholdPerFile(0.4);
+        options.setCompactionThresholdPerFile(0.5);
         options.setMaxFileSize(16 * 1024);
         options.setMaxTombstoneFileSize(2 * 1024);
         HaloDB db = getTestDB(directory, options);

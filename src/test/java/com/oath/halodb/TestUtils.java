@@ -220,6 +220,17 @@ public class TestUtils {
         }
     }
 
+    static void waitForTombstoneFileMergeComplete(HaloDB db) {
+        while (db.isTombstoneFilesMerging()) {
+            try {
+                Thread.sleep(1_000);
+            } catch (InterruptedException e) {
+                logger.error("Thread interrupted while waiting for tombstone file merge to complete");
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     static Optional<File> getLatestDataFile(String directory) {
         return Arrays.stream(FileUtils.listDataFiles(new File(directory)))
             .filter(f -> HaloDBFile.findFileType(f) == HaloDBFile.FileType.DATA_FILE)

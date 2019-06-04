@@ -143,11 +143,6 @@ is allocated in native memory, outside the Java heap.
             
             // repeatedly calling pause/resume compaction methods will have no effect.
 
-            // merge tombstone files only when options.isCleanUpTombstonesDuringOpen is true
-            // this is a blocking API, don't run it on a response time/latency sensitive worker thread
-            // better to call it in a periodically scheduled job based on actual situations.
-            db.mergeTombstoneFiles()
-    
             // Close the database.
             db.close();
 ```

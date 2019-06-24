@@ -14,6 +14,10 @@ public class HaloDBOptions implements Cloneable {
 
     private int maxFileSize = 1024 * 1024; /* 1mb file recordSize */
 
+    // To keep backward compatibility, initialize to 0 which means
+    // it will fall back to use maxFileSize, see the getter below
+    private int maxTombstoneFileSize = 0;
+
      // Data will be flushed to disk after flushDataSizeBytes have been written.
      // -1 disables explicit flushing and let the kernel handle it.
     private long flushDataSizeBytes = -1;
@@ -37,6 +41,10 @@ public class HaloDBOptions implements Cloneable {
 
     private int memoryPoolChunkSize = 16 * 1024 * 1024;
 
+    // Number of threads to scan index and tombstone files
+    // to build in-memory index at db open
+    private int buildIndexThreads = 1;
+
     // Just to avoid clients having to deal with CloneNotSupportedException
     public HaloDBOptions clone() {
         try {
@@ -51,6 +59,7 @@ public class HaloDBOptions implements Cloneable {
         return MoreObjects.toStringHelper("")
             .add("compactionThresholdPerFile", compactionThresholdPerFile)
             .add("maxFileSize", maxFileSize)
+            .add("maxTombstoneFileSize", getMaxTombstoneFileSize())
             .add("flushDataSizeBytes", flushDataSizeBytes)
             .add("syncWrite", syncWrite)
             .add("numberOfRecords", numberOfRecords)
@@ -60,6 +69,7 @@ public class HaloDBOptions implements Cloneable {
             .add("useMemoryPool", useMemoryPool)
             .add("fixedKeySize", fixedKeySize)
             .add("memoryPoolChunkSize", memoryPoolChunkSize)
+            .add("buildIndexThreads", buildIndexThreads)
             .toString();
     }
 
@@ -72,6 +82,13 @@ public class HaloDBOptions implements Cloneable {
             throw new IllegalArgumentException("maxFileSize should be > 0");
         }
         this.maxFileSize = maxFileSize;
+    }
+
+    public void setMaxTombstoneFileSize(int maxFileSize) {
+        if (maxFileSize <= 0) {
+            throw new IllegalArgumentException("maxFileSize should be > 0");
+        }
+        this.maxTombstoneFileSize = maxFileSize;
     }
 
     public void setFlushDataSizeBytes(long flushDataSizeBytes) {
@@ -96,6 +113,10 @@ public class HaloDBOptions implements Cloneable {
 
     public int getMaxFileSize() {
         return maxFileSize;
+    }
+
+    public int getMaxTombstoneFileSize() {
+        return maxTombstoneFileSize > 0 ? maxTombstoneFileSize : maxFileSize;
     }
 
     public long getFlushDataSizeBytes() {
@@ -154,6 +175,17 @@ public class HaloDBOptions implements Cloneable {
         this.syncWrite = syncWrites;
     }
 
+    public int getBuildIndexThreads() {
+        return buildIndexThreads;
+    }
+
+    public void setBuildIndexThreads(int buildIndexThreads) {
+        int numOfProcessors = Runtime.getRuntime().availableProcessors();
+        if (buildIndexThreads < 0 || buildIndexThreads > numOfProcessors) {
+            throw new IllegalArgumentException("buildIndexThreads should be > 0 and <= " + numOfProcessors);
+        }
+        this.buildIndexThreads = buildIndexThreads;
+    }
 
     // to be used only in tests.
     private boolean isCompactionDisabled = false;

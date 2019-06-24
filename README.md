@@ -21,10 +21,21 @@ is allocated in native memory, outside the Java heap.
             // Open a db with default options.
             HaloDBOptions options = new HaloDBOptions();
     
-            // size of each data file will be 1GB.
+            // Size of each data file will be 1GB.
             options.setMaxFileSize(1024 * 1024 * 1024);
-    
-            // the threshold at which page cache is synced to disk.
+
+            // Size of each tombstone file will be 64MB
+            // Large file size mean less file count but will slow down db open time. But if set
+            // file size too small, it will result large amount of tombstone files under db folder
+            options.setMaxTombstoneFileSize(64 * 1024 * 1024);
+
+            // Set the number of threads used to scan index and tombstone files in parallel
+            // to build in-memory index during db open. It must be a positive number which is
+            // not greater than Runtime.getRuntime().availableProcessors().
+            // It is used to speed up db open time.
+            options.setBuildIndexThreads(8);
+
+            // The threshold at which page cache is synced to disk.
             // data will be durable only if it is flushed to disk, therefore
             // more data will be lost if this value is set too high. Setting
             // this value too low might interfere with read and write performance.
@@ -131,7 +142,7 @@ is allocated in native memory, outside the Java heap.
             db.resumeCompaction();
             
             // repeatedly calling pause/resume compaction methods will have no effect.
-    
+
             // Close the database.
             db.close();
 ```
@@ -198,6 +209,12 @@ Delete operation for a key will add a tombstone record to a tombstone file, whic
 This design has the advantage that the tombstone record once written need not be copied again during compaction, but 
 the drawback is that in case of a power loss HaloDB cannot guarantee total ordering when put and delete operations are 
 interleaved (although partial ordering for both is guaranteed).
+
+### DB open time
+Open db could take a few minutes, depends on number of records and tombstones. If the db open time is critical to your
+use case, please keep tombstone file size relatively small and increase the number of threads used in building index.
+See the option setting section in example code above. As best practice, set tombstone file size at 64MB and set build
+index threads to number of available processors divided by number of dbs being opened simultaneously.
 
 ### System requirements. 
 * HaloDB requires Java 8 to run, but has not yet been tested with newer Java versions.  

@@ -92,11 +92,15 @@ public final class HaloDB {
         dbInternal.resumeCompaction();
     }
 
-
     // methods used in tests.
 
     @VisibleForTesting
     boolean isCompactionComplete() {
         return dbInternal.isCompactionComplete();
+    }
+
+    @VisibleForTesting
+    boolean isTombstoneFilesMerging() {
+        return dbInternal.isTombstoneFilesMerging();
     }
 }

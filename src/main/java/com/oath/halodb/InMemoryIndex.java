@@ -48,6 +48,10 @@ class InMemoryIndex {
         return offHeapHashTable.put(key, metaData);
     }
 
+    boolean putIfAbsent(byte[] key, InMemoryIndexMetaData metaData) {
+        return offHeapHashTable.putIfAbsent(key, metaData);
+    }
+
     boolean remove(byte[] key) {
         return offHeapHashTable.remove(key);
     }

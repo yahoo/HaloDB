@@ -8,6 +8,7 @@ package com.oath.halodb;
 import com.google.common.base.MoreObjects;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 public class HaloDBStats {
@@ -27,6 +28,9 @@ public class HaloDBStats {
     private final long numberOfTombstonesFoundDuringOpen;
     private final long numberOfTombstonesCleanedUpDuringOpen;
 
+    private final int numberOfDataFiles;
+    private final int numberOfTombstoneFiles;
+
     private final long numberOfRecordsCopied;
     private final long numberOfRecordsReplaced;
     private final long numberOfRecordsScanned;
@@ -43,10 +47,12 @@ public class HaloDBStats {
 
     public HaloDBStats(long statsResetTime, long size, boolean isCompactionRunning, int numberOfFilesPendingCompaction,
                        Map<Integer, Double> staleDataPercentPerFile, long rehashCount, long numberOfSegments,
-                       long maxSizePerSegment, SegmentStats[] segmentStats, long numberOfTombstonesFoundDuringOpen,
-                       long numberOfTombstonesCleanedUpDuringOpen, long numberOfRecordsCopied,
-                       long numberOfRecordsReplaced, long numberOfRecordsScanned, long sizeOfRecordsCopied,
-                       long sizeOfFilesDeleted, long sizeReclaimed, long compactionRateSinceBeginning, HaloDBOptions options) {
+                       long maxSizePerSegment, SegmentStats[] segmentStats,
+                       int numberOfDataFiles, int numberOfTombstoneFiles,
+                       long numberOfTombstonesFoundDuringOpen, long numberOfTombstonesCleanedUpDuringOpen,
+                       long numberOfRecordsCopied, long numberOfRecordsReplaced, long numberOfRecordsScanned,
+                       long sizeOfRecordsCopied, long sizeOfFilesDeleted, long sizeReclaimed,
+                       long compactionRateSinceBeginning, HaloDBOptions options) {
         this.statsResetTime = statsResetTime;
         this.size = size;
         this.numberOfFilesPendingCompaction = numberOfFilesPendingCompaction;
@@ -55,6 +61,8 @@ public class HaloDBStats {
         this.numberOfSegments = numberOfSegments;
         this.maxSizePerSegment = maxSizePerSegment;
         this.segmentStats = segmentStats;
+        this.numberOfDataFiles = numberOfDataFiles;
+        this.numberOfTombstoneFiles = numberOfTombstoneFiles;
         this.numberOfTombstonesFoundDuringOpen = numberOfTombstonesFoundDuringOpen;
         this.numberOfTombstonesCleanedUpDuringOpen = numberOfTombstonesCleanedUpDuringOpen;
         this.numberOfRecordsCopied = numberOfRecordsCopied;
@@ -129,6 +137,14 @@ public class HaloDBStats {
         return options;
     }
 
+    public int getNumberOfDataFiles() {
+        return numberOfDataFiles;
+    }
+
+    public int getNumberOfTombstoneFiles() {
+        return numberOfTombstoneFiles;
+    }
+
     public long getNumberOfTombstonesFoundDuringOpen() {
         return numberOfTombstonesFoundDuringOpen;
     }
@@ -171,12 +187,42 @@ public class HaloDBStats {
             .add("sizeReclaimed", sizeReclaimed)
             .add("rehashCount", rehashCount)
             .add("maxSizePerSegment", maxSizePerSegment)
+            .add("numberOfDataFiles", numberOfDataFiles)
+            .add("numberOfTombstoneFiles", numberOfTombstoneFiles)
             .add("numberOfTombstonesFoundDuringOpen", numberOfTombstonesFoundDuringOpen)
             .add("numberOfTombstonesCleanedUpDuringOpen", numberOfTombstonesCleanedUpDuringOpen)
             .add("segmentStats", Arrays.toString(segmentStats))
             .add("numberOfSegments", numberOfSegments)
             .add("staleDataPercentPerFile", staleDataMapToString())
             .toString();
+    }
+
+    public Map<String, String> toStringMap() {
+        Map<String, String> map = new HashMap<>();
+        map.put("statsResetTime", String.valueOf(statsResetTime));
+        map.put("size", String.valueOf(size));
+        map.put("Options", String.valueOf(options));
+        map.put("isCompactionRunning", String.valueOf(isCompactionRunning));
+        map.put("CompactionJobRateInInterval", String.valueOf(getUnit(compactionRateInInternal)));
+        map.put("CompactionJobRateSinceBeginning", String.valueOf(getUnit(compactionRateSinceBeginning)));
+        map.put("numberOfFilesPendingCompaction", String.valueOf(numberOfFilesPendingCompaction));
+        map.put("numberOfRecordsCopied", String.valueOf(numberOfRecordsCopied));
+        map.put("numberOfRecordsReplaced", String.valueOf(numberOfRecordsReplaced));
+        map.put("numberOfRecordsScanned", String.valueOf(numberOfRecordsScanned));
+        map.put("sizeOfRecordsCopied", String.valueOf(sizeOfRecordsCopied));
+        map.put("sizeOfFilesDeleted", String.valueOf(sizeOfFilesDeleted));
+        map.put("sizeReclaimed", String.valueOf(sizeReclaimed));
+        map.put("rehashCount", String.valueOf(rehashCount));
+        map.put("maxSizePerSegment", String.valueOf(maxSizePerSegment));
+        map.put("numberOfDataFiles", String.valueOf(numberOfDataFiles));
+        map.put("numberOfTombstoneFiles", String.valueOf(numberOfTombstoneFiles));
+        map.put("numberOfTombstonesFoundDuringOpen", String.valueOf(numberOfTombstonesFoundDuringOpen));
+        map.put("numberOfTombstonesCleanedUpDuringOpen", String.valueOf(numberOfTombstonesCleanedUpDuringOpen));
+        map.put("segmentStats", String.valueOf(Arrays.toString(segmentStats)));
+        map.put("numberOfSegments", String.valueOf(numberOfSegments));
+        map.put("staleDataPercentPerFile", String.valueOf(staleDataMapToString()));
+
+        return map;
     }
 
     private String staleDataMapToString() {

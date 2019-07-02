@@ -1,22 +1,10 @@
-package com.oath.halodb;
+package com.oath.halodb.histo;
 
-import com.oath.halodb.histo.EstimatedHistogram;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.internal.junit.ArrayAsserts;
 
-public class EstimatedHistogramTests {
-
-    @Test
-    public void testHashCode() {
-        long[] offsets = new long[]{2, 1};
-        long[] bucketData = new long[]{1, 2, 0};
-
-        EstimatedHistogram estimatedHistogram =
-                new EstimatedHistogram(offsets, bucketData);
-
-        Assert.assertEquals(estimatedHistogram.hashCode(), -1264764580);
-    }
+public class EstimatedHistogramTest {
 
     @Test
     public void testGetBuckets() {

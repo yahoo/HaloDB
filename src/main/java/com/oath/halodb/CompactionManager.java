@@ -95,7 +95,7 @@ class CompactionManager {
         }
     }
 
-    void pauseCompactionThread() throws IOException, InterruptedException {
+    void pauseCompactionThread() throws IOException {
         logger.info("Pausing compaction thread ...");
         stopCompactionThread(false);
     }

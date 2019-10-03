@@ -83,7 +83,7 @@ public final class HaloDB {
     public void pauseCompaction() throws HaloDBException {
         try {
             dbInternal.pauseCompaction();
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             throw new HaloDBException("Error while trying to pause compaction thread", e);
         }
     }

@@ -7,13 +7,14 @@ package com.oath.halodb;
 
 import com.google.common.primitives.Longs;
 
+import java.io.File;
+import java.nio.ByteBuffer;
+import java.util.*;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 import mockit.Mock;
 import mockit.MockUp;
@@ -494,6 +495,85 @@ public class HaloDBTest extends TestBase {
         Assert.assertEquals(db.get(Longs.toByteArray(1)), Longs.toByteArray(1));
         db.close();
         db.delete(Longs.toByteArray(1));
+    }
+
+    @Test
+    public void testSnapshot() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testSnapshot");
+        HaloDBOptions options = new HaloDBOptions();
+        // Generate several data files
+        options.setMaxFileSize(10000);
+        HaloDB db = getTestDB(directory, options);
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            db.put(ByteBuffer.allocate(4).putInt(i).array(), ByteBuffer.allocate(8).putInt(i).putInt(i*1024).array());
+        }
+        db.snapshot();
+
+        String snapshotDir = db.getSnapshotDirectory().toString();
+        HaloDB snapshotDB = getTestDBWithoutDeletingFiles(snapshotDir, options);
+
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            byte[] value = snapshotDB.get(ByteBuffer.allocate(4).putInt(i).array());
+            Assert.assertTrue(Arrays.equals(value, ByteBuffer.allocate(8).putInt(i).putInt(i*1024).array()));
+        }
+
+        snapshotDB.close();
+        db.close();
+    }
+
+    @Test
+    public void testCreateAndDeleteSnapshot() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testCreateAndDeleteSnapshot");
+        HaloDBOptions options = new HaloDBOptions();
+        // Generate several data files
+        options.setMaxFileSize(10000);
+        HaloDB db = getTestDB(directory, options);
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            db.put(ByteBuffer.allocate(4).putInt(i).array(), ByteBuffer.allocate(8).putInt(i).putInt(i*1024).array());
+        }
+
+        Assert.assertTrue(db.clearSnapshot());
+        db.snapshot();
+
+        Assert.assertTrue(db.clearSnapshot());
+
+        File snapshotDir = db.getSnapshotDirectory();
+        Assert.assertFalse(snapshotDir.exists());
+
+        db.close();
+    }
+
+    @Test
+    public void testSnapshotAfterBeenCompacted() throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testSnapshotAfterBeenCompacted");
+        HaloDBOptions options = new HaloDBOptions();
+        // Generate several data files
+        options.setMaxFileSize(10000);
+        options.setCompactionThresholdPerFile(0.7);
+        HaloDB db = getTestDB(directory, options);
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            db.put(ByteBuffer.allocate(4).putInt(i).array(), ByteBuffer.allocate(8).putInt(i).putInt(i*1024).array());
+        }
+        db.snapshot();
+
+        // overwrite all previous record
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            db.put(ByteBuffer.allocate(4).putInt(i).array(), ByteBuffer.allocate(8).putInt(i).putInt(i*2048).array());
+        }
+        TestUtils.waitForCompactionToComplete(db);
+
+        String snapshotDir = db.getSnapshotDirectory().toString();
+        HaloDB snapshotDB = getTestDBWithoutDeletingFiles(snapshotDir, options);
+
+        for (int i = 10000; i < 10000 + 10*1000; i++) {
+            byte[] key = ByteBuffer.allocate(4).putInt(i).array();
+            byte[] value = snapshotDB.get(key);
+            Assert.assertTrue(Arrays.equals(value, ByteBuffer.allocate(8).putInt(i).putInt(i*1024).array()));
+            Assert.assertFalse(Arrays.equals(value, db.get(key)));
+        }
+
+        snapshotDB.close();
+        db.close();
     }
 
 }

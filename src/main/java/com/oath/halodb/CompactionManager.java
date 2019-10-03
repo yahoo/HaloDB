@@ -306,18 +306,22 @@ class CompactionManager {
         }
 
         private void rollOverCurrentWriteFile(int recordSize) throws IOException {
-            if (currentWriteFile == null ||  currentWriteFileOffset + recordSize > dbInternal.options.getMaxFileSize()) {
-                if (currentWriteFile != null) {
-                    currentWriteFile.flushToDisk();
-                    currentWriteFile.getIndexFile().flushToDisk();
-                }
-                currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
-                dbInternal.getDbDirectory().syncMetaData();
-                currentWriteFileOffset = 0;
+            if (currentWriteFile == null || currentWriteFileOffset + recordSize > dbInternal.options
+                .getMaxFileSize()) {
+                forceRolloverCurrentWriteFile();
             }
         }
     }
 
+    void forceRolloverCurrentWriteFile() throws IOException {
+        if (currentWriteFile != null) {
+            currentWriteFile.flushToDisk();
+            currentWriteFile.getIndexFile().flushToDisk();
+        }
+        currentWriteFile = dbInternal.createHaloDBFile(HaloDBFile.FileType.COMPACTED_FILE);
+        dbInternal.getDbDirectory().syncMetaData();
+        currentWriteFileOffset = 0;
+    }
 
     // Used only for tests. to be called only after all writes in the test have been performed.
     @VisibleForTesting

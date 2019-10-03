@@ -9,6 +9,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 
 import com.google.common.util.concurrent.RateLimiter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.regex.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,13 +39,15 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 class HaloDBInternal {
+
     private static final Logger logger = LoggerFactory.getLogger(HaloDBInternal.class);
+    static final String SNAPSHOT_SUBDIR = "snapshot";
 
     private DBDirectory dbDirectory;
 
     private volatile HaloDBFile currentWriteFile;
 
-    private TombstoneFile currentTombstoneFile;
+    private volatile TombstoneFile currentTombstoneFile;
 
     private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
@@ -73,7 +79,7 @@ class HaloDBInternal {
 
     private HaloDBInternal() {}
 
-    static HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
+    static synchronized HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
         checkIfOptionsAreCorrect(options);
 
         HaloDBInternal dbInternal = new HaloDBInternal();
@@ -149,7 +155,7 @@ class HaloDBInternal {
         return dbInternal;
     }
 
-    void close() throws IOException {
+    synchronized void close() throws IOException {
         writeLock.lock();
         try {
             if (isClosing) {
@@ -281,6 +287,93 @@ class HaloDBInternal {
         }
     }
 
+    //TODO: use fine-grained lock if possible
+    synchronized boolean takeSnapshot() {
+        logger.info("Start generating the snapshot");
+
+        if (this.isTombstoneFilesMerging) {
+            logger.error("DB is not ready for snapshot now");
+            return false;
+        }
+
+        try {
+            final int currentWriteFileId;
+            compactionManager.pauseCompactionThread();
+
+            // Only support one snapshot now
+            // TODO: support multiple snapshots if needed
+            File snapshotDir = getSnapshotDirectory();
+            if (snapshotDir.exists()) {
+                logger.warn("The snapshot dir is already existed. Delete the old one.");
+                FileUtils.deleteDirectory(snapshotDir);
+            }
+
+            FileUtils.createDirectoryIfNotExists(snapshotDir);
+            logger.info("Created directory for snapshot {}", snapshotDir.toString());
+
+            writeLock.lock();
+            try {
+                forceRollOverCurrentWriteFile();
+                currentTombstoneFile = forceRollOverTombstoneFile(currentTombstoneFile);
+
+                currentWriteFileId = currentWriteFile.getFileId();
+            } catch (IOException e) {
+                logger.warn("IO exception when rollover current write files", e);
+
+                return false;
+            } finally {
+                writeLock.unlock();
+            }
+
+            File[] filesToLink = dbDirectory.getPath().toFile()
+                .listFiles(file -> {
+                    Matcher m = Constants.STORAGE_FILE_PATTERN.matcher(file.getName());
+                    return  m.matches() && (Integer.parseInt(m.group(1)) < currentWriteFileId);
+                });
+
+            compactionManager.forceRolloverCurrentWriteFile();
+
+            logger.info("Storage files number need to be linked: {}", filesToLink.length);
+
+            for (File file : filesToLink) {
+                Path dest = Paths.get(snapshotDir.getAbsolutePath(), file.getName());
+                logger.debug("Create file link from file {} to {}", file.getName(),
+                             dest.toFile().getAbsoluteFile());
+                Files.createLink(dest, file.toPath());
+            }
+        } catch(IOException e) {
+            logger.warn("IOException when creating snapshot", e);
+
+            return false;
+        } finally {
+            compactionManager.resumeCompaction();
+        }
+
+        return true;
+    }
+
+    File getSnapshotDirectory() {
+        Path dbDirectoryPath = dbDirectory.getPath();
+        return Paths.get(dbDirectoryPath.toFile().getAbsolutePath(), SNAPSHOT_SUBDIR).toFile();
+    }
+
+    boolean clearSnapshot() {
+        File snapshotDir = getSnapshotDirectory();
+        if (snapshotDir.exists()) {
+            try {
+                FileUtils.deleteDirectory(snapshotDir);
+            } catch (IOException e) {
+                logger.error("snapshot deletion error", e);
+                return false;
+            }
+
+            return  true;
+        } else {
+            logger.info("snapshot not existed");
+            return true;
+        }
+    }
+
     void delete(byte[] key) throws IOException {
         writeLock.lock();
         try {
@@ -323,33 +416,44 @@ class HaloDBInternal {
         return currentWriteFile.writeRecord(record);
     }
 
-    private void rollOverCurrentWriteFile(Record record) throws IOException, HaloDBException {
+    private void rollOverCurrentWriteFile(Record record) throws IOException {
         int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
-
-        if ((currentWriteFile == null ||  currentWriteFile.getWriteOffset() + size > options.getMaxFileSize()) && !isClosing) {
-            if (currentWriteFile != null) {
-                currentWriteFile.flushToDisk();
-                currentWriteFile.getIndexFile().flushToDisk();
-            }
-            currentWriteFile = createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
-            dbDirectory.syncMetaData();
+        if ((currentWriteFile == null || currentWriteFile.getWriteOffset() + size > options.getMaxFileSize())
+            && !isClosing) {
+            forceRollOverCurrentWriteFile();
         }
+    }
+
+    private void forceRollOverCurrentWriteFile() throws IOException {
+        if (currentWriteFile != null) {
+            currentWriteFile.flushToDisk();
+            currentWriteFile.getIndexFile().flushToDisk();
+        }
+        currentWriteFile = createHaloDBFile(HaloDBFile.FileType.DATA_FILE);
+        dbDirectory.syncMetaData();
     }
 
     private TombstoneFile rollOverTombstoneFile(TombstoneEntry entry, TombstoneFile tombstoneFile) throws IOException {
         int size = entry.getKey().length + TombstoneEntry.TOMBSTONE_ENTRY_HEADER_SIZE;
-
         if ((tombstoneFile == null ||
-            tombstoneFile.getWriteOffset() + size > options.getMaxTombstoneFileSize()) && !isClosing) {
-            if (tombstoneFile != null) {
-                tombstoneFile.flushToDisk();
-                tombstoneFile.close();
-            }
-            tombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
-            dbDirectory.syncMetaData();
+             tombstoneFile.getWriteOffset() + size > options.getMaxTombstoneFileSize()) && !isClosing) {
+            tombstoneFile = forceRollOverTombstoneFile(tombstoneFile);
         }
+
         return tombstoneFile;
     }
+
+    private TombstoneFile forceRollOverTombstoneFile(TombstoneFile tombstoneFile) throws IOException {
+        if (tombstoneFile != null) {
+            tombstoneFile.flushToDisk();
+            tombstoneFile.close();
+        }
+        tombstoneFile = TombstoneFile.create(dbDirectory, getNextFileId(), options);
+        dbDirectory.syncMetaData();
+
+        return tombstoneFile;
+    }
+
 
     private void markPreviousVersionAsStale(byte[] key) {
         InMemoryIndexMetaData recordMetaData = inMemoryIndex.get(key);

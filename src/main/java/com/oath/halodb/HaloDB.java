@@ -88,6 +88,18 @@ public final class HaloDB {
         }
     }
 
+    public boolean snapshot() {
+        return dbInternal.takeSnapshot();
+    }
+
+    public boolean clearSnapshot() {
+        return dbInternal.clearSnapshot();
+    }
+
+    public File getSnapshotDirectory() {
+        return dbInternal.getSnapshotDirectory();
+    }
+
     public void resumeCompaction() {
         dbInternal.resumeCompaction();
     }

@@ -32,7 +32,11 @@ public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
 
     static String getTestDirectory(String... path) {
-        return Paths.get("tmp", path).toString();
+        return getTestDirectoryPath(path).toString();
+    }
+
+    static Path getTestDirectoryPath(String... path) {
+        return Paths.get("tmp", path);
     }
 
     static List<Record> insertRandomRecords(HaloDB db, int noOfRecords) throws HaloDBException {

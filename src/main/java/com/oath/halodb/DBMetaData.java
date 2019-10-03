@@ -29,9 +29,9 @@ class DBMetaData {
      * io error         - 1 byte.
      * file size        - 4 byte.
      */
-    private final static int META_DATA_SIZE = 4+1+1+8+1+4;
-    private final static int checkSumSize = 4;
-    private final static int checkSumOffset = 0;
+    private static final int META_DATA_SIZE = 4+1+1+8+1+4;
+    private static final int CHECK_SUM_SIZE = 4;
+    private static final int CHECK_SUM_OFFSET = 0;
 
     private long checkSum = 0;
     private int version = 0;
@@ -44,7 +44,7 @@ class DBMetaData {
 
     static final String METADATA_FILE_NAME = "META";
 
-    private final static Object lock = new Object();
+    private static final Object lock = new Object();
 
     DBMetaData(DBDirectory dbDirectory) {
         this.dbDirectory = dbDirectory;
@@ -76,7 +76,7 @@ class DBMetaData {
             Files.deleteIfExists(tempFile);
             try(FileChannel channel = FileChannel.open(tempFile, WRITE, CREATE, SYNC)) {
                 ByteBuffer buff = ByteBuffer.allocate(META_DATA_SIZE);
-                buff.position(checkSumSize);
+                buff.position(CHECK_SUM_SIZE);
                 buff.put((byte)version);
                 buff.put((byte)(open ? 0xFF : 0));
                 buff.putLong(sequenceNumber);
@@ -84,7 +84,7 @@ class DBMetaData {
                 buff.putInt(maxFileSize);
 
                 long crc32 = computeCheckSum(buff.array());
-                buff.putInt(checkSumOffset, (int)crc32);
+                buff.putInt(CHECK_SUM_OFFSET, (int)crc32);
 
                 buff.flip();
                 channel.write(buff);
@@ -96,13 +96,13 @@ class DBMetaData {
 
     private long computeCheckSum(byte[] header) {
         CRC32 crc32 = new CRC32();
-        crc32.update(header, checkSumOffset + checkSumSize, META_DATA_SIZE - checkSumSize);
+        crc32.update(header, CHECK_SUM_OFFSET + CHECK_SUM_SIZE, META_DATA_SIZE - CHECK_SUM_SIZE);
         return crc32.getValue();
     }
 
     boolean isValid() {
         ByteBuffer buff = ByteBuffer.allocate(META_DATA_SIZE);
-        buff.position(checkSumSize);
+        buff.position(CHECK_SUM_SIZE);
         buff.put((byte)version);
         buff.put((byte)(open ? 0xFF : 0));
         buff.putLong(sequenceNumber);

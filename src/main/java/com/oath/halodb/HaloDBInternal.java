@@ -310,7 +310,7 @@ class HaloDBInternal {
         metaData.storeToFile();
     }
 
-    void pauseCompaction() throws IOException, InterruptedException {
+    void pauseCompaction() throws IOException {
         compactionManager.pauseCompactionThread();
     }
 

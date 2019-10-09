@@ -312,6 +312,14 @@ class HaloDBInternal {
 
     void pauseCompaction() throws IOException {
         compactionManager.pauseCompactionThread();
+        // Wait for compaction thread exit
+        while (compactionManager.isCompactionRunning()) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                logger.error("pauseCompaction is interrupted while waiting for compaction thread exit");
+            }
+        }
     }
 
     void resumeCompaction() {

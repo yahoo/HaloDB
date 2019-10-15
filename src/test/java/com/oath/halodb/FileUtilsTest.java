@@ -5,6 +5,8 @@
 
 package com.oath.halodb;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.testng.Assert;
@@ -109,6 +111,20 @@ public class FileUtilsTest {
         List<String> expected = Stream.of(fileIds).sorted().map(i -> i + TombstoneFile.TOMBSTONE_FILE_NAME).collect(Collectors.toList());
 
         Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testDirectoryCreateAndDelete() throws IOException {
+        Path parentDir = TestUtils.getTestDirectoryPath("FileUtilsTest", "DirectoryCreateAndDelete");
+        FileUtils.createDirectoryIfNotExists(parentDir.toFile());
+
+        Path subDir = TestUtils.getTestDirectoryPath("FileUtilsTest", "DirectoryCreateAndDelete", "subDir");
+        FileUtils.createDirectoryIfNotExists(subDir.toFile());
+
+
+        FileUtils.deleteDirectory(parentDir.toFile());
+
+        Assert.assertFalse(Files.exists(parentDir));
     }
 
 }

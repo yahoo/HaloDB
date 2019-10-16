@@ -49,6 +49,8 @@ class HaloDBInternal {
 
     private volatile TombstoneFile currentTombstoneFile;
 
+    private volatile Thread tombstoneMergeThread;
+
     private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
     HaloDBOptions options;
@@ -79,7 +81,7 @@ class HaloDBInternal {
 
     private HaloDBInternal() {}
 
-    static synchronized HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
+    static HaloDBInternal open(File directory, HaloDBOptions options) throws HaloDBException, IOException {
         checkIfOptionsAreCorrect(options);
 
         HaloDBInternal dbInternal = new HaloDBInternal();
@@ -137,8 +139,8 @@ class HaloDBInternal {
             // merge tombstone files at background if clean up set to true
             if (options.isCleanUpTombstonesDuringOpen()) {
                 dbInternal.isTombstoneFilesMerging = true;
-                Thread t = new Thread(() -> { dbInternal.mergeTombstoneFiles(); });
-                t.start();
+                dbInternal.tombstoneMergeThread = new Thread(() -> { dbInternal.mergeTombstoneFiles(); });
+                dbInternal.tombstoneMergeThread.start();
             }
 
             logger.info("Opened HaloDB {}", directory.getName());
@@ -170,6 +172,15 @@ class HaloDBInternal {
             } catch (IOException e) {
                 logger.error("Error while stopping compaction thread. Setting IOError flag", e);
                 setIOErrorFlag();
+            }
+
+            if (isTombstoneFilesMerging) {
+                try {
+                    tombstoneMergeThread.join();
+                } catch (InterruptedException e) {
+                    logger.error("Interrupted when waiting the tombstone files merging");
+                    setIOErrorFlag();
+                }
             }
 
             if (options.isCleanUpInMemoryIndexOnClose())
@@ -229,7 +240,7 @@ class HaloDBInternal {
     byte[] get(byte[] key, int attemptNumber) throws IOException, HaloDBException {
         if (attemptNumber > maxReadAttempts) {
             logger.error("Tried {} attempts but read failed", attemptNumber-1);
-            throw new HaloDBException("Tried " + attemptNumber + " attempts but failed.");
+            throw new HaloDBException("Tried " + (attemptNumber-1) + " attempts but failed.");
         }
         InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
         if (metaData == null) {
@@ -291,9 +302,14 @@ class HaloDBInternal {
     synchronized boolean takeSnapshot() {
         logger.info("Start generating the snapshot");
 
-        if (this.isTombstoneFilesMerging) {
-            logger.error("DB is not ready for snapshot now");
-            return false;
+        if (isTombstoneFilesMerging) {
+            logger.info("DB is merging the tombstone files now. Wait it finished");
+            try {
+                tombstoneMergeThread.join();
+            } catch (InterruptedException e) {
+                logger.error("Interrupted when waiting the tombstone files merging");
+                return false;
+            }
         }
 
         try {
@@ -334,7 +350,6 @@ class HaloDBInternal {
             compactionManager.forceRolloverCurrentWriteFile();
 
             logger.info("Storage files number need to be linked: {}", filesToLink.length);
-
             for (File file : filesToLink) {
                 Path dest = Paths.get(snapshotDir.getAbsolutePath(), file.getName());
                 logger.debug("Create file link from file {} to {}", file.getName(),
@@ -343,7 +358,6 @@ class HaloDBInternal {
             }
         } catch(IOException e) {
             logger.warn("IOException when creating snapshot", e);
-
             return false;
         } finally {
             compactionManager.resumeCompaction();
@@ -788,6 +802,13 @@ class HaloDBInternal {
             }
         }
 
+        if (mergedTombstoneFile != null) {
+            try {
+                mergedTombstoneFile.close();
+            } catch (IOException e) {
+                logger.error("IO exception when closing tombstone file: {}", mergedTombstoneFile.getName(), e);
+            }
+        }
         logger.info("Tombstone files count, before merge:{}, after merge:{}",
             tombStoneFiles.length, dbDirectory.listTombstoneFiles().length);
         isTombstoneFilesMerging = false;

@@ -5,23 +5,24 @@
 
 package com.oath.halodb;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.primitives.Ints;
-import com.oath.halodb.histo.EstimatedHistogram;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Ints;
+import com.oath.halodb.histo.EstimatedHistogram;
 
 class SegmentWithMemoryPool<V> extends Segment<V> {
 
     private static final Logger logger = LoggerFactory.getLogger(SegmentWithMemoryPool.class);
 
     // maximum hash table size
-    private static final int MAX_TABLE_SIZE = 1 << 30;
+    private static final int MAX_TABLE_POWER = 30;
+    private static final int MAX_TABLE_SIZE = 1 << MAX_TABLE_POWER;
 
     private long hitCount = 0;
     private long size = 0;
@@ -71,7 +72,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
         if (hts < 256) {
             hts = 256;
         }
-        int msz = Ints.checkedCast(HashTableUtil.roundUpToPowerOf2(hts, MAX_TABLE_SIZE));
+        int msz = HashTableUtil.roundUpToPowerOf2(hts, MAX_TABLE_POWER);
         table = Table.create(msz);
         if (table == null) {
             throw new RuntimeException("unable to allocate off-heap memory for segment");
@@ -144,7 +145,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             for (MemoryPoolAddress address = first; address.chunkIndex >= 0; address = getNext(address)) {
                 MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
                 if (chunk.compareKey(address.chunkOffset, key)) {
-                    // key is already present in the segment. 
+                    // key is already present in the segment.
 
                     // putIfAbsent is true, but key is already present, return.
                     if (putIfAbsent) {
@@ -238,7 +239,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             }
 
             // There is no chunk allocated for this segment or the current chunk being written to has no space left.
-            // allocate an new one. 
+            // allocate an new one.
             chunks.add(MemoryPoolChunk.create(chunkSize, fixedKeyLength, fixedValueLength));
             ++currentChunkIndex;
         }
@@ -254,7 +255,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
         if (table.getFirst(hash).equals(address)) {
             table.addAsHead(hash, next);
         } else if (previous == null) {
-            //this should never happen. 
+            //this should never happen.
             throw new IllegalArgumentException("Removing entry which is not head but with previous null");
         } else {
             chunks.get(previous.chunkIndex).setNextAddress(previous.chunkOffset, next);
@@ -287,7 +288,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             }
         }
 
-        threshold = (long) ((float) newTable.size() * loadFactor);
+        threshold = (long) (newTable.size() * loadFactor);
         table.release();
         table = newTable;
         rehashes++;
@@ -431,6 +432,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             released = true;
         }
 
+        @Override
         protected void finalize() throws Throwable {
             if (!released) {
                 Uns.free(address);

@@ -18,17 +18,15 @@ final class HashTableUtil {
         return NonMemoryPoolHashEntries.ENTRY_OFF_DATA + keyLen + valueLen;
     }
 
-    static int bitNum(long val) {
-        int bit = 0;
-        for (; val != 0L; bit++) {
-            val >>>= 1;
-        }
-        return bit;
+    static int bitNum(int val) {
+        return 32 - Integer.numberOfLeadingZeros(val);
     }
 
-    static long roundUpToPowerOf2(long number, long max) {
-        return number >= max
-               ? max
-               : (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
+    static int roundUpToPowerOf2(int posNum, int maxPower) {
+        int max = 1 << maxPower;
+        if (posNum >= max) {
+            return max;
+        }
+        return 1 << bitNum(posNum - 1);
     }
 }

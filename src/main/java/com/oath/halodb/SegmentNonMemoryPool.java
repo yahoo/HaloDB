@@ -7,18 +7,19 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
-import com.oath.halodb.histo.EstimatedHistogram;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.primitives.Ints;
+import com.oath.halodb.histo.EstimatedHistogram;
 
 class SegmentNonMemoryPool<V> extends Segment<V> {
 
     private static final Logger logger = LoggerFactory.getLogger(SegmentNonMemoryPool.class);
 
     // maximum hash table size
-    private static final int MAX_TABLE_SIZE = 1 << 30;
+    private static final int MAX_TABLE_POWER = 30;
+    private static final int MAX_TABLE_SIZE = 1 << MAX_TABLE_POWER;
 
     long size;
     Table table;
@@ -51,7 +52,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
         if (hts < 256) {
             hts = 256;
         }
-        int msz = Ints.checkedCast(HashTableUtil.roundUpToPowerOf2(hts, MAX_TABLE_SIZE));
+        int msz = HashTableUtil.roundUpToPowerOf2(hts, MAX_TABLE_POWER);
         table = Table.create(msz, throwOOME);
         if (table == null) {
             throw new RuntimeException("unable to allocate off-heap memory for segment");
@@ -374,21 +375,24 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             }
         }
 
-        threshold = (long) ((float) newTable.size() * loadFactor);
+        threshold = (long) (newTable.size() * loadFactor);
         table.release();
         table = newTable;
         rehashes++;
         logger.info("Completed rehashing segment in {} ms.", (System.currentTimeMillis() - start));
     }
 
+    @Override
     float loadFactor() {
         return loadFactor;
     }
 
+    @Override
     int hashTableSize() {
         return table.size();
     }
 
+    @Override
     void updateBucketHistogram(EstimatedHistogram hist) {
         boolean wasFirst = lock();
         try {
@@ -442,6 +446,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             released = true;
         }
 
+        @Override
         protected void finalize() throws Throwable {
             if (!released) {
                 Uns.free(address);

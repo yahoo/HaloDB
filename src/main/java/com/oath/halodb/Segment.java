@@ -7,9 +7,9 @@
 
 package com.oath.halodb;
 
-import com.oath.halodb.histo.EstimatedHistogram;
-
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+
+import com.oath.halodb.histo.EstimatedHistogram;
 
 abstract class Segment<V> {
 
@@ -20,6 +20,7 @@ abstract class Segment<V> {
     private final Hasher hasher;
 
     private volatile long lock;
+
     private static final AtomicLongFieldUpdater<Segment> lockFieldUpdater =
         AtomicLongFieldUpdater.newUpdater(Segment.class, "lock");
 

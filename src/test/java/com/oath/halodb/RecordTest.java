@@ -5,44 +5,44 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class RecordTest {
 
     @Test
     public void testSerializeHeader() {
 
-        byte keySize = 8;
+        int keySize = 300;  // 256 plus 44
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
-        int version = 128;
+        byte version = 29;
 
         Record.Header header = new Record.Header(0, version, keySize, valueSize, sequenceNumber);
         ByteBuffer serialized = header.serialize();
 
-        Assert.assertEquals(keySize, serialized.get(Record.Header.KEY_SIZE_OFFSET));
-        Assert.assertEquals(valueSize, serialized.getInt(Record.Header.VALUE_SIZE_OFFSET));
-        Assert.assertEquals(sequenceNumber, serialized.getLong(Record.Header.SEQUENCE_NUMBER_OFFSET));
-        Assert.assertEquals(Utils.toUnsignedByte(serialized.get(Record.Header.VERSION_OFFSET)), version);
+        Assert.assertEquals(serialized.get(Record.Header.KEY_SIZE_OFFSET) & 0xFF, keySize & 0xFF);
+        Assert.assertEquals(serialized.getInt(Record.Header.VALUE_SIZE_OFFSET), valueSize);
+        Assert.assertEquals(serialized.getLong(Record.Header.SEQUENCE_NUMBER_OFFSET), sequenceNumber);
+        Assert.assertEquals(serialized.get(Record.Header.VERSION_OFFSET) & 0xFF, (version << 3) | (keySize >>> 8));
     }
 
     @Test
     public void testDeserializeHeader() {
 
         long checkSum = 23434;
-        byte keySize = 8;
+        int keySize = 200;
         int valueSize = 100;
         long sequenceNumber = 34543434343L;
         int version = 2;
 
         ByteBuffer buffer = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
         buffer.putInt(Utils.toSignedIntFromLong(checkSum));
-        buffer.put((byte)version);
-        buffer.put(keySize);
+        buffer.put((byte)(version << 3));
+        buffer.put((byte)keySize);
         buffer.putInt(valueSize);
         buffer.putLong(sequenceNumber);
         buffer.flip();
@@ -62,7 +62,7 @@ public class RecordTest {
         byte[] key = TestUtils.generateRandomByteArray();
         byte[] value = TestUtils.generateRandomByteArray();
         long sequenceNumber = 192;
-        int version = 13;
+        byte version = 13;
 
         Record record = new Record(key, value);
         record.setSequenceNumber(sequenceNumber);
@@ -74,7 +74,7 @@ public class RecordTest {
         crc32.update(key);
         crc32.update(value);
 
-        Record.Header header = new Record.Header(0, version, (byte)key.length, value.length, sequenceNumber);
+        Record.Header header = new Record.Header(0, version, key.length, value.length, sequenceNumber);
         ByteBuffer headerBuf = header.serialize();
         headerBuf.putInt(Record.Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32.getValue()));
 

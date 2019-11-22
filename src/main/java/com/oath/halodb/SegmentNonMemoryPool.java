@@ -271,7 +271,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
 
     private void serializeForPut(byte[] key, V value, long hashEntryAdr) {
         try {
-            Uns.buffer(hashEntryAdr, key.length, NonMemoryPoolHashEntries.ENTRY_OFF_DATA).put(key);
+            Uns.copyMemory(key, 0, hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, key.length);
             if (value != null) {
                 valueSerializer.serialize(value, Uns.buffer(hashEntryAdr, fixedValueLength, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + key.length));
             }

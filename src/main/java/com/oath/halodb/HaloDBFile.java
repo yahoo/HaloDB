@@ -5,10 +5,8 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,8 +19,10 @@ import java.util.Iterator;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.primitives.Ints;
 
 /**
  * Represents a data file and its associated index file.
@@ -32,7 +32,8 @@ class HaloDBFile {
 
     private volatile int writeOffset;
 
-    private FileChannel channel;
+    private final FileChannel channel;
+    private final RandomAccessFile raf;
     private final File backingFile;
     private final DBDirectory dbDirectory;
     private final int fileId;
@@ -49,13 +50,14 @@ class HaloDBFile {
     private final FileType fileType;
 
     private HaloDBFile(int fileId, File backingFile, DBDirectory dbDirectory, IndexFile indexFile, FileType fileType,
-                       FileChannel channel, HaloDBOptions options) throws IOException {
+                       RandomAccessFile raf, HaloDBOptions options) throws IOException {
         this.fileId = fileId;
         this.backingFile = backingFile;
         this.dbDirectory = dbDirectory;
         this.indexFile = indexFile;
         this.fileType = fileType;
-        this.channel = channel;
+        this.raf = raf;
+        this.channel = raf.getChannel();
         this.writeOffset = Ints.checkedCast(channel.size());
         this.options = options;
     }
@@ -191,10 +193,10 @@ class HaloDBFile {
             repairFile.delete();
         }
 
-        FileChannel channel = new RandomAccessFile(repairFile, "rw").getChannel();
+        RandomAccessFile raf = new RandomAccessFile(repairFile, "rw");
         IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.createRepairFile();
-        return new HaloDBFile(fileId, repairFile, dbDirectory, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, repairFile, dbDirectory, indexFile, fileType, raf, options);
     }
 
     private long writeToChannel(ByteBuffer[] buffers) throws IOException {
@@ -252,11 +254,11 @@ class HaloDBFile {
 
     static HaloDBFile openForReading(DBDirectory dbDirectory, File filename, FileType fileType, HaloDBOptions options) throws IOException {
         int fileId = HaloDBFile.getFileTimeStamp(filename);
-        FileChannel channel = new RandomAccessFile(filename, "r").getChannel();
+        RandomAccessFile raf = new RandomAccessFile(filename, "r");
         IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.open();
 
-        return new HaloDBFile(fileId, filename, dbDirectory, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, filename, dbDirectory, indexFile, fileType, raf, options);
     }
 
     static HaloDBFile create(DBDirectory dbDirectory, int fileId, HaloDBOptions options, FileType fileType) throws IOException {
@@ -269,14 +271,14 @@ class HaloDBFile {
             file = toFile.apply(dbDirectory, fileId);
         }
 
-        FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
+        RandomAccessFile raf = new RandomAccessFile(file, "rw");
         //TODO: setting the length might improve performance.
         //file.setLength(max_);
 
         IndexFile indexFile = new IndexFile(fileId, dbDirectory, options);
         indexFile.create();
 
-        return new HaloDBFile(fileId, file, dbDirectory, indexFile, fileType, channel, options);
+        return new HaloDBFile(fileId, file, dbDirectory, indexFile, fileType, raf, options);
     }
 
     HaloDBFileIterator newIterator() throws IOException {
@@ -284,8 +286,8 @@ class HaloDBFile {
     }
 
     void close() throws IOException {
-        if (channel != null) {
-            channel.close();
+        if (raf != null) {
+            raf.close();
         }
         if (indexFile != null) {
             indexFile.close();

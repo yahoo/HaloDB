@@ -5,28 +5,35 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import static com.oath.halodb.IndexFileEntry.CHECKSUM_OFFSET;
+import static com.oath.halodb.IndexFileEntry.CHECKSUM_SIZE;
+import static com.oath.halodb.IndexFileEntry.INDEX_FILE_HEADER_SIZE;
+import static com.oath.halodb.IndexFileEntry.KEY_SIZE_OFFSET;
+import static com.oath.halodb.IndexFileEntry.RECORD_OFFSET;
+import static com.oath.halodb.IndexFileEntry.RECORD_SIZE_OFFSET;
+import static com.oath.halodb.IndexFileEntry.SEQUENCE_NUMBER_OFFSET;
+import static com.oath.halodb.IndexFileEntry.VERSION_OFFSET;
 
 import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
-import static com.oath.halodb.IndexFileEntry.*;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class IndexFileEntryTest {
 
     @Test
     public void serializeIndexFileEntry() {
-        byte[] key = TestUtils.generateRandomByteArray(8);
+        byte[] key = TestUtils.generateRandomByteArray(1234);
         int recordSize = 1024;
         int recordOffset = 10240;
-        byte keySize = (byte) key.length;
+        int keySize = key.length;
         long sequenceNumber = 100;
-        int version = 200;
+        byte version = 20;
 
         ByteBuffer header = ByteBuffer.allocate(INDEX_FILE_HEADER_SIZE);
-        header.put(VERSION_OFFSET, (byte)version);
-        header.put(KEY_SIZE_OFFSET, keySize);
+        header.put(VERSION_OFFSET, Utils.versionByte(version, keySize));
+        header.put(KEY_SIZE_OFFSET, Utils.keySizeByte(keySize));
         header.putInt(RECORD_SIZE_OFFSET, recordSize);
         header.putInt(RECORD_OFFSET, recordOffset);
         header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
@@ -46,18 +53,18 @@ public class IndexFileEntryTest {
 
     @Test
     public void deserializeIndexFileEntry() {
-        byte[] key = TestUtils.generateRandomByteArray(8);
+        byte[] key = TestUtils.generateRandomByteArray(300);
         int recordSize = 1024;
         int recordOffset = 10240;
-        byte keySize = (byte) key.length;
+        short keySize = (short) key.length;
         long sequenceNumber = 100;
         int version = 10;
         long checksum = 42323;
 
         ByteBuffer header = ByteBuffer.allocate(IndexFileEntry.INDEX_FILE_HEADER_SIZE + keySize);
         header.putInt((int)checksum);
-        header.put((byte)version);
-        header.put(keySize);
+        header.put((byte)((version << 3) | (keySize >>> 8)));
+        header.put((byte)(keySize & 0xFF));
         header.putInt(recordSize);
         header.putInt(recordOffset);
         header.putLong(sequenceNumber);

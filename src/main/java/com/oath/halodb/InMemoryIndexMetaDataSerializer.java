@@ -5,20 +5,30 @@
 
 package com.oath.halodb;
 
-import java.nio.ByteBuffer;
+class InMemoryIndexMetaDataSerializer implements HashEntrySerializer<InMemoryIndexMetaData> {
 
-class InMemoryIndexMetaDataSerializer implements HashTableValueSerializer<InMemoryIndexMetaData> {
-
-    public void serialize(InMemoryIndexMetaData recordMetaData, ByteBuffer byteBuffer) {
-        recordMetaData.serialize(byteBuffer);
-        byteBuffer.flip();
+    @Override
+    public void serialize(InMemoryIndexMetaData value, long address) {
+        value.serialize(address);
     }
 
-    public InMemoryIndexMetaData deserialize(ByteBuffer byteBuffer) {
-        return InMemoryIndexMetaData.deserialize(byteBuffer);
+    @Override
+    public InMemoryIndexMetaData deserialize(long address) {
+        return InMemoryIndexMetaData.deserialize(address);
     }
 
-    public int serializedSize(InMemoryIndexMetaData recordMetaData) {
+    @Override
+    public int fixedSize() {
         return InMemoryIndexMetaData.SERIALIZED_SIZE;
+    }
+
+    @Override
+    public short readKeySize(long address) {
+        return InMemoryIndexMetaData.getKeySize(address);
+    }
+
+    @Override
+    public boolean compare(InMemoryIndexMetaData entry, long address) {
+        return entry.compare(address);
     }
 }

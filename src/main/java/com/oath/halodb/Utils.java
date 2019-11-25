@@ -10,8 +10,8 @@ class Utils {
         return (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
     }
 
-    static int getValueOffset(int recordOffset, byte[] key) {
-        return recordOffset + Record.Header.HEADER_SIZE + key.length;
+    static int getValueOffset(int recordOffset, int keySize) {
+        return recordOffset + Record.Header.HEADER_SIZE + keySize;
     }
 
     //TODO: probably belongs to Record.
@@ -19,12 +19,8 @@ class Utils {
         return keySize + valueSize + Record.Header.HEADER_SIZE;
     }
 
-    static int getValueSize(int recordSize, byte[] key) {
-        return recordSize - Record.Header.HEADER_SIZE - key.length;
-    }
-
-    static InMemoryIndexMetaData getMetaData(IndexFileEntry entry, int fileId) {
-        return new InMemoryIndexMetaData(fileId, Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()), Utils.getValueSize(entry.getRecordSize(), entry.getKey()), entry.getSequenceNumber());
+    static int getValueSize(int recordSize, int keySize) {
+        return recordSize - Record.Header.HEADER_SIZE - keySize;
     }
 
     static long toUnsignedIntFromInt(int value) {
@@ -61,10 +57,11 @@ class Utils {
         validateKeySize(keySize);
         return (byte)(keySize & 0xFF);
     }
-    static void validateVersion(byte version) {
+    static byte validateVersion(byte version) {
         if ((version >>> 5) != 0) {
             throw new IllegalArgumentException("Version must be between 0 and 31, but was: " + version);
         }
+        return version;
     }
 
     static short validateKeySize(int keySize) {
@@ -73,4 +70,11 @@ class Utils {
         }
         return (short) (keySize & 0xFFFF);
     }
+
+    static int validateValueSize(int valueSize) {
+      if ((valueSize >>> 29) != 0) {
+          throw new IllegalArgumentException("Value size must be between 0 and 536870912 (~512MB), but was: " + valueSize);
+      }
+      return valueSize;
+  }
 }

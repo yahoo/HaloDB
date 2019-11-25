@@ -7,11 +7,6 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import sun.misc.Unsafe;
-
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.Buffer;
@@ -21,6 +16,11 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import sun.misc.Unsafe;
 
 final class Uns {
 
@@ -35,8 +35,8 @@ final class Uns {
     //
     // #ifdef __DEBUG_OFF_HEAP_MEMORY_ACCESS
     //
-    private static final ConcurrentMap<Long, AllocInfo> ohDebug = __DEBUG_OFF_HEAP_MEMORY_ACCESS ? new ConcurrentHashMap<Long, AllocInfo>(16384) : null;
-    private static final Map<Long, Throwable> ohFreeDebug = __DEBUG_OFF_HEAP_MEMORY_ACCESS ? new ConcurrentHashMap<Long, Throwable>(16384) : null;
+    private static final ConcurrentMap<Long, AllocInfo> ohDebug = __DEBUG_OFF_HEAP_MEMORY_ACCESS ? new ConcurrentHashMap<>(16384) : null;
+    private static final Map<Long, Throwable> ohFreeDebug = __DEBUG_OFF_HEAP_MEMORY_ACCESS ? new ConcurrentHashMap<>(16384) : null;
 
     private static final class AllocInfo {
 

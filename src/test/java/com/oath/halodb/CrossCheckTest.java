@@ -7,13 +7,8 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
-import com.oath.halodb.histo.EstimatedHistogram;
-
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,16 +17,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import com.google.common.primitives.Longs;
+import com.oath.halodb.HashTableTestUtils.KeyEntryPair;
+import com.oath.halodb.histo.EstimatedHistogram;
 
 // This unit test uses the production cache implementation and an independent OHCache implementation used to
 // cross-check the production implementation.
 public class CrossCheckTest
 {
 
-    private static final int fixedValueSize = 20;
     private static final int fixedKeySize = 16;
+    private static final ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(14);
+    private static final ByteArrayEntrySerializer bigSerializer = ByteArrayEntrySerializer.ofSize(15);
 
     @AfterMethod(alwaysRun = true)
     public void deinit()
@@ -39,27 +41,25 @@ public class CrossCheckTest
         Uns.clearUnsDebugForTest();
     }
 
-    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool)
+    static DoubleCheckOffHeapHashTableImpl<ByteArrayEntry> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool)
     {
         return cache(hashAlgorithm, useMemoryPool, 256);
     }
 
-    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity)
+    static DoubleCheckOffHeapHashTableImpl<ByteArrayEntry> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity)
     {
         return cache(hashAlgorithm, useMemoryPool, capacity, -1);
     }
 
-    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize)
+    static DoubleCheckOffHeapHashTableImpl<ByteArrayEntry> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize)
     {
         return cache(hashAlgorithm, useMemoryPool, capacity, hashTableSize, -1, -1);
     }
 
-    static DoubleCheckOffHeapHashTableImpl<byte[]> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize, int segments, long maxEntrySize)
+    static DoubleCheckOffHeapHashTableImpl<ByteArrayEntry> cache(HashAlgorithm hashAlgorithm, boolean useMemoryPool, long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
-        OffHeapHashTableBuilder<byte[]> builder = OffHeapHashTableBuilder.<byte[]>newBuilder()
-                                                                .valueSerializer(HashTableTestUtils.byteArraySerializer)
-                                                                .hashMode(hashAlgorithm)
-                                                                .fixedValueSize(fixedValueSize);
+        OffHeapHashTableBuilder<ByteArrayEntry> builder = OffHeapHashTableBuilder.newBuilder(serializer)
+                                                                .hashMode(hashAlgorithm);
         if (useMemoryPool)
             builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
 
@@ -91,22 +91,22 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testBasics(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = HashTableTestUtils.randomBytes(12);
-            byte[] value = HashTableTestUtils.randomBytes(fixedValueSize);
+            ByteArrayEntry value = serializer.randomEntry(key.length);
             cache.put(key, value);
 
-            byte[] actual = cache.get(key);
+            ByteArrayEntry actual = cache.get(key);
             Assert.assertEquals(actual, value);
 
             cache.remove(key);
 
-            Map<byte[], byte[]> keyValues = new HashMap<>();
+            Map<byte[], ByteArrayEntry> keyValues = new HashMap<>();
 
             for (int i = 0; i < 100; i++) {
                 byte[] k = HashTableTestUtils.randomBytes(8);
-                byte[] v = HashTableTestUtils.randomBytes(fixedValueSize);
+                ByteArrayEntry v = serializer.randomEntry(k.length);
                 keyValues.put(k, v);
                 cache.put(k, v);
             }
@@ -123,15 +123,15 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics")
     public void testManyValues(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool, 64, -1))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool, 64, -1))
         {
-            List<HashTableTestUtils.KeyValuePair> entries = HashTableTestUtils.fillMany(cache, fixedValueSize);
+            List<KeyEntryPair> entries = HashTableTestUtils.fillMany(cache, serializer);
 
             OffHeapHashTableStats stats = cache.stats();
             Assert.assertEquals(stats.getPutAddCount(), HashTableTestUtils.manyCount);
             Assert.assertEquals(stats.getSize(), HashTableTestUtils.manyCount);
 
-            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.entry));
 
             stats = cache.stats();
             Assert.assertEquals(stats.getHitCount(), HashTableTestUtils.manyCount);
@@ -139,12 +139,12 @@ public class CrossCheckTest
 
             for (int i = 0; i < HashTableTestUtils.manyCount; i++)
             {
-                HashTableTestUtils.KeyValuePair kv = entries.get(i);
-                Assert.assertEquals(cache.get(kv.key), kv.value, "for i="+i);
+                KeyEntryPair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.entry, "for i="+i);
                 assertTrue(cache.containsKey(kv.key), "for i="+i);
-                byte[] updated = HashTableTestUtils.randomBytes(fixedValueSize);
+                ByteArrayEntry updated = serializer.randomEntry(kv.key.length);
                 cache.put(kv.key, updated);
-                entries.set(i, new HashTableTestUtils.KeyValuePair(kv.key, updated));
+                entries.set(i, new KeyEntryPair(kv.key, updated));
                 Assert.assertEquals(cache.get(kv.key), updated, "for i="+i);
                 Assert.assertEquals(cache.size(), HashTableTestUtils.manyCount, "for i=" + i);
                 assertTrue(cache.containsKey(kv.key), "for i="+i);
@@ -154,7 +154,7 @@ public class CrossCheckTest
             Assert.assertEquals(stats.getPutReplaceCount(), HashTableTestUtils.manyCount);
             Assert.assertEquals(stats.getSize(), HashTableTestUtils.manyCount);
 
-            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.entry));
 
             stats = cache.stats();
             Assert.assertEquals(stats.getHitCount(), HashTableTestUtils.manyCount * 6);
@@ -162,8 +162,8 @@ public class CrossCheckTest
 
             for (int i = 0; i < HashTableTestUtils.manyCount; i++)
             {
-                HashTableTestUtils.KeyValuePair kv = entries.get(i);
-                Assert.assertEquals(cache.get(kv.key), kv.value, "for i=" + i);
+                KeyEntryPair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.entry, "for i=" + i);
                 assertTrue(cache.containsKey(kv.key), "for i=" + i);
                 cache.remove(kv.key);
                 Assert.assertNull(cache.get(kv.key), "for i=" + i);
@@ -183,10 +183,8 @@ public class CrossCheckTest
     public void testRehash(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException
     {
         int count = 10_000;
-        OffHeapHashTableBuilder<byte[]> builder = OffHeapHashTableBuilder.<byte[]>newBuilder()
-            .valueSerializer(HashTableTestUtils.byteArraySerializer)
+        OffHeapHashTableBuilder<ByteArrayEntry> builder = OffHeapHashTableBuilder.newBuilder(serializer)
             .hashMode(hashAlgorithm)
-            .fixedValueSize(fixedValueSize)
             .hashTableSize(count/4)
             .segmentCount(1)
             .loadFactor(1);
@@ -195,16 +193,16 @@ public class CrossCheckTest
             builder.useMemoryPool(true).fixedKeySize(fixedKeySize);
 
 
-        try (OffHeapHashTable<byte[]> cache = new DoubleCheckOffHeapHashTableImpl<>(builder))
+        try (OffHeapHashTable<ByteArrayEntry> cache = new DoubleCheckOffHeapHashTableImpl<>(builder))
         {
-            List<HashTableTestUtils.KeyValuePair> entries = HashTableTestUtils.fill(cache, fixedValueSize, count);
+            List<KeyEntryPair> entries = HashTableTestUtils.fill(cache, serializer, count);
 
             OffHeapHashTableStats stats = cache.stats();
             Assert.assertEquals(stats.getPutAddCount(), count);
             Assert.assertEquals(stats.getSize(), count);
             Assert.assertEquals(stats.getRehashCount(), 2); // default load factor of 0.75, therefore 3 rehashes.
 
-            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.entry));
 
             stats = cache.stats();
             Assert.assertEquals(stats.getHitCount(), count);
@@ -212,12 +210,12 @@ public class CrossCheckTest
 
             for (int i = 0; i < count; i++)
             {
-                HashTableTestUtils.KeyValuePair kv = entries.get(i);
-                Assert.assertEquals(cache.get(kv.key), kv.value, "for i="+i);
+                KeyEntryPair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.entry, "for i="+i);
                 assertTrue(cache.containsKey(kv.key), "for i="+i);
-                byte[] updated = HashTableTestUtils.randomBytes(fixedValueSize);
+                ByteArrayEntry updated = serializer.randomEntry(kv.key.length);
                 cache.put(kv.key, updated);
-                entries.set(i, new HashTableTestUtils.KeyValuePair(kv.key, updated));
+                entries.set(i, new KeyEntryPair(kv.key, updated));
                 Assert.assertEquals(cache.get(kv.key), updated, "for i="+i);
                 Assert.assertEquals(cache.size(), count, "for i=" + i);
                 assertTrue(cache.containsKey(kv.key), "for i="+i);
@@ -228,7 +226,7 @@ public class CrossCheckTest
             Assert.assertEquals(stats.getSize(), count);
             Assert.assertEquals(stats.getRehashCount(), 2);
 
-            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+            entries.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.entry));
 
             stats = cache.stats();
             Assert.assertEquals(stats.getHitCount(), count * 6);
@@ -236,8 +234,8 @@ public class CrossCheckTest
 
             for (int i = 0; i < count; i++)
             {
-                HashTableTestUtils.KeyValuePair kv = entries.get(i);
-                Assert.assertEquals(cache.get(kv.key), kv.value, "for i=" + i);
+                KeyEntryPair kv = entries.get(i);
+                Assert.assertEquals(cache.get(kv.key), kv.entry, "for i=" + i);
                 assertTrue(cache.containsKey(kv.key), "for i=" + i);
                 cache.remove(kv.key);
                 Assert.assertNull(cache.get(kv.key), "for i=" + i);
@@ -253,27 +251,15 @@ public class CrossCheckTest
         }
     }
 
-
-
-//
-//    private String longString()
-//    {
-//        char[] chars = new char[900];
-//        for (int i = 0; i < chars.length; i++)
-//            chars[i] = (char) ('A' + i % 26);
-//        return new String(chars);
-//    }
-//
-//
     @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics",
             expectedExceptions = IllegalArgumentException.class,
-            expectedExceptionsMessageRegExp = ".*greater than fixed value size.*")
+            expectedExceptionsMessageRegExp = ".*invalid entry size.*")
     public void testPutTooLargeValue(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
         byte[] key = HashTableTestUtils.randomBytes(8);
-        byte[] largeValue = HashTableTestUtils.randomBytes(fixedValueSize + 1);
+        ByteArrayEntry largeEntry = bigSerializer.randomEntry(key.length);
 
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {
-            cache.put(key, largeValue);
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {
+            cache.put(key, largeEntry);
         }
     }
 
@@ -282,10 +268,10 @@ public class CrossCheckTest
             expectedExceptionsMessageRegExp = ".*exceeds max permitted size of 127")
     public void testPutTooLargeKey(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
         byte[] key = HashTableTestUtils.randomBytes(1024);
-        byte[] largeValue = HashTableTestUtils.randomBytes(fixedValueSize);
+        ByteArrayEntry largeEntry = bigSerializer.randomEntry(key.length);
 
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {
-            cache.put(key, largeValue);
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {
+            cache.put(key, largeEntry);
         }
     }
 
@@ -294,20 +280,19 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics")
     public void testAddOrReplace(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
-            byte[] oldValue = null;
+            ByteArrayEntry oldEntry = null;
             for (int i = 0; i < HashTableTestUtils.manyCount; i++)
-                assertTrue(cache.addOrReplace(Longs.toByteArray(i), oldValue, HashTableTestUtils
-                    .randomBytes(fixedValueSize)));
+                assertTrue(cache.addOrReplace(Longs.toByteArray(i), oldEntry, serializer.randomEntry(8)));
 
             byte[] key = Longs.toByteArray(42);
-            byte[] value = cache.get(key);
-            byte[] update1 = HashTableTestUtils.randomBytes(fixedValueSize);
-            assertTrue(cache.addOrReplace(key, value, update1));
+            ByteArrayEntry entry = cache.get(key);
+            ByteArrayEntry update1 = serializer.randomEntry(key.length);
+            assertTrue(cache.addOrReplace(key, entry, update1));
             Assert.assertEquals(cache.get(key), update1);
 
-            byte[] update2 = HashTableTestUtils.randomBytes(fixedValueSize);
+            ByteArrayEntry update2 = serializer.randomEntry(key.length);
             assertTrue(cache.addOrReplace(key, update1, update2));
             Assert.assertEquals(cache.get(key), update2);
             Assert.assertFalse(cache.addOrReplace(key, update1, update2));
@@ -316,7 +301,7 @@ public class CrossCheckTest
             cache.remove(key);
             Assert.assertNull(cache.get(key));
 
-            byte[] update3 = HashTableTestUtils.randomBytes(fixedValueSize);
+            ByteArrayEntry update3 = serializer.randomEntry(key.length);
 
             // update will fail since the key was removed but old value is non-null.
             Assert.assertFalse(cache.addOrReplace(key, update2, update3));
@@ -327,30 +312,30 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testPutIfAbsent(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
             for (int i = 0; i < HashTableTestUtils.manyCount; i++)
-                assertTrue(cache.putIfAbsent(Longs.toByteArray(i), HashTableTestUtils.randomBytes(fixedValueSize)));
+                assertTrue(cache.putIfAbsent(Longs.toByteArray(i), serializer.randomEntry(8)));
 
             byte[] key = Longs.toByteArray(HashTableTestUtils.manyCount + 100);
-            byte[] value = HashTableTestUtils.randomBytes(fixedValueSize);
-            assertTrue(cache.putIfAbsent(key, value));
-            Assert.assertEquals(cache.get(key), value);
-            Assert.assertFalse(cache.putIfAbsent(key, value));
+            ByteArrayEntry entry = serializer.randomEntry(key.length);
+            assertTrue(cache.putIfAbsent(key, entry));
+            Assert.assertEquals(cache.get(key), entry);
+            Assert.assertFalse(cache.putIfAbsent(key, entry));
         }
     }
 
     @Test(dataProvider = "hashAlgorithms")
     public void testRemove(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
-            HashTableTestUtils.fillMany(cache, fixedValueSize);
+            HashTableTestUtils.fillMany(cache, serializer);
 
             byte[] key = Longs.toByteArray(HashTableTestUtils.manyCount + 100);
-            byte[] value = HashTableTestUtils.randomBytes(fixedValueSize);
-            cache.put(key, value);
-            Assert.assertEquals(cache.get(key), value);
+            ByteArrayEntry entry = serializer.randomEntry(key.length);
+            cache.put(key, entry);
+            Assert.assertEquals(cache.get(key), entry);
             cache.remove(key);
             Assert.assertNull(cache.get(key));
             Assert.assertFalse(cache.remove(key));
@@ -364,16 +349,15 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testClear(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
-            List<HashTableTestUtils.KeyValuePair> data = new ArrayList<>();
+            List<KeyEntryPair> data = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
-                data.add(new HashTableTestUtils.KeyValuePair(Longs.toByteArray(i), HashTableTestUtils
-                    .randomBytes(fixedValueSize)));
+                data.add(new KeyEntryPair(Longs.toByteArray(i), serializer.randomEntry(8)));
             }
 
-            data.forEach(kv -> cache.put(kv.key, kv.value));
-            data.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.value));
+            data.forEach(kv -> cache.put(kv.key, kv.entry));
+            data.forEach(kv -> Assert.assertEquals(cache.get(kv.key), kv.entry));
 
             assertEquals(cache.size(), 100);
 
@@ -385,35 +369,35 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testGet_Put(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = Longs.toByteArray(42);
-            byte[] value = HashTableTestUtils.randomBytes(fixedValueSize);
-            cache.put(key, value);
-            assertEquals(cache.get(key), value);
+            ByteArrayEntry entry = serializer.randomEntry(key.length);
+            cache.put(key, entry);
+            assertEquals(cache.get(key), entry);
             Assert.assertNull(cache.get(Longs.toByteArray(5)));
 
             byte[] key11 = Longs.toByteArray(11);
-            byte[] value11 = HashTableTestUtils.randomBytes(fixedValueSize);
-            cache.put(key11, value11);
-            Assert.assertEquals(cache.get(key), value);
-            Assert.assertEquals(cache.get(key11), value11);
+            ByteArrayEntry entry11 = serializer.randomEntry(key11.length);
+            cache.put(key11, entry11);
+            Assert.assertEquals(cache.get(key), entry);
+            Assert.assertEquals(cache.get(key11), entry11);
 
-            value11 = HashTableTestUtils.randomBytes(fixedValueSize);
-            cache.put(key11, value11);
-            Assert.assertEquals(cache.get(key), value);
-            Assert.assertEquals(cache.get(key11), value11);
+            entry11 = serializer.randomEntry(key11.length);
+            cache.put(key11, entry11);
+            Assert.assertEquals(cache.get(key), entry);
+            Assert.assertEquals(cache.get(key11), entry11);
         }
     }
 
     @Test(dataProvider = "hashAlgorithms")
     public void testContainsKey(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
             byte[] key = Longs.toByteArray(42);
-            byte[] value = HashTableTestUtils.randomBytes(fixedValueSize);
-            cache.put(key, value);
+            ByteArrayEntry entry = serializer.randomEntry(key.length);
+            cache.put(key, entry);
             assertTrue(cache.containsKey(key));
             Assert.assertFalse(cache.containsKey(Longs.toByteArray(11)));
         }
@@ -423,15 +407,14 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testGetBucketHistogram(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws Exception
     {
-        try (DoubleCheckOffHeapHashTableImpl<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (DoubleCheckOffHeapHashTableImpl<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
-            List<HashTableTestUtils.KeyValuePair> data = new ArrayList<>();
+            List<KeyEntryPair> data = new ArrayList<>();
             for (int i = 0; i < 100; i++) {
-                data.add(new HashTableTestUtils.KeyValuePair(Longs.toByteArray(i), HashTableTestUtils
-                    .randomBytes(fixedValueSize)));
+                data.add(new KeyEntryPair(Longs.toByteArray(i), serializer.randomEntry(8)));
             }
 
-            data.forEach(kv -> cache.put(kv.key, kv.value));
+            data.forEach(kv -> cache.put(kv.key, kv.entry));
 
             Assert.assertEquals(cache.stats().getSize(), 100);
 
@@ -460,13 +443,13 @@ public class CrossCheckTest
     @Test(dataProvider = "hashAlgorithms")
     public void testResetStatistics(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException
     {
-        try (OffHeapHashTable<byte[]> cache = cache(hashAlgorithm, useMemoryPool))
+        try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
             for (int i = 0; i < 100; i++)
-                cache.put(Longs.toByteArray(i), HashTableTestUtils.randomBytes(fixedValueSize));
+                cache.put(Longs.toByteArray(i), serializer.randomEntry(8));
 
             for (int i = 0; i < 30; i++)
-                cache.put(Longs.toByteArray(i), HashTableTestUtils.randomBytes(fixedValueSize));
+                cache.put(Longs.toByteArray(i), serializer.randomEntry(8));
 
             for (int i = 0; i < 50; i++)
                 cache.get(Longs.toByteArray(i));

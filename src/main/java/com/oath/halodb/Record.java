@@ -50,7 +50,11 @@ public class Record {
     }
 
     void setRecordMetaData(InMemoryIndexMetaData recordMetaData) {
-        this.recordMetaData = recordMetaData;
+      this.recordMetaData = recordMetaData;
+    }
+
+    void setRecordMetaData(int fileId, int offset) {
+        this.recordMetaData = new InMemoryIndexMetaData(header, fileId, offset);
     }
 
     /**

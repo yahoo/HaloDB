@@ -11,10 +11,9 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
 import com.oath.halodb.histo.EstimatedHistogram;
 
-abstract class Segment<V> {
+abstract class Segment<E extends HashEntry> {
 
-    final HashTableValueSerializer<V> valueSerializer;
-    final int fixedValueLength;
+    final HashEntrySerializer<E> serializer;
     final int fixedKeyLength;
 
     private final Hasher hasher;
@@ -24,18 +23,15 @@ abstract class Segment<V> {
     private static final AtomicLongFieldUpdater<Segment> lockFieldUpdater =
         AtomicLongFieldUpdater.newUpdater(Segment.class, "lock");
 
-    Segment(HashTableValueSerializer<V> valueSerializer, int fixedValueLength, Hasher hasher) {
-        this(valueSerializer, fixedValueLength, -1, hasher);
+    Segment(HashEntrySerializer<E> entrySerializer, Hasher hasher) {
+        this(entrySerializer, -1, hasher);
     }
 
-    Segment(HashTableValueSerializer<V> valueSerializer, int fixedValueLength, int fixedKeyLength, Hasher hasher) {
-        this.valueSerializer = valueSerializer;
-        this.fixedValueLength = fixedValueLength;
+    Segment(HashEntrySerializer<E> serializer, int fixedKeyLength, Hasher hasher) {
+        this.serializer = serializer;
         this.fixedKeyLength = fixedKeyLength;
         this.hasher = hasher;
     }
-
-
 
     boolean lock() {
         long t = Thread.currentThread().getId();
@@ -70,11 +66,11 @@ abstract class Segment<V> {
         return keyBuffer.finish(hasher);
     }
 
-    abstract V getEntry(KeyBuffer key);
+    abstract E getEntry(KeyBuffer key);
 
     abstract boolean containsEntry(KeyBuffer key);
 
-    abstract boolean putEntry(byte[] key, V value, long hash, boolean ifAbsent, V oldValue);
+    abstract boolean putEntry(byte[] key, E entry, long hash, boolean ifAbsent, E oldEntry);
 
     abstract boolean removeEntry(KeyBuffer key);
 

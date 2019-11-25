@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.primitives.Ints;
 import com.oath.halodb.histo.EstimatedHistogram;
 
-class SegmentNonMemoryPool<V> extends Segment<V> {
+class SegmentNonMemoryPool<E extends HashEntry> extends Segment<E> {
 
     private static final Logger logger = LoggerFactory.getLogger(SegmentNonMemoryPool.class);
 
@@ -40,8 +40,8 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
 
     private static final boolean throwOOME = true;
 
-    SegmentNonMemoryPool(OffHeapHashTableBuilder<V> builder) {
-        super(builder.getValueSerializer(), builder.getFixedValueSize(), builder.getHasher());
+    SegmentNonMemoryPool(OffHeapHashTableBuilder<E> builder) {
+        super(builder.getEntrySerializer(), builder.getHasher());
 
         this.hashAlgorithm = builder.getHashAlgorighm();
 
@@ -124,16 +124,16 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
     }
 
     @Override
-    V getEntry(KeyBuffer key) {
+    E getEntry(KeyBuffer key) {
         boolean wasFirst = lock();
         try {
             for (long hashEntryAdr = table.getFirst(key.hash());
                  hashEntryAdr != 0L;
                  hashEntryAdr = NonMemoryPoolHashEntries.getNext(hashEntryAdr)) {
 
-                if (key.sameKey(hashEntryAdr)) {
+                if (sameKey(key.buffer, hashEntryAdr, serializer)) {
                     hitCount++;
-                    return valueSerializer.deserialize(Uns.readOnlyBuffer(hashEntryAdr, fixedValueLength, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + NonMemoryPoolHashEntries.getKeyLen(hashEntryAdr)));
+                    return serializer.deserialize(hashEntryAdr + NonMemoryPoolHashEntries.ENTRY_OFF_DATA);
                 }
             }
 
@@ -151,7 +151,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             for (long hashEntryAdr = table.getFirst(key.hash());
                  hashEntryAdr != 0L;
                  hashEntryAdr = NonMemoryPoolHashEntries.getNext(hashEntryAdr)) {
-                if (key.sameKey(hashEntryAdr)) {
+                if (sameKey(key.buffer, hashEntryAdr, serializer)) {
                     hitCount++;
                     return true;
                 }
@@ -165,40 +165,28 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
     }
 
     @Override
-    boolean putEntry(byte[] key, V value, long hash, boolean ifAbsent, V oldValue) {
-        long oldValueAdr = 0L;
-        try {
-            if (oldValue != null) {
-                oldValueAdr = Uns.allocate(fixedValueLength, throwOOME);
-                if (oldValueAdr == 0L) {
-                    throw new RuntimeException("Unable to allocate " + fixedValueLength + " bytes in off-heap");
-                }
-                valueSerializer.serialize(oldValue, Uns.directBufferFor(oldValueAdr, 0, fixedValueLength, false));
-            }
+    boolean putEntry(byte[] key, E entry, long hash, boolean ifAbsent, E oldEntry) {
+        short keySize = Utils.validateKeySize(key.length);
+        long hashEntryAdr = Uns.allocate(HashTableUtil.allocLen(key.length, serializer.fixedSize()), throwOOME);
+        if (hashEntryAdr == 0L) {
+            // entry too large to be inserted or OS is not able to provide enough memory
+            removeEntry(keySource(key));
+            return false;
+        }
+        // initialize hash entry
+        NonMemoryPoolHashEntries.init(hashEntryAdr);
+        serializeForPut(key, entry, hashEntryAdr);
 
-            long hashEntryAdr;
-            if ((hashEntryAdr = Uns.allocate(HashTableUtil.allocLen(key.length, fixedValueLength), throwOOME)) == 0L) {
-                // entry too large to be inserted or OS is not able to provide enough memory
-                removeEntry(keySource(key));
-                return false;
-            }
-
-            // initialize hash entry
-            NonMemoryPoolHashEntries.init(key.length, hashEntryAdr);
-            serializeForPut(key, value, hashEntryAdr);
-
-            if (putEntry(hashEntryAdr, hash, key.length, ifAbsent, oldValueAdr)) {
-                return true;
-            }
-
+        if (putEntry(hashEntryAdr, hash, keySize, ifAbsent, oldEntry)) {
+            return true;
+        } else {
+            // free if we did not insert the entry
             Uns.free(hashEntryAdr);
             return false;
-        } finally {
-            Uns.free(oldValueAdr);
         }
     }
 
-    private boolean putEntry(long newHashEntryAdr, long hash, long keyLen, boolean putIfAbsent, long oldValueAddr) {
+    private boolean putEntry(long newHashEntryAdr, long hash, short keyLen, boolean putIfAbsent, E oldEntry) {
         long removeHashEntryAdr = 0L;
         boolean wasFirst = lock();
         try {
@@ -207,7 +195,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             for (hashEntryAdr = table.getFirst(hash);
                  hashEntryAdr != 0L;
                  prevEntryAdr = hashEntryAdr, hashEntryAdr = NonMemoryPoolHashEntries.getNext(hashEntryAdr)) {
-                if (notSameKey(newHashEntryAdr, hash, keyLen, hashEntryAdr)) {
+                if (notSameKey(newHashEntryAdr, keyLen, hashEntryAdr)) {
                     continue;
                 }
 
@@ -216,10 +204,10 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
                     return false;
                 }
 
-                // key already exists, we just need to replace the value.
-                if (oldValueAddr != 0L) {
-                    // code for replace() operation
-                    if (!Uns.memoryCompare(hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + keyLen, oldValueAddr, 0L, fixedValueLength)) {
+                // key already exists, we just need to replace the entry.
+                if (oldEntry != null) {
+                    // if oldEntry does not match on replace(), don't insert
+                    if (!serializer.compare(oldEntry, hashEntryAdr + NonMemoryPoolHashEntries.ENTRY_OFF_DATA)) {
                         return false;
                     }
                 }
@@ -233,9 +221,9 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             // key is not present in the map, therefore we need to add a new entry.
             if (hashEntryAdr == 0L) {
 
-                // key is not present but old value is not null.
+                // key is not present but old entry is not null.
                 // we consider this as a mismatch and return.
-                if (oldValueAddr != 0) {
+                if (oldEntry != null) {
                     return false;
                 }
 
@@ -263,18 +251,19 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
         }
     }
 
-    private static boolean notSameKey(long newHashEntryAdr, long newHash, long newKeyLen, long hashEntryAdr) {
-        long serKeyLen = NonMemoryPoolHashEntries.getKeyLen(hashEntryAdr);
+    private boolean notSameKey(long newHashEntryAdr, short newKeyLen, long hashEntryAdr) {
+        short serKeyLen = keyLen(hashEntryAdr, serializer);
         return serKeyLen != newKeyLen
-               || !Uns.memoryCompare(hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, newHashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, serKeyLen);
+               || !Uns.memoryCompare(hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + serializer.fixedSize(),
+                                     newHashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + serializer.fixedSize(),
+                                     serKeyLen);
     }
 
-    private void serializeForPut(byte[] key, V value, long hashEntryAdr) {
+    private void serializeForPut(byte[] key, E entry, long hashEntryAdr) {
         try {
-            Uns.copyMemory(key, 0, hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, key.length);
-            if (value != null) {
-                valueSerializer.serialize(value, Uns.buffer(hashEntryAdr, fixedValueLength, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + key.length));
-            }
+            // write index meta first, then key
+            serializer.serialize(entry, hashEntryAdr + NonMemoryPoolHashEntries.ENTRY_OFF_DATA);
+            Uns.copyMemory(key, 0, hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + serializer.fixedSize(), key.length);
         } catch (Throwable e) {
             freeAndThrow(e, hashEntryAdr);
         }
@@ -322,7 +311,7 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
             for (long hashEntryAdr = table.getFirst(key.hash());
                  hashEntryAdr != 0L;
                  prevEntryAdr = hashEntryAdr, hashEntryAdr = NonMemoryPoolHashEntries.getNext(hashEntryAdr)) {
-                if (!key.sameKey(hashEntryAdr)) {
+                if (!sameKey(key.buffer, hashEntryAdr, serializer)) {
                     continue;
                 }
 
@@ -370,7 +359,8 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
 
                 next = NonMemoryPoolHashEntries.getNext(hashEntryAdr);
                 NonMemoryPoolHashEntries.setNext(hashEntryAdr, 0L);
-                long hash = hasher.hash(hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, NonMemoryPoolHashEntries.getKeyLen(hashEntryAdr));
+                short keySize = keyLen(hashEntryAdr, serializer);
+                long hash = hasher.hash(hashEntryAdr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA + serializer.fixedSize(), keySize);
                 newTable.addAsHead(hash, hashEntryAdr);
             }
         }
@@ -532,5 +522,40 @@ class SegmentNonMemoryPool<V> extends Segment<V> {
     @Override
     public String toString() {
         return String.valueOf(size);
+    }
+
+    static private short keyLen(long hashEntryAdr, HashEntrySerializer<?> serializer) {
+        return serializer.readKeySize(hashEntryAdr + NonMemoryPoolHashEntries.ENTRY_OFF_DATA);
+    }
+
+    static boolean sameKey(byte[] key, long hashEntryAdr, HashEntrySerializer<?> serializer) {
+        return keyLen(hashEntryAdr, serializer) == key.length && compareKey(key, hashEntryAdr, serializer);
+    }
+
+   static private boolean compareKey(byte[] key, long hashEntryAdr, HashEntrySerializer<?> serializer) {
+        int blkOff = (int) NonMemoryPoolHashEntries.ENTRY_OFF_DATA + serializer.fixedSize();
+        int p = 0;
+        int endIdx = key.length;
+        for (; endIdx - p >= 8; p += 8) {
+            if (Uns.getLong(hashEntryAdr, blkOff + p) != Uns.getLongFromByteArray(key, p)) {
+                return false;
+            }
+        }
+        for (; endIdx - p >= 4; p += 4) {
+            if (Uns.getInt(hashEntryAdr, blkOff + p) != Uns.getIntFromByteArray(key, p)) {
+                return false;
+            }
+        }
+        for (; endIdx - p >= 2; p += 2) {
+            if (Uns.getShort(hashEntryAdr, blkOff + p) != Uns.getShortFromByteArray(key, p)) {
+                return false;
+            }
+        }
+        for (; endIdx - p >= 1; p += 1) {
+            if (Uns.getByte(hashEntryAdr, blkOff + p) != key[p]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

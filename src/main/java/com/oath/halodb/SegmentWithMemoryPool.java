@@ -5,7 +5,6 @@
 
 package com.oath.halodb;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +15,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.oath.halodb.histo.EstimatedHistogram;
 
-class SegmentWithMemoryPool<V> extends Segment<V> {
+class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
     private static final Logger logger = LoggerFactory.getLogger(SegmentWithMemoryPool.class);
 
@@ -34,35 +33,29 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
     private final float loadFactor;
     private long rehashes = 0;
 
-    private final List<MemoryPoolChunk> chunks;
+    private final List<MemoryPoolChunk<E>> chunks;
     private byte currentChunkIndex = -1;
 
     private final int chunkSize;
 
-    private final MemoryPoolAddress emptyAddress = new MemoryPoolAddress((byte) -1, -1);
-
-    private MemoryPoolAddress freeListHead = emptyAddress;
+    private MemoryPoolAddress freeListHead = MemoryPoolAddress.empty;
     private long freeListSize = 0;
 
     private final int fixedSlotSize;
 
-    private final HashTableValueSerializer<V> valueSerializer;
+    private final HashEntrySerializer<E> serializer;
 
     private Table table;
 
-    private final ByteBuffer oldValueBuffer = ByteBuffer.allocate(fixedValueLength);
-    private final ByteBuffer newValueBuffer = ByteBuffer.allocate(fixedValueLength);
-
     private final HashAlgorithm hashAlgorithm;
 
-    SegmentWithMemoryPool(OffHeapHashTableBuilder<V> builder) {
-        super(builder.getValueSerializer(), builder.getFixedValueSize(), builder.getFixedKeySize(),
-              builder.getHasher());
+    SegmentWithMemoryPool(OffHeapHashTableBuilder<E> builder) {
+        super(builder.getEntrySerializer(), builder.getFixedKeySize(), builder.getHasher());
 
         this.chunks = new ArrayList<>();
         this.chunkSize = builder.getMemoryPoolChunkSize();
-        this.valueSerializer = builder.getValueSerializer();
-        this.fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + fixedValueLength;
+        this.serializer = builder.getEntrySerializer();
+        this.fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.fixedSize();
         this.hashAlgorithm = builder.getHashAlgorighm();
 
         int hts = builder.getHashTableSize();
@@ -87,17 +80,17 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
     }
 
     @Override
-    public V getEntry(KeyBuffer key) {
+    public E getEntry(KeyBuffer key) {
         boolean wasFirst = lock();
         try {
             for (MemoryPoolAddress address = table.getFirst(key.hash());
                  address.chunkIndex >= 0;
                  address = getNext(address)) {
 
-                MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     hitCount++;
-                    return valueSerializer.deserialize(chunk.readOnlyValueByteBuffer(address.chunkOffset));
+                    return chunk.readEntry(address.chunkOffset);
                 }
             }
 
@@ -116,7 +109,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
                  address.chunkIndex >= 0;
                  address = getNext(address)) {
 
-                MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<?> chunk = chunks.get(address.chunkIndex);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     hitCount++;
                     return true;
@@ -131,19 +124,12 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
     }
 
     @Override
-    boolean putEntry(byte[] key, V value, long hash, boolean putIfAbsent, V oldValue) {
+    boolean putEntry(byte[] key, E entry, long hash, boolean putIfAbsent, E oldEntry) {
         boolean wasFirst = lock();
         try {
-            if (oldValue != null) {
-                oldValueBuffer.clear();
-                valueSerializer.serialize(oldValue, oldValueBuffer);
-            }
-            newValueBuffer.clear();
-            valueSerializer.serialize(value, newValueBuffer);
-
             MemoryPoolAddress first = table.getFirst(hash);
             for (MemoryPoolAddress address = first; address.chunkIndex >= 0; address = getNext(address)) {
-                MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
                 if (chunk.compareKey(address.chunkOffset, key)) {
                     // key is already present in the segment.
 
@@ -153,20 +139,20 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
                     }
 
                     // code for replace() operation
-                    if (oldValue != null) {
-                        if (!chunk.compareValue(address.chunkOffset, oldValueBuffer.array())) {
+                    if (oldEntry != null) {
+                        if (!chunk.compareEntry(address.chunkOffset, oldEntry)) {
                             return false;
                         }
                     }
 
                     // replace value with the new one.
-                    chunk.setValue(newValueBuffer.array(), address.chunkOffset);
+                    chunk.setEntry(address.chunkOffset, entry);
                     putReplaceCount++;
                     return true;
                 }
             }
 
-            if (oldValue != null) {
+            if (oldEntry != null) {
                 // key is not present but old value is not null.
                 // we consider this as a mismatch and return.
                 return false;
@@ -178,7 +164,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             }
 
             // key is not present in the segment, we need to add a new entry.
-            MemoryPoolAddress nextSlot = writeToFreeSlot(key, newValueBuffer.array(), first);
+            MemoryPoolAddress nextSlot = writeToFreeSlot(key, entry, first);
             table.addAsHead(hash, nextSlot);
             size++;
             putAddCount++;
@@ -198,7 +184,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
                  address.chunkIndex >= 0;
                  previous = address, address = getNext(address)) {
 
-                MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     removeInternal(address, previous, key.hash());
                     removeCount++;
@@ -217,17 +203,16 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
         if (address.chunkIndex < 0 || address.chunkIndex >= chunks.size()) {
             throw new IllegalArgumentException("Invalid chunk index " + address.chunkIndex + ". Chunk size " + chunks.size());
         }
-
-        MemoryPoolChunk chunk = chunks.get(address.chunkIndex);
+        MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
         return chunk.getNextAddress(address.chunkOffset);
     }
 
-    private MemoryPoolAddress writeToFreeSlot(byte[] key, byte[] value, MemoryPoolAddress nextAddress) {
+    private MemoryPoolAddress writeToFreeSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
         if (!freeListHead.equals(emptyAddress)) {
             // write to the head of the free list.
             MemoryPoolAddress temp = freeListHead;
             freeListHead = chunks.get(freeListHead.chunkIndex).getNextAddress(freeListHead.chunkOffset);
-            chunks.get(temp.chunkIndex).fillSlot(temp.chunkOffset, key, value, nextAddress);
+            chunks.get(temp.chunkIndex).fillSlot(temp.chunkOffset, key, entry, nextAddress);
             --freeListSize;
             return temp;
         }
@@ -240,13 +225,13 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
 
             // There is no chunk allocated for this segment or the current chunk being written to has no space left.
             // allocate an new one.
-            chunks.add(MemoryPoolChunk.create(chunkSize, fixedKeyLength, fixedValueLength));
+            chunks.add(MemoryPoolChunk.create(chunkSize, fixedKeyLength, serializer));
             ++currentChunkIndex;
         }
 
-        MemoryPoolChunk currentWriteChunk = chunks.get(currentChunkIndex);
+        MemoryPoolChunk<E> currentWriteChunk = chunks.get(currentChunkIndex);
         MemoryPoolAddress slotAddress = new MemoryPoolAddress(currentChunkIndex, currentWriteChunk.getWriteOffset());
-        currentWriteChunk.fillNextSlot(key, value, nextAddress);
+        currentWriteChunk.fillNextSlot(key, entry, nextAddress);
         return slotAddress;
     }
 
@@ -466,7 +451,7 @@ class SegmentWithMemoryPool<V> extends Segment<V> {
             return mask + 1;
         }
 
-        void updateBucketHistogram(EstimatedHistogram h, final List<MemoryPoolChunk> chunks) {
+        <E extends HashEntry> void updateBucketHistogram(EstimatedHistogram h, final List<MemoryPoolChunk<E>> chunks) {
             for (int i = 0; i < size(); i++) {
                 int len = 0;
                 for (MemoryPoolAddress adr = getFirst(i); adr.chunkIndex >= 0;

@@ -5,17 +5,17 @@
 
 package com.oath.halodb;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.RateLimiter;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.ReentrantLock;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.RateLimiter;
 
 class CompactionManager {
     private static final Logger logger = LoggerFactory.getLogger(CompactionManager.class);
@@ -266,11 +266,8 @@ class CompactionManager {
                     );
                     currentWriteFile.getIndexFile().write(newEntry);
 
-                    int valueOffset = Utils.getValueOffset(currentWriteFileOffset, key);
-                    InMemoryIndexMetaData newMetaData = new InMemoryIndexMetaData(
-                        currentWriteFile.getFileId(), valueOffset,
-                        currentRecordMetaData.getValueSize(), indexFileEntry.getSequenceNumber()
-                    );
+                    InMemoryIndexMetaData newMetaData = currentRecordMetaData
+                        .relocated(currentWriteFile.getFileId(), currentWriteFileOffset);
 
                     boolean updated = dbInternal.getInMemoryIndex().replace(key, currentRecordMetaData, newMetaData);
                     if (updated) {
@@ -302,7 +299,7 @@ class CompactionManager {
         private boolean isRecordFresh(IndexFileEntry entry, InMemoryIndexMetaData metaData, int idOfFileToMerge) {
             return metaData != null
                    && metaData.getFileId() == idOfFileToMerge
-                   && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey());
+                   && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey().length);
         }
 
         private void rollOverCurrentWriteFile(int recordSize) throws IOException {

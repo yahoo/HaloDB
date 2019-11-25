@@ -5,18 +5,18 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class HaloDBIterator implements Iterator<Record> {
     private static final Logger logger = LoggerFactory.getLogger(HaloDBIterator.class);
 
-    private Iterator<Integer> outer;
+    private final Iterator<Integer> outer;
     private Iterator<IndexFileEntry> inner;
     private HaloDBFile currentFile;
 
@@ -113,12 +113,12 @@ public class HaloDBIterator implements Iterator<Record> {
     }
 
     private Record readRecordFromDataFile(IndexFileEntry entry) throws IOException {
-        InMemoryIndexMetaData meta = Utils.getMetaData(entry, currentFile.getFileId());
+        InMemoryIndexMetaData meta = new InMemoryIndexMetaData(entry, currentFile.getFileId());
         Record record = null;
         if (dbInternal.isRecordFresh(entry.getKey(), meta)) {
             byte[] value = currentFile.readFromFile(
-                Utils.getValueOffset(entry.getRecordOffset(), entry.getKey()),
-                Utils.getValueSize(entry.getRecordSize(), entry.getKey()));
+                Utils.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
+                Utils.getValueSize(entry.getRecordSize(), entry.getKey().length));
             record = new Record(entry.getKey(), value);
             record.setRecordMetaData(meta);
         }

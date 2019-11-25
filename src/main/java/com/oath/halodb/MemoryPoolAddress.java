@@ -11,6 +11,8 @@ package com.oath.halodb;
  */
 class MemoryPoolAddress {
 
+    static final MemoryPoolAddress empty = new MemoryPoolAddress((byte)-1, -1);
+
     final byte chunkIndex;
     final int chunkOffset;
 

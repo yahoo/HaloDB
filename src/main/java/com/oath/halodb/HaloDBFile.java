@@ -107,8 +107,7 @@ class HaloDBFile {
 
         Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
         record.setHeader(header);
-        int valueOffset = offset + Record.Header.HEADER_SIZE + header.getKeySize();
-        record.setRecordMetaData(new InMemoryIndexMetaData(fileId, valueOffset, header.getValueSize(), header.getSequenceNumber()));
+        record.setRecordMetaData(fileId, offset);
         return record;
     }
 
@@ -126,8 +125,7 @@ class HaloDBFile {
         );
         indexFile.write(indexFileEntry);
 
-        int valueOffset = Utils.getValueOffset(recordOffset, record.getKey());
-        return new InMemoryIndexMetaData(fileId, valueOffset, record.getValue().length, record.getSequenceNumber());
+        return new InMemoryIndexMetaData(indexFileEntry, fileId);
     }
 
     void rebuildIndexFile() throws IOException {

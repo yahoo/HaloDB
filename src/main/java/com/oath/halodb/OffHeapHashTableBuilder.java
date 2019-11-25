@@ -7,21 +7,21 @@
 
 package com.oath.halodb;
 
-class OffHeapHashTableBuilder<V> {
+class OffHeapHashTableBuilder<E extends HashEntry> {
 
     private int segmentCount;
     private int hashTableSize = 8192;
     private int memoryPoolChunkSize = 2 * 1024 * 1024;
-    private HashTableValueSerializer<V> valueSerializer;
+    private final HashEntrySerializer<E> serializer;
     private float loadFactor = .75f;
     private int fixedKeySize = -1;
-    private int fixedValueSize = -1;
     private HashAlgorithm hashAlgorighm = HashAlgorithm.MURMUR3;
     private Hasher hasher;
     private boolean unlocked;
     private boolean useMemoryPool = false;
 
-    private OffHeapHashTableBuilder() {
+    private OffHeapHashTableBuilder(HashEntrySerializer<E> serializer) {
+        this.serializer = serializer;
         int cpus = Runtime.getRuntime().availableProcessors();
 
         segmentCount = roundUpToPowerOf2(cpus * 2, 1 << 30);
@@ -35,21 +35,17 @@ class OffHeapHashTableBuilder<V> {
                : (number > 1) ? Integer.highestOneBit((number - 1) << 1) : 1;
     }
 
-    static <V> OffHeapHashTableBuilder<V> newBuilder() {
-        return new OffHeapHashTableBuilder<>();
+    static <E extends HashEntry> OffHeapHashTableBuilder<E> newBuilder(HashEntrySerializer<E> serializer) {
+        return new OffHeapHashTableBuilder<>(serializer);
     }
 
-    public OffHeapHashTable<V> build() {
-        if (fixedValueSize == -1) {
-            throw new IllegalArgumentException("Need to set fixedValueSize");
-        }
-
+    public OffHeapHashTable<E> build() {
         //TODO: write a test.
         if (useMemoryPool && fixedKeySize == -1) {
             throw new IllegalArgumentException("Need to set fixedKeySize when using memory pool");
         }
 
-        if (valueSerializer == null) {
+        if (serializer == null) {
             throw new IllegalArgumentException("Value serializer must be set.");
         }
 
@@ -60,7 +56,7 @@ class OffHeapHashTableBuilder<V> {
         return hashTableSize;
     }
 
-    public OffHeapHashTableBuilder<V> hashTableSize(int hashTableSize) {
+    public OffHeapHashTableBuilder<E> hashTableSize(int hashTableSize) {
         if (hashTableSize < -1) {
             throw new IllegalArgumentException("hashTableSize:" + hashTableSize);
         }
@@ -72,7 +68,7 @@ class OffHeapHashTableBuilder<V> {
         return memoryPoolChunkSize;
     }
 
-    public OffHeapHashTableBuilder<V> memoryPoolChunkSize(int chunkSize) {
+    public OffHeapHashTableBuilder<E> memoryPoolChunkSize(int chunkSize) {
         if (chunkSize < -1) {
             throw new IllegalArgumentException("memoryPoolChunkSize:" + chunkSize);
         }
@@ -80,20 +76,15 @@ class OffHeapHashTableBuilder<V> {
         return this;
     }
 
-    public HashTableValueSerializer<V> getValueSerializer() {
-        return valueSerializer;
-    }
-
-    public OffHeapHashTableBuilder<V> valueSerializer(HashTableValueSerializer<V> valueSerializer) {
-        this.valueSerializer = valueSerializer;
-        return this;
+    public HashEntrySerializer<E> getEntrySerializer() {
+        return serializer;
     }
 
     public int getSegmentCount() {
         return segmentCount;
     }
 
-    public OffHeapHashTableBuilder<V> segmentCount(int segmentCount) {
+    public OffHeapHashTableBuilder<E> segmentCount(int segmentCount) {
         if (segmentCount < -1) {
             throw new IllegalArgumentException("segmentCount:" + segmentCount);
         }
@@ -105,7 +96,7 @@ class OffHeapHashTableBuilder<V> {
         return loadFactor;
     }
 
-    public OffHeapHashTableBuilder<V> loadFactor(float loadFactor) {
+    public OffHeapHashTableBuilder<E> loadFactor(float loadFactor) {
         if (loadFactor <= 0f) {
             throw new IllegalArgumentException("loadFactor:" + loadFactor);
         }
@@ -117,23 +108,11 @@ class OffHeapHashTableBuilder<V> {
         return fixedKeySize;
     }
 
-    public OffHeapHashTableBuilder<V> fixedKeySize(int fixedKeySize) {
+    public OffHeapHashTableBuilder<E> fixedKeySize(int fixedKeySize) {
         if (fixedKeySize <= 0) {
             throw new IllegalArgumentException("fixedValueSize:" + fixedKeySize);
         }
         this.fixedKeySize = fixedKeySize;
-        return this;
-    }
-
-    public int getFixedValueSize() {
-        return fixedValueSize;
-    }
-
-    public OffHeapHashTableBuilder<V> fixedValueSize(int fixedValueSize) {
-        if (fixedValueSize <= 0) {
-            throw new IllegalArgumentException("fixedValueSize:" + fixedValueSize);
-        }
-        this.fixedValueSize = fixedValueSize;
         return this;
     }
 
@@ -145,7 +124,7 @@ class OffHeapHashTableBuilder<V> {
         return hasher;
     }
 
-    public OffHeapHashTableBuilder<V> hashMode(HashAlgorithm hashMode) {
+    public OffHeapHashTableBuilder<E> hashMode(HashAlgorithm hashMode) {
         if (hashMode == null) {
             throw new NullPointerException("hashMode");
         }
@@ -158,7 +137,7 @@ class OffHeapHashTableBuilder<V> {
         return unlocked;
     }
 
-    public OffHeapHashTableBuilder<V> unlocked(boolean unlocked) {
+    public OffHeapHashTableBuilder<E> unlocked(boolean unlocked) {
         this.unlocked = unlocked;
         return this;
     }
@@ -167,7 +146,7 @@ class OffHeapHashTableBuilder<V> {
         return useMemoryPool;
     }
 
-    public OffHeapHashTableBuilder<V> useMemoryPool(boolean useMemoryPool) {
+    public OffHeapHashTableBuilder<E> useMemoryPool(boolean useMemoryPool) {
         this.useMemoryPool = useMemoryPool;
         return this;
     }

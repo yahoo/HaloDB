@@ -7,46 +7,49 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
-import com.oath.halodb.histo.EstimatedHistogram;
+import java.io.IOException;
 
 import org.testng.Assert;
 
-import java.io.IOException;
+import com.google.common.primitives.Longs;
+import com.oath.halodb.histo.EstimatedHistogram;
 
 /**
  * Test code that contains an instance of the production and check {@link OffHeapHashTable}
  * implementations {@link OffHeapHashTableImpl} and
  * {@link CheckOffHeapHashTable}.
  */
-public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
+public class DoubleCheckOffHeapHashTableImpl<E extends HashEntry> implements OffHeapHashTable<E>
 {
-    public final OffHeapHashTable<V> prod;
-    public final OffHeapHashTable<V> check;
+    public final OffHeapHashTable<E> prod;
+    public final OffHeapHashTable<E> check;
 
-    public DoubleCheckOffHeapHashTableImpl(OffHeapHashTableBuilder<V> builder)
+    public DoubleCheckOffHeapHashTableImpl(OffHeapHashTableBuilder<E> builder)
     {
         this.prod = builder.build();
         this.check = new CheckOffHeapHashTable<>(builder);
     }
 
-    public boolean put(byte[] key, V value)
+    @Override
+    public boolean put(byte[] key, E entry)
     {
-        boolean rProd = prod.put(key, value);
-        boolean rCheck = check.put(key, value);
+        boolean rProd = prod.put(key, entry);
+        boolean rCheck = check.put(key, entry);
         Assert.assertEquals(rProd, rCheck, "for key='" + key + '\'');
         return rProd;
     }
 
-    public boolean addOrReplace(byte[] key, V old, V value)
+    @Override
+    public boolean addOrReplace(byte[] key, E old, E entry)
     {
-        boolean rProd = prod.addOrReplace(key, old, value);
-        boolean rCheck = check.addOrReplace(key, old, value);
+        boolean rProd = prod.addOrReplace(key, old, entry);
+        boolean rCheck = check.addOrReplace(key, old, entry);
         Assert.assertEquals(rProd, rCheck, "for key='" + key + '\'');
         return rProd;
     }
 
-    public boolean putIfAbsent(byte[] k, V v)
+    @Override
+    public boolean putIfAbsent(byte[] k, E v)
     {
         boolean rProd = prod.putIfAbsent(k, v);
         boolean rCheck = check.putIfAbsent(k, v);
@@ -54,16 +57,17 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
-    public boolean putIfAbsent(byte[] key, V value, long expireAt)
+    public boolean putIfAbsent(byte[] key, E entry, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
-    public boolean put(byte[] key, V value, long expireAt)
+    public boolean put(byte[] key, E entry, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public boolean remove(byte[] key)
     {
         boolean rProd = prod.remove(key);
@@ -72,20 +76,23 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public void clear()
     {
         prod.clear();
         check.clear();
     }
 
-    public V get(byte[] key)
+    @Override
+    public E get(byte[] key)
     {
-        V rProd = prod.get(key);
-        V rCheck = check.get(key);
+        E rProd = prod.get(key);
+        E rCheck = check.get(key);
         Assert.assertEquals(rProd, rCheck, "for key='" + Longs.fromByteArray(key) + '\'');
         return rProd;
     }
 
+    @Override
     public boolean containsKey(byte[] key)
     {
         boolean rProd = prod.containsKey(key);
@@ -94,12 +101,14 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public void resetStatistics()
     {
         prod.resetStatistics();
         check.resetStatistics();
     }
 
+    @Override
     public long size()
     {
         long rProd = prod.size();
@@ -108,6 +117,7 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public int[] hashTableSizes()
     {
         return prod.hashTableSizes();
@@ -121,11 +131,13 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public EstimatedHistogram getBucketHistogram()
     {
         return prod.getBucketHistogram();
     }
 
+    @Override
     public int segments()
     {
         int rProd = prod.segments();
@@ -134,6 +146,7 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public float loadFactor()
     {
         float rProd = prod.loadFactor();
@@ -142,6 +155,7 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public OffHeapHashTableStats stats()
     {
         OffHeapHashTableStats rProd = prod.stats();
@@ -150,6 +164,7 @@ public class DoubleCheckOffHeapHashTableImpl<V> implements OffHeapHashTable<V>
         return rProd;
     }
 
+    @Override
     public void close() throws IOException
     {
         prod.close();

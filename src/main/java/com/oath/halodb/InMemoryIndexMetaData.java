@@ -35,15 +35,15 @@ class InMemoryIndexMetaData implements HashEntry {
 
     InMemoryIndexMetaData(IndexFileEntry entry, int fileId) {
         this(fileId,
-             Utils.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
-             Utils.getValueSize(entry.getRecordSize(), entry.getKey().length),
+             RecordEntry.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
+             RecordEntry.getValueSize(entry.getRecordSize(), entry.getKey().length),
              entry.getSequenceNumber(),
              entry.getKey().length);
     }
 
-    InMemoryIndexMetaData(Record.Header header, int fileId, int offset) {
+    InMemoryIndexMetaData(RecordEntry.Header header, int fileId, int offset) {
         this(fileId,
-             Utils.getValueOffset(offset, header.getKeySize()),
+             RecordEntry.getValueOffset(offset, header.getKeySize()),
              header.getValueSize(),
              header.getSequenceNumber(),
              header.getKeySize());
@@ -112,7 +112,7 @@ class InMemoryIndexMetaData implements HashEntry {
     }
 
     public InMemoryIndexMetaData relocated(int newFileId, int newWriteFileOffset) {
-        int newOffset = Utils.getValueOffset(newWriteFileOffset, keySize);
+        int newOffset = RecordEntry.getValueOffset(newWriteFileOffset, keySize);
         return new InMemoryIndexMetaData(newFileId, newOffset, valueSize, sequenceNumber, keySize);
     }
 }

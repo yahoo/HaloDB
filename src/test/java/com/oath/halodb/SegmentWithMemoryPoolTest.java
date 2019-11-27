@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Random;
 
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.Lists;
@@ -26,6 +27,8 @@ public class SegmentWithMemoryPoolTest {
     ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(16);
     int fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeySize + serializer.fixedSize();
 
+    SegmentWithMemoryPool<ByteArrayEntry> segment = null;
+
     private OffHeapHashTableBuilder<ByteArrayEntry> builder() {
         return OffHeapHashTableBuilder
             .newBuilder(serializer)
@@ -34,9 +37,16 @@ public class SegmentWithMemoryPoolTest {
             .memoryPoolChunkSize(noOfEntries/noOfChunks * fixedSlotSize);
     }
 
+    @AfterMethod(alwaysRun = true)
+    public void releaseSegment() {
+        if (segment != null) {
+            segment.release();
+        }
+    }
+
     @Test
     public void testChunkAllocations() {
-        SegmentWithMemoryPool<ByteArrayEntry> segment = new SegmentWithMemoryPool<>(builder());
+        segment = new SegmentWithMemoryPool<>(builder());
 
         addEntriesToSegment(segment, noOfEntries);
 
@@ -57,7 +67,7 @@ public class SegmentWithMemoryPoolTest {
     public void testFreeList() {
         MemoryPoolAddress emptyList = new MemoryPoolAddress((byte) -1, -1);
 
-        SegmentWithMemoryPool<ByteArrayEntry> segment = new SegmentWithMemoryPool<>(builder());
+        segment = new SegmentWithMemoryPool<>(builder());
 
         //Add noOfEntries to the segment. This should require chunks.
         List<Record> records = addEntriesToSegment(segment, noOfEntries);
@@ -117,7 +127,7 @@ public class SegmentWithMemoryPoolTest {
         // we add more that that.
         noOfEntries = Byte.MAX_VALUE * 2;
 
-        SegmentWithMemoryPool<ByteArrayEntry> segment = new SegmentWithMemoryPool<>(builder().memoryPoolChunkSize(fixedSlotSize));
+        segment = new SegmentWithMemoryPool<>(builder().memoryPoolChunkSize(fixedSlotSize));
         addEntriesToSegment(segment, noOfEntries);
     }
 
@@ -126,7 +136,7 @@ public class SegmentWithMemoryPoolTest {
         noOfEntries = 1000;
         noOfChunks = 10;
 
-        SegmentWithMemoryPool<ByteArrayEntry> segment = new SegmentWithMemoryPool<>(builder());
+        segment = new SegmentWithMemoryPool<>(builder());
 
         Map<KeyBuffer, ByteArrayEntry> map = new HashMap<>();
         for (int i = 0; i < noOfEntries; i++) {
@@ -175,7 +185,7 @@ public class SegmentWithMemoryPoolTest {
             .hashTableSize(noOfEntries/8) // size of table less than number of entries, this will trigger a rehash.
             .loadFactor(1);
 
-        SegmentWithMemoryPool<ByteArrayEntry> segment = new SegmentWithMemoryPool<>(builder);
+        segment = new SegmentWithMemoryPool<>(builder);
         List<Record> records = addEntriesToSegment(segment, noOfEntries);
 
         Assert.assertEquals(segment.size(), noOfEntries);

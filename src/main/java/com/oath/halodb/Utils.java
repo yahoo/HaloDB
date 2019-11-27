@@ -10,19 +10,6 @@ class Utils {
         return (number > 1) ? Long.highestOneBit((number - 1) << 1) : 1;
     }
 
-    static int getValueOffset(int recordOffset, int keySize) {
-        return recordOffset + Record.Header.HEADER_SIZE + keySize;
-    }
-
-    //TODO: probably belongs to Record.
-    static int getRecordSize(int keySize, int valueSize) {
-        return keySize + valueSize + Record.Header.HEADER_SIZE;
-    }
-
-    static int getValueSize(int recordSize, int keySize) {
-        return recordSize - Record.Header.HEADER_SIZE - keySize;
-    }
-
     static long toUnsignedIntFromInt(int value) {
         return value & 0xffffffffL;
     }
@@ -72,9 +59,16 @@ class Utils {
     }
 
     static int validateValueSize(int valueSize) {
-      if ((valueSize >>> 29) != 0) {
-          throw new IllegalArgumentException("Value size must be between 0 and 536870912 (~512MB), but was: " + valueSize);
-      }
-      return valueSize;
-  }
+        if ((valueSize >>> 29) != 0) {
+            throw new IllegalArgumentException("Value size must be between 0 and 536870912 (~512MB), but was: " + valueSize);
+        }
+        return valueSize;
+    }
+
+    static long validateSequenceNumber(long sequenceNumber) {
+        if (sequenceNumber < 0) {
+            throw new IllegalArgumentException("Sequence number must be positive, but was: " + sequenceNumber);
+        }
+        return sequenceNumber;
+    }
 }

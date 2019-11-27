@@ -42,11 +42,11 @@ public class InMemoryIndexMetaDataSerializerTest implements HashEntrySerializerT
 
     @Test
     public void testFromRecordHeader() {
-        Record.Header header = new Record.Header(1, (byte)2, 1000, 2000, 9999);
+        RecordEntry.Header header = new RecordEntry.Header(1, (byte)2, 1000, 2000, 9999);
         InMemoryIndexMetaData data = new InMemoryIndexMetaData(header, 33, 55);
         Assert.assertEquals(data.getFileId(), 33);
         Assert.assertEquals(data.getKeySize(), header.getKeySize());
-        Assert.assertEquals(data.getValueOffset(), Utils.getValueOffset(55, data.getKeySize()));
+        Assert.assertEquals(data.getValueOffset(), RecordEntry.getValueOffset(55, data.getKeySize()));
         Assert.assertEquals(data.getValueSize(), header.getValueSize());
         Assert.assertEquals(data.getSequenceNumber(), header.getSequenceNumber());
     }
@@ -57,8 +57,8 @@ public class InMemoryIndexMetaDataSerializerTest implements HashEntrySerializerT
         InMemoryIndexMetaData data = new InMemoryIndexMetaData(entry, 33);
         Assert.assertEquals(data.getFileId(), 33);
         Assert.assertEquals(data.getKeySize(), entry.getKey().length);
-        Assert.assertEquals(data.getValueOffset(), Utils.getValueOffset(entry.getRecordOffset(), data.getKeySize()));
-        Assert.assertEquals(data.getValueSize(), Utils.getValueSize(entry.getRecordSize(), data.getKeySize()));
+        Assert.assertEquals(data.getValueOffset(), RecordEntry.getValueOffset(entry.getRecordOffset(), data.getKeySize()));
+        Assert.assertEquals(data.getValueSize(), RecordEntry.getValueSize(entry.getRecordSize(), data.getKeySize()));
         Assert.assertEquals(data.getSequenceNumber(), entry.getSequenceNumber());
     }
 
@@ -69,7 +69,7 @@ public class InMemoryIndexMetaDataSerializerTest implements HashEntrySerializerT
         InMemoryIndexMetaData relocated = data1.relocated(77, 1234);
         Assert.assertEquals(relocated.getFileId(), 77);
         Assert.assertEquals(relocated.getKeySize(), data1.getKeySize());
-        Assert.assertEquals(relocated.getValueOffset(), Utils.getValueOffset(1234, data1.getKeySize()));
+        Assert.assertEquals(relocated.getValueOffset(), RecordEntry.getValueOffset(1234, data1.getKeySize()));
         Assert.assertEquals(relocated.getValueSize(), data1.getValueSize());
         Assert.assertEquals(relocated.getSequenceNumber(), data1.getSequenceNumber());
     }

@@ -21,13 +21,13 @@ public class RecordTest {
         long sequenceNumber = 34543434343L;
         byte version = 29;
 
-        Record.Header header = new Record.Header(0, version, keySize, valueSize, sequenceNumber);
+        RecordEntry.Header header = new RecordEntry.Header(0, version, keySize, valueSize, sequenceNumber);
         ByteBuffer serialized = header.serialize();
 
-        Assert.assertEquals(serialized.get(Record.Header.KEY_SIZE_OFFSET) & 0xFF, keySize & 0xFF);
-        Assert.assertEquals(serialized.getInt(Record.Header.VALUE_SIZE_OFFSET), valueSize);
-        Assert.assertEquals(serialized.getLong(Record.Header.SEQUENCE_NUMBER_OFFSET), sequenceNumber);
-        Assert.assertEquals(serialized.get(Record.Header.VERSION_OFFSET) & 0xFF, (version << 3) | (keySize >>> 8));
+        Assert.assertEquals(serialized.get(RecordEntry.Header.KEY_SIZE_OFFSET) & 0xFF, keySize & 0xFF);
+        Assert.assertEquals(serialized.getInt(RecordEntry.Header.VALUE_SIZE_OFFSET), valueSize);
+        Assert.assertEquals(serialized.getLong(RecordEntry.Header.SEQUENCE_NUMBER_OFFSET), sequenceNumber);
+        Assert.assertEquals(serialized.get(RecordEntry.Header.VERSION_OFFSET) & 0xFF, (version << 3) | (keySize >>> 8));
     }
 
     @Test
@@ -39,7 +39,7 @@ public class RecordTest {
         long sequenceNumber = 34543434343L;
         int version = 2;
 
-        ByteBuffer buffer = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
+        ByteBuffer buffer = ByteBuffer.allocate(RecordEntry.Header.HEADER_SIZE);
         buffer.putInt(Utils.toSignedIntFromLong(checkSum));
         buffer.put((byte)(version << 3));
         buffer.put((byte)keySize);
@@ -47,14 +47,14 @@ public class RecordTest {
         buffer.putLong(sequenceNumber);
         buffer.flip();
 
-        Record.Header header = Record.Header.deserialize(buffer);
+        RecordEntry.Header header = RecordEntry.Header.deserialize(buffer);
 
         Assert.assertEquals(checkSum, header.getCheckSum());
         Assert.assertEquals(version, header.getVersion());
         Assert.assertEquals(keySize, header.getKeySize());
         Assert.assertEquals(valueSize, header.getValueSize());
         Assert.assertEquals(sequenceNumber, header.getSequenceNumber());
-        Assert.assertEquals(keySize + valueSize + Record.Header.HEADER_SIZE, header.getRecordSize());
+        Assert.assertEquals(keySize + valueSize + RecordEntry.Header.HEADER_SIZE, header.getRecordSize());
     }
 
     @Test
@@ -64,19 +64,17 @@ public class RecordTest {
         long sequenceNumber = 192;
         byte version = 13;
 
-        Record record = new Record(key, value);
-        record.setSequenceNumber(sequenceNumber);
-        record.setVersion(version);
+        RecordEntry.Header header = new RecordEntry.Header(0, version, key.length, value.length, sequenceNumber);
+        RecordEntry record = new RecordEntry(header, key, value);
 
         ByteBuffer[] buffers = record.serialize();
         CRC32 crc32 = new CRC32();
-        crc32.update(buffers[0].array(), Record.Header.VERSION_OFFSET, buffers[0].array().length - Record.Header.CHECKSUM_SIZE);
+        crc32.update(buffers[0].array(), RecordEntry.Header.VERSION_OFFSET, buffers[0].array().length - RecordEntry.Header.CHECKSUM_SIZE);
         crc32.update(key);
         crc32.update(value);
 
-        Record.Header header = new Record.Header(0, version, key.length, value.length, sequenceNumber);
         ByteBuffer headerBuf = header.serialize();
-        headerBuf.putInt(Record.Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32.getValue()));
+        headerBuf.putInt(RecordEntry.Header.CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32.getValue()));
 
         Assert.assertEquals(headerBuf, buffers[0]);
         Assert.assertEquals(ByteBuffer.wrap(key), buffers[1]);

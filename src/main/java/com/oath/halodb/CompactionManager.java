@@ -299,7 +299,7 @@ class CompactionManager {
         private boolean isRecordFresh(IndexFileEntry entry, InMemoryIndexMetaData metaData, int idOfFileToMerge) {
             return metaData != null
                    && metaData.getFileId() == idOfFileToMerge
-                   && metaData.getValueOffset() == Utils.getValueOffset(entry.getRecordOffset(), entry.getKey().length);
+                   && metaData.getValueOffset() == RecordEntry.getValueOffset(entry.getRecordOffset(), entry.getKey().length);
         }
 
         private void rollOverCurrentWriteFile(int recordSize) throws IOException {

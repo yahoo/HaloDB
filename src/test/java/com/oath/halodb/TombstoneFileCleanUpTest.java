@@ -1,12 +1,16 @@
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class TombstoneFileCleanUpTest extends TestBase {
 
@@ -23,14 +27,14 @@ public class TombstoneFileCleanUpTest extends TestBase {
         int noOfRecordsPerFile = 1024;
         int noOfFiles = 100;
         int noOfRecords = noOfRecordsPerFile * noOfFiles;
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         // delete all records
         for (Record r : records) {
             db.delete(r.getKey());
         }
 
-        // all files will be deleted except for the last one as it is the current write file. 
+        // all files will be deleted except for the last one as it is the current write file.
         TestUtils.waitForCompactionToComplete(db);
 
         // close and open the db.
@@ -45,7 +49,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         tombstoneFile.open();
         TombstoneFile.TombstoneFileIterator iterator = tombstoneFile.newIterator();
 
-        //Make sure that only 1024 tombstones from the last data file are left in the tombstone file after clean up.  
+        //Make sure that only 1024 tombstones from the last data file are left in the tombstone file after clean up.
         int tombstoneCount = 0;
         List<Record> remaining = records.stream().skip(noOfRecords - noOfRecordsPerFile).collect(Collectors.toList());
         while (iterator.hasNext()) {
@@ -108,28 +112,28 @@ public class TombstoneFileCleanUpTest extends TestBase {
         int noOfRecordsPerFile = 1024;
         int noOfFiles = 100;
         int noOfRecords = noOfRecordsPerFile * noOfFiles;
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         // delete first record from each file, since compaction threshold is 1 none of the files will be compacted.
         for (int i = 0; i < noOfRecords; i+=noOfRecordsPerFile) {
             db.delete(records.get(i).getKey());
         }
 
-        // get the tombstone file. 
+        // get the tombstone file.
         File[] originalTombstoneFiles = FileUtils.listTombstoneFiles(new File(directory));
         Assert.assertEquals(originalTombstoneFiles.length, 1);
 
         TestUtils.waitForCompactionToComplete(db);
 
-        // close and open db. 
+        // close and open db.
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // make sure that the old tombstone file was deleted. 
+        // make sure that the old tombstone file was deleted.
         Assert.assertFalse(originalTombstoneFiles[0].exists());
 
         // Since none of the files were compacted we cannot delete any of the tombstone records
-        // as the stale version of records still exist in the db. 
+        // as the stale version of records still exist in the db.
 
         // find the new tombstone file and make sure that all the tombstone records were copied.
         File[] tombstoneFilesAfterOpen = FileUtils.listTombstoneFiles(new File(directory));
@@ -184,7 +188,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // clean up was disabled; tombstone file should be the same. 
+        // clean up was disabled; tombstone file should be the same.
         File[] tombstoneFilesAfterOpen = FileUtils.listTombstoneFiles(new File(directory));
         Assert.assertEquals(tombstoneFilesAfterOpen.length, 1);
         Assert.assertEquals(tombstoneFilesAfterOpen[0].getName(), originalTombstoneFiles[0].getName());
@@ -196,7 +200,7 @@ public class TombstoneFileCleanUpTest extends TestBase {
 
     @Test(dataProvider = "Options")
     public void testCopyMultipleTombstoneFiles(HaloDBOptions options) throws HaloDBException, IOException {
-        //Test to make sure that rollover to tombstone files work correctly during cleanup. 
+        //Test to make sure that rollover to tombstone files work correctly during cleanup.
 
         String directory = TestUtils.getTestDirectory("TombstoneFileCleanUpTest", "testCopyMultipleTombstoneFiles");
 

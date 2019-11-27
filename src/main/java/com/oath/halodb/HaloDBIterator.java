@@ -20,7 +20,7 @@ public class HaloDBIterator implements Iterator<Record> {
     private Iterator<IndexFileEntry> inner;
     private HaloDBFile currentFile;
 
-    private Record next;
+    private RecordIterated next;
 
     private final HaloDBInternal dbInternal;
 
@@ -112,16 +112,14 @@ public class HaloDBIterator implements Iterator<Record> {
         return false;
     }
 
-    private Record readRecordFromDataFile(IndexFileEntry entry) throws IOException {
+    private RecordIterated readRecordFromDataFile(IndexFileEntry entry) throws IOException {
         InMemoryIndexMetaData meta = new InMemoryIndexMetaData(entry, currentFile.getFileId());
-        Record record = null;
         if (dbInternal.isRecordFresh(entry.getKey(), meta)) {
             byte[] value = currentFile.readFromFile(
-                Utils.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
-                Utils.getValueSize(entry.getRecordSize(), entry.getKey().length));
-            record = new Record(entry.getKey(), value);
-            record.setRecordMetaData(meta);
+                RecordEntry.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
+                RecordEntry.getValueSize(entry.getRecordSize(), entry.getKey().length));
+            return new RecordIterated(entry.getKey(), value, entry.getSequenceNumber());
         }
-        return record;
+        return null;
     }
 }

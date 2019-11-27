@@ -82,20 +82,22 @@ class HaloDBFile {
         return (int)(currentPosition - position);
     }
 
-    private Record readRecord(int offset) throws HaloDBException, IOException {
+    private RecordEntry readRecord(int offset) throws HaloDBException, IOException {
         long tempOffset = offset;
 
         // read the header from disk.
-        ByteBuffer headerBuf = ByteBuffer.allocate(Record.Header.HEADER_SIZE);
+        ByteBuffer headerBuf = ByteBuffer.allocate(RecordEntry.Header.HEADER_SIZE);
         int readSize = readFromFile(offset, headerBuf);
-        if (readSize != Record.Header.HEADER_SIZE) {
+        if (readSize != RecordEntry.Header.HEADER_SIZE) {
             throw new HaloDBException("Corrupted header at " + offset + " in file " + fileId);
         }
         tempOffset += readSize;
 
-        Record.Header header = Record.Header.deserialize(headerBuf);
-        if (!Record.Header.verifyHeader(header)) {
-            throw new HaloDBException("Corrupted header at " + offset + " in file " + fileId);
+        RecordEntry.Header header;
+        try {
+            header = RecordEntry.Header.deserialize(headerBuf);
+        } catch (IllegalArgumentException e) {
+            throw new HaloDBException("Corrupted header at " + offset + " in file " + fileId, e);
         }
 
         // read key-value from disk.
@@ -105,13 +107,11 @@ class HaloDBFile {
             throw new HaloDBException("Corrupted record at " + offset + " in file " + fileId);
         }
 
-        Record record = Record.deserialize(recordBuf, header.getKeySize(), header.getValueSize());
-        record.setHeader(header);
-        record.setRecordMetaData(fileId, offset);
+        RecordEntry record = RecordEntry.deserialize(header, recordBuf);
         return record;
     }
 
-    InMemoryIndexMetaData writeRecord(Record record) throws IOException {
+    InMemoryIndexMetaData writeRecord(RecordEntry record) throws IOException {
         writeToChannel(record.serialize());
 
         int recordSize = record.getRecordSize();
@@ -119,7 +119,7 @@ class HaloDBFile {
         writeOffset += recordSize;
 
         IndexFileEntry indexFileEntry = new IndexFileEntry(
-            record.getKey(), recordSize,
+                record.getKey(), recordSize,
             recordOffset, record.getSequenceNumber(),
             Versions.CURRENT_INDEX_FILE_VERSION, -1
         );
@@ -137,7 +137,7 @@ class HaloDBFile {
         HaloDBFileIterator iterator = new HaloDBFileIterator();
         int offset = 0;
         while (iterator.hasNext()) {
-            Record record = iterator.next();
+            RecordEntry record = iterator.next();
             IndexFileEntry indexFileEntry = new IndexFileEntry(
                 record.getKey(), record.getRecordSize(),
                 offset, record.getSequenceNumber(),
@@ -162,7 +162,7 @@ class HaloDBFile {
         HaloDBFileIterator iterator = new HaloDBFileIterator();
         int count = 0;
         while (iterator.hasNext()) {
-            Record record = iterator.next();
+            RecordEntry record = iterator.next();
             // if the header is corrupted iterator will return null.
             if (record != null && record.verifyChecksum()) {
                 repairFile.writeRecord(record);
@@ -349,8 +349,8 @@ class HaloDBFile {
         }
 
         @Override
-        public Record next() {
-            Record record;
+        public RecordEntry next() {
+            RecordEntry record;
             try {
                 record = readRecord(currentOffset);
             } catch (IOException | HaloDBException e) {

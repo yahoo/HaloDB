@@ -9,8 +9,6 @@ import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
 class TombstoneEntry {
-    //TODO: test.
-
     /**
      * crc                - 4 bytes.
      * version + key size - 2 bytes.  5 bits for version, 11 for keySize,

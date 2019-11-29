@@ -26,13 +26,13 @@ class MemoryPoolChunk<E extends HashEntry> {
         this.address = address;
         this.chunkSize = chunkSize;
         this.fixedKeyLength = fixedKeyLength;
-        this.fixedEntryLength = serializer.fixedSize();
+        this.fixedEntryLength = serializer.entrySize();
         this.fixedSlotSize = HEADER_SIZE + fixedKeyLength + fixedEntryLength;
         this.serializer = serializer;
     }
 
     static <E extends HashEntry> MemoryPoolChunk<E> create(int chunkSize, int fixedKeyLength, HashEntrySerializer<E> serializer) {
-        int fixedSlotSize = HEADER_SIZE + fixedKeyLength + serializer.fixedSize();
+        int fixedSlotSize = HEADER_SIZE + fixedKeyLength + serializer.entrySize();
         if (fixedSlotSize > chunkSize) {
             throw new IllegalArgumentException("fixedSlotSize " + fixedSlotSize + " must be smaller than chunkSize " + chunkSize);
         }
@@ -98,7 +98,9 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     E readEntry(int slotOffset) {
-        return serializer.deserialize(entryAddress(slotOffset));
+        long sizeAddress = entryAddress(slotOffset);
+        long locationAddress = sizeAddress + serializer.sizesSize();
+        return serializer.deserialize(sizeAddress, locationAddress);
     }
 
     private long entryAddress(int slotOffset) {
@@ -106,7 +108,10 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     void setEntry(int slotOffset, E entry) {
-        serializer.serialize(entry, entryAddress(slotOffset));
+        long sizeAddress = entryAddress(slotOffset);
+        long locationAddress = sizeAddress + serializer.sizesSize();
+        entry.serializeSizes(sizeAddress);
+        entry.serializeLocation(locationAddress);
     }
 
     private long keyAddress(int slotOffset) {
@@ -132,7 +137,9 @@ class MemoryPoolChunk<E extends HashEntry> {
         if (slotOffset + fixedSlotSize > chunkSize) {
             throw new IllegalArgumentException("Invalid request. slotOffset - " + slotOffset + " chunkSize - " + chunkSize);
         }
-        return serializer.compare(entry, entryAddress(slotOffset));
+        long sizeAddress = entryAddress(slotOffset);
+        long locationAddress = sizeAddress + serializer.sizesSize();
+        return entry.compare(sizeAddress, locationAddress);
     }
 
     private boolean compare(int offset, byte[] array) {

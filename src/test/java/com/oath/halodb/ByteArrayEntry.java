@@ -2,23 +2,23 @@ package com.oath.halodb;
 
 import java.util.Arrays;
 
-class ByteArrayEntry implements HashEntry {
-    final short keySize;
+class ByteArrayEntry extends HashEntry {
+    private final boolean failOnSerialize;
     final byte[] bytes;
 
-    public ByteArrayEntry(int keySize, byte[] bytes) {
-        this.keySize = Utils.validateKeySize(keySize);
+    ByteArrayEntry(int keySize, byte[] bytes) {
+        this(keySize, bytes, false);
+    }
+
+    ByteArrayEntry(int keySize, byte[] bytes, boolean failOnSerialize) {
+        super(keySize, bytes.length);
+        this.failOnSerialize = failOnSerialize;
         this.bytes = bytes;
     }
 
     @Override
-    public short getKeySize() {
-        return keySize;
-    }
-
-    @Override
     public int hashCode() {
-        return (31 * keySize) + Arrays.hashCode(bytes);
+        return (31 * getKeySize()) + Arrays.hashCode(bytes);
     }
 
     @Override
@@ -30,6 +30,21 @@ class ByteArrayEntry implements HashEntry {
         if (getClass() != obj.getClass())
             return false;
         ByteArrayEntry other = (ByteArrayEntry) obj;
-        return keySize == other.keySize && Arrays.equals(bytes, other.bytes);
+        return getKeySize() == other.getKeySize() && Arrays.equals(bytes, other.bytes);
+    }
+
+    @Override
+    void serializeLocation(long locationAddress) {
+        if (failOnSerialize) {
+            throw new RuntimeException("boom");
+        }
+        Uns.copyMemory(bytes, 0, locationAddress, 0, bytes.length);
+    }
+
+    @Override
+    boolean compareLocation(long locationAddress) {
+        byte[] data = new byte[getValueSize()];
+        Uns.copyMemory(locationAddress, 0, data, 0, data.length);
+        return Arrays.equals(bytes,  data);
     }
 }

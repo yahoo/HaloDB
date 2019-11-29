@@ -25,7 +25,7 @@ public class SegmentWithMemoryPoolTest {
     int noOfEntries = 100;
     int noOfChunks = 2;
     ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(16);
-    int fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeySize + serializer.fixedSize();
+    int fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeySize + serializer.entrySize();
 
     SegmentWithMemoryPool<ByteArrayEntry> segment = null;
 

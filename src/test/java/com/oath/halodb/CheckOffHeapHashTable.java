@@ -107,11 +107,11 @@ final class CheckOffHeapHashTable<E extends HashEntry> implements OffHeapHashTab
         if (entry == null) {
             return null;
         }
-        int entryLen = serializer.fixedSize();
+        int entryLen = serializer.entrySize();
         long adr = Uns.allocate(entryLen);
         try {
             Uns.copyMemory(entry, 0, adr, 0, entryLen);
-            return serializer.deserialize(adr);
+            return serializer.deserialize(adr, adr + serializer.sizesSize());
         } finally {
             Uns.free(adr);
         }
@@ -260,10 +260,11 @@ final class CheckOffHeapHashTable<E extends HashEntry> implements OffHeapHashTab
         if (entry == null) {
             return null;
         }
-        int entryLen = serializer.fixedSize();
+        int entryLen = serializer.entrySize();
         long adr = Uns.allocate(entryLen);
         try {
-            serializer.serialize(entry, adr);
+            entry.serializeSizes(adr);
+            entry.serializeLocation(adr + serializer.sizesSize());
             byte[] out = new byte[entryLen];
             Uns.copyMemory(adr, 0, out, 0, entryLen);
             return out;

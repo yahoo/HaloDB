@@ -8,20 +8,42 @@
 package com.oath.halodb;
 
 /**
- * Serialize and deserialize cached data
+ * Serialize and deserialize cache entry data.
+ *
+ * The key and value size data are stored independently from
+ * the location payload.  Different Segment implementations may
+ * store each of these at different relative places in their
+ * hash slot.
  */
-interface HashEntrySerializer<E extends HashEntry> {
+abstract class HashEntrySerializer<E extends HashEntry> {
 
-    /** The entry must contain the key size **/
-    short readKeySize(long address);
+    /** read the key size from the given address **/
+    final short readKeySize(long sizeAddress) {
+        return HashEntry.readKeySize(sizeAddress);
+    }
 
-    void serialize(E entry, long address);
+    /** the serialized size of the key and value length **/
+    final int sizesSize() {
+        return HashEntry.ENTRY_SIZES_SIZE;
+    }
 
-    E deserialize(long address);
+    /** the total size of the entry, including sizes and location data **/
+    final int entrySize() {
+        return sizesSize() + locationSize();
+    }
 
-    /** The fixed size of the hash table entry. **/
-    int fixedSize();
+    /** read the entry from memory, from the provided sizeAddress and locationAddress **/
+    abstract E deserialize(long sizeAddress, long locationAddress);
 
-    boolean compare(E entry, long entryAddress);
+    /** the size of the location data **/
+    abstract int locationSize();
+
+    final void validateSize(E entry) {
+        if (!validSize(entry)) {
+            throw new IllegalArgumentException("value size incompatible with fixed value size " + entrySize());
+        }
+    }
+
+    /** return true if the entry serializes to entrySize bytes **/
+    abstract boolean validSize(E entry);
 }
-

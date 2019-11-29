@@ -253,7 +253,7 @@ public class CrossCheckTest
 
     @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics",
             expectedExceptions = IllegalArgumentException.class,
-            expectedExceptionsMessageRegExp = ".*invalid entry size.*")
+            expectedExceptionsMessageRegExp = ".*value size incompatible with fixed value size.*")
     public void testPutTooLargeValue(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
         byte[] key = HashTableTestUtils.randomBytes(8);
         ByteArrayEntry largeEntry = bigSerializer.randomEntry(key.length);

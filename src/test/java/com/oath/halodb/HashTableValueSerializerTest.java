@@ -27,11 +27,11 @@ public class HashTableValueSerializerTest
     @Test
     public void testFailingValueSerializerOnPut() throws IOException, InterruptedException
     {
-        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSizeFailSerialize(8);
+        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(8);
         try (OffHeapHashTable<ByteArrayEntry> cache = OffHeapHashTableBuilder.newBuilder(serializer).build())
         {
             byte[] key = Ints.toByteArray(1);
-            ByteArrayEntry entry = serializer.createEntry(key.length, Longs.toByteArray(1));
+            ByteArrayEntry entry = new ByteArrayEntry(key.length, Longs.toByteArray(1), true);
             try
             {
                 cache.put(key, entry);

@@ -55,7 +55,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         this.chunks = new ArrayList<>();
         this.chunkSize = builder.getMemoryPoolChunkSize();
         this.serializer = builder.getEntrySerializer();
-        this.fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.fixedSize();
+        this.fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.entrySize();
         this.hashAlgorithm = builder.getHashAlgorighm();
 
         int hts = builder.getHashTableSize();
@@ -208,7 +208,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     }
 
     private MemoryPoolAddress writeToFreeSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
-        if (!freeListHead.equals(emptyAddress)) {
+        if (!freeListHead.isEmpty()) {
             // write to the head of the free list.
             MemoryPoolAddress temp = freeListHead;
             freeListHead = chunks.get(freeListHead.chunkIndex).getNextAddress(freeListHead.chunkOffset);

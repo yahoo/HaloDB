@@ -155,7 +155,8 @@ public class KeyBufferTest
         ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(13);
         ByteArrayEntry randomEntry = serializer.randomEntry(randomKey.length);
         long entryOffset = NonMemoryPoolHashEntries.ENTRY_OFF_DATA;
-        long keyOffset = entryOffset + serializer.fixedSize();
+        long locationOffset = entryOffset + serializer.sizesSize();
+        long keyOffset = entryOffset + serializer.entrySize();
 
         long adr = Uns.allocate(keyOffset + randomKey.length, true);
         try {
@@ -163,7 +164,8 @@ public class KeyBufferTest
             key.finish(com.oath.halodb.Hasher.create(HashAlgorithm.MURMUR3));
 
             NonMemoryPoolHashEntries.init(adr);
-            serializer.serialize(randomEntry, adr + entryOffset);
+            randomEntry.serializeSizes(adr + entryOffset);
+            randomEntry.serializeLocation(adr + locationOffset);
             Uns.setMemory(adr, keyOffset, randomKey.length, (byte) 0);
 
             assertFalse(SegmentNonMemoryPool.sameKey(randomKey, adr, serializer));

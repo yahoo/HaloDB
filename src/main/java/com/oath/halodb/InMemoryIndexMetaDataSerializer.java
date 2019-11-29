@@ -5,30 +5,27 @@
 
 package com.oath.halodb;
 
-class InMemoryIndexMetaDataSerializer implements HashEntrySerializer<InMemoryIndexMetaData> {
+class InMemoryIndexMetaDataSerializer extends HashEntrySerializer<InMemoryIndexMetaData> {
 
     @Override
-    public void serialize(InMemoryIndexMetaData value, long address) {
-        value.serialize(address);
+    final InMemoryIndexMetaData deserialize(long sizeAddress, long locationAddress) {
+        int firstWord = Uns.getInt(sizeAddress, 0);
+        byte nextByte = Uns.getByte(sizeAddress, 4);
+        short keySize = HashEntry.extractKeySize(firstWord);
+        int valueSize = HashEntry.extractValueSize(firstWord, nextByte);
+        int fileId = HashEntryLocation.readFileId(locationAddress);
+        int valueOffset = HashEntryLocation.readValueOffset(locationAddress);
+        long sequenceNumber = HashEntryLocation.readSequenceNumber(locationAddress);
+        return new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber, keySize);
     }
 
     @Override
-    public InMemoryIndexMetaData deserialize(long address) {
-        return InMemoryIndexMetaData.deserialize(address);
+    final int locationSize() {
+        return HashEntryLocation.ENTRY_LOCATION_SIZE;
     }
 
     @Override
-    public int fixedSize() {
-        return InMemoryIndexMetaData.SERIALIZED_SIZE;
-    }
-
-    @Override
-    public short readKeySize(long address) {
-        return InMemoryIndexMetaData.getKeySize(address);
-    }
-
-    @Override
-    public boolean compare(InMemoryIndexMetaData entry, long address) {
-        return entry.compare(address);
+    boolean validSize(InMemoryIndexMetaData entry) {
+        return true;
     }
 }

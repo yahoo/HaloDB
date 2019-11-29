@@ -43,8 +43,7 @@ public class ByteArrayEntrySerializerTest implements HashEntrySerializerTest {
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "boom")
     public void testSerializationFailure() {
-        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSizeFailSerialize(4);
-        serializer.serialize(serializer.randomEntry(0), 0);
+        testSerDe(new ByteArrayEntry(333, data2, true), serializer, (e1, e2) -> e2.equals(e1));
     }
 
 }

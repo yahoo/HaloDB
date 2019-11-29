@@ -12,17 +12,23 @@ import org.testng.Assert;
 interface HashEntrySerializerTest {
 
     default <E extends HashEntry> E testSerDe(E entry, HashEntrySerializer<E> serializer, BiPredicate<E, E> equals) {
-        long adr = Uns.allocate(serializer.fixedSize(), true);
+        long adr = Uns.allocate(serializer.entrySize(), true);
         try {
-            serializer.serialize(entry, adr);
-            Assert.assertTrue(serializer.compare(entry, adr));
+            entry.serializeSizes(adr);
+            Assert.assertTrue(entry.compareSizes(adr));
+
+            long locationAdr = adr + serializer.sizesSize();
+            entry.serializeLocation(locationAdr);
+            Assert.assertTrue(entry.compareLocation(locationAdr));
+
+            Assert.assertTrue(entry.compare(adr, locationAdr));
 
             Assert.assertEquals(serializer.readKeySize(adr), entry.getKeySize());
 
-            E fromAdr = serializer.deserialize(adr);
-            Assert.assertTrue(serializer.compare(fromAdr, adr));
+            E fromAdr = serializer.deserialize(adr, locationAdr);
 
             Assert.assertEquals(fromAdr.getKeySize(), entry.getKeySize());
+            Assert.assertEquals(fromAdr.getValueSize(), entry.getValueSize());
             Assert.assertTrue(equals.test(fromAdr, entry));
             return fromAdr;
         } finally {

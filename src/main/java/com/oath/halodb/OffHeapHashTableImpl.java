@@ -113,6 +113,13 @@ final class OffHeapHashTableImpl<E extends HashEntry> implements OffHeapHashTabl
         if (key == null || entry == null) {
             throw new NullPointerException();
         }
+        if (key.length > Byte.MAX_VALUE) {
+            throw new IllegalArgumentException("key size of " + key.length + " exceeds max permitted size of " + Byte.MAX_VALUE);
+        }
+        serializer.validateSize(entry);
+        if (old != null) {
+            serializer.validateSize(entry);
+        }
 
         Utils.validateKeySize(key.length);
 

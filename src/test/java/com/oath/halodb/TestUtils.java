@@ -51,7 +51,7 @@ public class TestUtils {
         for (int i = 0; i < noOfRecords; i++) {
             byte[] key;
             if (size > 0) {
-             key = TestUtils.generateRandomByteArray(random.nextInt(Math.min(Byte.MAX_VALUE-1, size))+1);
+                key = TestUtils.generateRandomByteArray(random.nextInt(Math.min(Byte.MAX_VALUE-1, size))+1);
             }
             else {
                 key = TestUtils.generateRandomByteArray();

@@ -21,6 +21,10 @@ class MemoryPoolAddress {
         this.chunkOffset = chunkOffset;
     }
 
+    final boolean isEmpty() {
+        return chunkIndex == -1 & chunkOffset == -1;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == this) {

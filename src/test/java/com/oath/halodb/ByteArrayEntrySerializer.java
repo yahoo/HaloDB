@@ -1,70 +1,51 @@
 package com.oath.halodb;
 
-class ByteArrayEntrySerializer implements HashEntrySerializer<ByteArrayEntry> {
+class ByteArrayEntrySerializer extends HashEntrySerializer<ByteArrayEntry> {
 
     private final int arraySize;
-    private final boolean failOnSerialize;
 
-    ByteArrayEntrySerializer(int arraySize, boolean failOnSerialize) {
+    ByteArrayEntrySerializer(int arraySize) {
       this.arraySize = arraySize;
-      this.failOnSerialize = failOnSerialize;
     }
 
     @Override
-    public short readKeySize(long address) {
-        return Uns.getShort(address, 0);
-    }
-
-    @Override
-    public void serialize(ByteArrayEntry entry, long address) {
-        if (failOnSerialize) {
-            throw new RuntimeException("boom");
-        }
-        validateArraySize(entry.bytes);
-        Uns.putShort(address, 0, entry.keySize);
-        Uns.copyMemory(entry.bytes, 0, address, 2, arraySize);
-    }
-
-    @Override
-    public ByteArrayEntry deserialize(long address) {
-        short keySize = Uns.getShort(address, 0);
-        byte[] bytes = new byte[arraySize];
-        Uns.copyMemory(address, 2, bytes, 0, arraySize);
+    ByteArrayEntry deserialize(long sizeAddress, long locationAddress) {
+        int firstWord = Uns.getInt(sizeAddress, 0);
+        byte nextByte = Uns.getByte(sizeAddress, 4);
+        short keySize = HashEntry.extractKeySize(firstWord);
+        int valueSize = HashEntry.extractValueSize(firstWord, nextByte);
+        validateArraySize(valueSize);
+        byte[] bytes = new byte[valueSize];
+        Uns.copyMemory(locationAddress, 0, bytes, 0, arraySize);
         return new ByteArrayEntry(keySize, bytes);
     }
 
     @Override
-    public boolean compare(ByteArrayEntry entry, long address) {
-        return deserialize(address).equals(entry);
+    int locationSize() {
+        return arraySize;
     }
 
     @Override
-    public int fixedSize() {
-        return arraySize + 2;
+    boolean validSize(ByteArrayEntry entry) {
+        return entry.bytes.length == arraySize;
     }
 
     static ByteArrayEntrySerializer ofSize(int size) {
-        return new ByteArrayEntrySerializer(size, false);
+        return new ByteArrayEntrySerializer(size);
     }
 
-    static ByteArrayEntrySerializer ofSizeFailSerialize(int size) {
-        return new ByteArrayEntrySerializer(size, true);
-    }
-
-    public ByteArrayEntry randomEntry(int keySize) {
+    ByteArrayEntry randomEntry(int keySize) {
         return new ByteArrayEntry(keySize, HashTableTestUtils.randomBytes(arraySize));
-
     }
 
-    public ByteArrayEntry createEntry(int keySize, byte[] bytes) {
-        validateArraySize(bytes);
+    ByteArrayEntry createEntry(int keySize, byte[] bytes) {
+        validateArraySize(bytes.length);
         return new ByteArrayEntry(keySize, bytes);
     }
 
-    private void validateArraySize(byte[] bytes) {
-        if (bytes.length != arraySize) {
-            throw new IllegalArgumentException("invalid entry size, expected" + arraySize + " but was " + bytes.length);
+    private void validateArraySize(int length) {
+        if (length != arraySize) {
+            throw new IllegalArgumentException("invalid entry size, expected" + arraySize + " but was " + length);
         }
     }
-
 }

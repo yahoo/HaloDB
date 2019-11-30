@@ -11,13 +11,23 @@ import static com.oath.halodb.MemoryPoolHashEntries.HEADER_SIZE;
 
 /**
  * Memory pool is divided into chunks of configurable size. This represents such a chunk.
+ *
+ * Each entry is of the form:
+ *
+ * 5 bytes -- MemoryPoolAddress header
+ * 5 bytes -- HashEntry sizes (key/value length)
+ * fixedKeyLength -- configurable reserved space for the key
+ * 16 bytes -- HashEntry location data (fileId, fileOffset, sequenceId)
  */
 class MemoryPoolChunk<E extends HashEntry> {
 
-    private final long address;
+    private static final int sizesOffset = HEADER_SIZE;
+
     private final int chunkSize;
+    private final long address;
     private final int fixedKeyLength;
-    private final int fixedEntryLength;
+    private final int fixedKeyOffset;
+    private final int locationOffset;
     private final int slotSize;
     private int writeOffset = 0;
     private final HashEntrySerializer<E> serializer;
@@ -26,13 +36,14 @@ class MemoryPoolChunk<E extends HashEntry> {
         this.address = address;
         this.chunkSize = chunkSize;
         this.fixedKeyLength = fixedKeyLength;
-        this.fixedEntryLength = serializer.entrySize();
-        this.slotSize = HEADER_SIZE + fixedKeyLength + fixedEntryLength;
+        this.fixedKeyOffset = sizesOffset + serializer.sizesSize();
+        this.locationOffset = fixedKeyOffset + fixedKeyLength;
+        this.slotSize = locationOffset + serializer.locationSize();
         this.serializer = serializer;
     }
 
     static <E extends HashEntry> MemoryPoolChunk<E> create(int chunkSize, int fixedKeyLength, HashEntrySerializer<E> serializer) {
-        int fixedSlotSize = HEADER_SIZE + fixedKeyLength + serializer.entrySize();
+        int fixedSlotSize = MemoryPoolHashEntries.slotSize(fixedKeyLength, serializer);
         if (fixedSlotSize > chunkSize) {
             throw new IllegalArgumentException("fixedSlotSize " + fixedSlotSize + " must be smaller than chunkSize " + chunkSize);
         }
@@ -83,10 +94,17 @@ class MemoryPoolChunk<E extends HashEntry> {
 
         // pointer to next slot
         setNextAddress(slotOffset, nextAddress);
+        // key and value sizes
+        entry.serializeSizes(sizeAddress(slotOffset));
         // key data, in fixed slot
         setKey(slotOffset, key);
         // entry metadata
-        setEntry(slotOffset, entry);
+        entry.serializeLocation(locationAddress(slotOffset));
+    }
+
+    void setEntry(int slotOffset, E entry) {
+        entry.serializeSizes(sizeAddress(slotOffset));
+        entry.serializeLocation(locationAddress(slotOffset));
     }
 
     int getWriteOffset() {
@@ -102,24 +120,19 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     E readEntry(int slotOffset) {
-        long sizeAddress = entryAddress(slotOffset);
-        long locationAddress = sizeAddress + serializer.sizesSize();
-        return serializer.deserialize(sizeAddress, locationAddress);
+        return serializer.deserialize(sizeAddress(slotOffset), locationAddress(slotOffset));
     }
 
-    private long entryAddress(int slotOffset) {
-        return address + slotOffset + HEADER_SIZE + fixedKeyLength;
+    private long sizeAddress(int slotOffset) {
+        return address + slotOffset + sizesOffset;
     }
 
-    void setEntry(int slotOffset, E entry) {
-        long sizeAddress = entryAddress(slotOffset);
-        long locationAddress = sizeAddress + serializer.sizesSize();
-        entry.serializeSizes(sizeAddress);
-        entry.serializeLocation(locationAddress);
+    private long locationAddress(int slotOffset) {
+        return address + slotOffset + locationOffset;
     }
 
     private long keyAddress(int slotOffset) {
-        return address + slotOffset + HEADER_SIZE;
+        return address + slotOffset + fixedKeyOffset;
     }
 
     private void setKey(int slotOffset, byte[] key) {
@@ -134,16 +147,14 @@ class MemoryPoolChunk<E extends HashEntry> {
         if (key.length > fixedKeyLength || slotOffset + slotSize > chunkSize) {
             throw new IllegalArgumentException("Invalid request. slotOffset - " + slotOffset + " key.length - " + key.length);
         }
-       return getKeyLength(slotOffset) == key.length && compare(slotOffset + HEADER_SIZE, key);
+       return getKeyLength(slotOffset) == key.length && compare(slotOffset + fixedKeyOffset, key);
     }
 
     boolean compareEntry(int slotOffset, E entry) {
         if (slotOffset + slotSize > chunkSize) {
             throw new IllegalArgumentException("Invalid request. slotOffset - " + slotOffset + " chunkSize - " + chunkSize);
         }
-        long sizeAddress = entryAddress(slotOffset);
-        long locationAddress = sizeAddress + serializer.sizesSize();
-        return entry.compare(sizeAddress, locationAddress);
+        return entry.compare(sizeAddress(slotOffset), locationAddress(slotOffset));
     }
 
     private boolean compare(int offset, byte[] array) {
@@ -172,6 +183,6 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     private short getKeyLength(int slotOffset) {
-        return serializer.readKeySize(entryAddress(slotOffset));
+        return serializer.readKeySize(sizeAddress(slotOffset));
     }
 }

@@ -15,4 +15,8 @@ class MemoryPoolHashEntries {
 
     static final int ENTRY_OFF_NEXT_CHUNK_INDEX = 0;
     static final int ENTRY_OFF_NEXT_CHUNK_OFFSET = 1;
+
+    public static int slotSize(int fixedKeySize, HashEntrySerializer<?> serializer) {
+        return HEADER_SIZE + fixedKeySize + serializer.entrySize();
+    }
 }

@@ -13,6 +13,7 @@ import java.util.Random;
 
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.Lists;
@@ -20,12 +21,12 @@ import com.google.common.collect.Lists;
 public class SegmentWithMemoryPoolTest {
 
     Hasher hasher = Hasher.create(HashAlgorithm.MURMUR3);
-
-    int fixedKeySize = 8;
-    int noOfEntries = 100;
-    int noOfChunks = 2;
     ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(16);
-    int fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeySize + serializer.entrySize();
+
+    int fixedKeySize;
+    int noOfEntries;
+    int noOfChunks;
+    int fixedSlotSize;
 
     SegmentWithMemoryPool<ByteArrayEntry> segment = null;
 
@@ -37,11 +38,20 @@ public class SegmentWithMemoryPoolTest {
             .memoryPoolChunkSize(noOfEntries/noOfChunks * fixedSlotSize);
     }
 
+    @BeforeMethod(alwaysRun = true)
+    public void initialize() {
+        fixedKeySize = 8;
+        noOfEntries = 100;
+        noOfChunks = 2;
+        fixedSlotSize = MemoryPoolHashEntries.slotSize(fixedKeySize, serializer);
+    }
+
     @AfterMethod(alwaysRun = true)
     public void releaseSegment() {
         if (segment != null) {
             segment.release();
         }
+
     }
 
     @Test
@@ -65,7 +75,7 @@ public class SegmentWithMemoryPoolTest {
 
     @Test
     public void testFreeList() {
-        MemoryPoolAddress emptyList = new MemoryPoolAddress((byte) -1, -1);
+        MemoryPoolAddress emptyList = MemoryPoolAddress.empty;
 
         segment = new SegmentWithMemoryPool<>(builder());
 
@@ -121,14 +131,48 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.getFreeListHead(), emptyList);
     }
 
-    @Test(expectedExceptions = OutOfMemoryError.class, expectedExceptionsMessageRegExp = "Each segment can have at most 128 chunks.")
+    @Test(expectedExceptions = OutOfMemoryError.class, expectedExceptionsMessageRegExp = "Each segment can have at most 255 chunks.")
     public void testOutOfMemoryException() {
-        // Each segment can have only Byte.MAX_VALUE chunks.
+        // Each segment can have only 255 chunks.
         // we add more that that.
-        noOfEntries = Byte.MAX_VALUE * 2;
+        noOfEntries = 255 + 1;
 
         segment = new SegmentWithMemoryPool<>(builder().memoryPoolChunkSize(fixedSlotSize));
         addEntriesToSegment(segment, noOfEntries);
+    }
+
+    @Test
+    public void testReadFromAllChunks() {
+        // Each segment can have only 255 chunks.
+        noOfEntries = 255;
+
+        segment = new SegmentWithMemoryPool<>(builder().memoryPoolChunkSize(fixedSlotSize));
+        List<Record> added = addEntriesToSegment(segment, noOfEntries);
+        Assert.assertEquals(255, added.size());
+        for (Record record: added) {
+            Assert.assertTrue(segment.containsEntry(record.keyBuffer));
+            Assert.assertEquals(segment.getEntry(record.keyBuffer), record.entry);
+        }
+    }
+
+    @Test
+    public void testClear() {
+     // Each segment can have only 255 chunks.
+        noOfEntries = 255;
+
+        segment = new SegmentWithMemoryPool<>(builder().memoryPoolChunkSize(fixedSlotSize));
+        List<Record> added = addEntriesToSegment(segment, noOfEntries);
+        Assert.assertEquals(255, added.size());
+        for (Record record: added) {
+            Assert.assertTrue(segment.containsEntry(record.keyBuffer));
+            Assert.assertEquals(segment.getEntry(record.keyBuffer), record.entry);
+        }
+        segment.clear();
+        for (Record record: added) {
+            Assert.assertFalse(segment.containsEntry(record.keyBuffer));
+            Assert.assertEquals(segment.getEntry(record.keyBuffer), null);
+        }
+
     }
 
     @Test

@@ -33,15 +33,15 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     private final float loadFactor;
     private long rehashes = 0;
 
-    private final List<MemoryPoolChunk<E>> chunks;
-    private byte currentChunkIndex = -1;
+    private final List<MemoryPoolChunk<E>> chunks = new ArrayList<>();
+    private MemoryPoolChunk<E> currentWriteChunk = null;
 
     private final int chunkSize;
 
     private MemoryPoolAddress freeListHead = MemoryPoolAddress.empty;
     private long freeListSize = 0;
 
-    private final int fixedSlotSize;
+    private final int slotSize;
 
     private final HashEntrySerializer<E> serializer;
 
@@ -52,10 +52,9 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     SegmentWithMemoryPool(OffHeapHashTableBuilder<E> builder) {
         super(builder.getEntrySerializer(), builder.getFixedKeySize(), builder.getHasher());
 
-        this.chunks = new ArrayList<>();
         this.chunkSize = builder.getMemoryPoolChunkSize();
         this.serializer = builder.getEntrySerializer();
-        this.fixedSlotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.entrySize();
+        this.slotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.entrySize();
         this.hashAlgorithm = builder.getHashAlgorighm();
 
         int hts = builder.getHashTableSize();
@@ -65,8 +64,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         if (hts < 256) {
             hts = 256;
         }
-        int msz = HashTableUtil.roundUpToPowerOf2(hts, MAX_TABLE_POWER);
-        table = Table.create(msz);
+        table = Table.create(hts);
         if (table == null) {
             throw new RuntimeException("unable to allocate off-heap memory for segment");
         }
@@ -84,10 +82,10 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         boolean wasFirst = lock();
         try {
             for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex >= 0;
+                 address.chunkIndex > 0;
                  address = getNext(address)) {
 
-                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<E> chunk = chunkFor(address);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     hitCount++;
                     return chunk.readEntry(address.chunkOffset);
@@ -106,10 +104,10 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         boolean wasFirst = lock();
         try {
             for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex >= 0;
+                 address.chunkIndex > 0;
                  address = getNext(address)) {
 
-                MemoryPoolChunk<?> chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<?> chunk = chunkFor(address);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     hitCount++;
                     return true;
@@ -128,8 +126,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         boolean wasFirst = lock();
         try {
             MemoryPoolAddress first = table.getFirst(hash);
-            for (MemoryPoolAddress address = first; address.chunkIndex >= 0; address = getNext(address)) {
-                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
+            for (MemoryPoolAddress address = first; address.chunkIndex > 0; address = getNext(address)) {
+                MemoryPoolChunk<E> chunk = chunkFor(address);
                 if (chunk.compareKey(address.chunkOffset, key)) {
                     // key is already present in the segment.
 
@@ -181,10 +179,10 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         try {
             MemoryPoolAddress previous = null;
             for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex >= 0;
+                 address.chunkIndex > 0;
                  previous = address, address = getNext(address)) {
 
-                MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
+                MemoryPoolChunk<E> chunk = chunkFor(address);
                 if (chunk.compareKey(address.chunkOffset, key.buffer)) {
                     removeInternal(address, previous, key.hash());
                     removeCount++;
@@ -199,11 +197,19 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         }
     }
 
-    private MemoryPoolAddress getNext(MemoryPoolAddress address) {
-        if (address.chunkIndex < 0 || address.chunkIndex >= chunks.size()) {
-            throw new IllegalArgumentException("Invalid chunk index " + address.chunkIndex + ". Chunk size " + chunks.size());
+    private MemoryPoolChunk<E> chunkFor(MemoryPoolAddress poolAddress) {
+        return chunkFor(poolAddress.chunkIndex);
+    }
+
+    private MemoryPoolChunk<E> chunkFor(int chunkIndex) {
+        if (chunkIndex < 1 || chunkIndex > chunks.size()) {
+            throw new IllegalArgumentException("Invalid chunk index " + chunkIndex + ". Chunk size " + chunks.size());
         }
-        MemoryPoolChunk<E> chunk = chunks.get(address.chunkIndex);
+        return chunks.get(chunkIndex - 1);
+    }
+
+    private MemoryPoolAddress getNext(MemoryPoolAddress address) {
+        MemoryPoolChunk<E> chunk = chunkFor(address);
         return chunk.getNextAddress(address.chunkOffset);
     }
 
@@ -211,42 +217,41 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         if (!freeListHead.isEmpty()) {
             // write to the head of the free list.
             MemoryPoolAddress temp = freeListHead;
-            freeListHead = chunks.get(freeListHead.chunkIndex).getNextAddress(freeListHead.chunkOffset);
-            chunks.get(temp.chunkIndex).fillSlot(temp.chunkOffset, key, entry, nextAddress);
+            freeListHead = getNext(freeListHead);
+            chunkFor(temp).fillSlot(temp.chunkOffset, key, entry, nextAddress);
             --freeListSize;
             return temp;
         }
 
-        if (currentChunkIndex == -1 || chunks.get(currentChunkIndex).remaining() < fixedSlotSize) {
-            if (chunks.size() > Byte.MAX_VALUE) {
-                logger.error("No more memory left. Each segment can have at most {} chunks.", Byte.MAX_VALUE + 1);
-                throw new OutOfMemoryError("Each segment can have at most " + (Byte.MAX_VALUE + 1) + " chunks.");
+        if (currentWriteChunk == null || currentWriteChunk.remaining() < slotSize) {
+            if (chunks.size() >= 255) {
+                logger.error("No more memory left. Each segment can have at most {} chunks.", 255);
+                throw new OutOfMemoryError("Each segment can have at most " + 255 + " chunks.");
             }
 
             // There is no chunk allocated for this segment or the current chunk being written to has no space left.
             // allocate an new one.
-            chunks.add(MemoryPoolChunk.create(chunkSize, fixedKeyLength, serializer));
-            ++currentChunkIndex;
+            currentWriteChunk = MemoryPoolChunk.create(chunkSize, fixedKeyLength, serializer);
+            chunks.add(currentWriteChunk);
         }
 
-        MemoryPoolChunk<E> currentWriteChunk = chunks.get(currentChunkIndex);
-        MemoryPoolAddress slotAddress = new MemoryPoolAddress(currentChunkIndex, currentWriteChunk.getWriteOffset());
+        MemoryPoolAddress slotAddress = new MemoryPoolAddress((byte) chunks.size(), currentWriteChunk.getWriteOffset());
         currentWriteChunk.fillNextSlot(key, entry, nextAddress);
         return slotAddress;
     }
 
     private void removeInternal(MemoryPoolAddress address, MemoryPoolAddress previous, long hash) {
-        MemoryPoolAddress next = chunks.get(address.chunkIndex).getNextAddress(address.chunkOffset);
+        MemoryPoolAddress next = getNext(address);
         if (table.getFirst(hash).equals(address)) {
             table.addAsHead(hash, next);
         } else if (previous == null) {
             //this should never happen.
             throw new IllegalArgumentException("Removing entry which is not head but with previous null");
         } else {
-            chunks.get(previous.chunkIndex).setNextAddress(previous.chunkOffset, next);
+            chunkFor(previous).setNextAddress(previous.chunkOffset, next);
         }
 
-        chunks.get(address.chunkIndex).setNextAddress(address.chunkOffset, freeListHead);
+        chunkFor(address).setNextAddress(address.chunkOffset, freeListHead);
         freeListHead = address;
         ++freeListSize;
     }
@@ -264,12 +269,12 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         MemoryPoolAddress next;
 
         for (int i = 0; i < tableSize; i++) {
-            for (MemoryPoolAddress address = table.getFirst(i); address.chunkIndex >= 0; address = next) {
-                long hash = chunks.get(address.chunkIndex).computeHash(address.chunkOffset, hasher);
+            for (MemoryPoolAddress address = table.getFirst(i); address.chunkIndex > 0; address = next) {
+                long hash = chunkFor(address).computeHash(address.chunkOffset, hasher);
                 next = getNext(address);
                 MemoryPoolAddress first = newTable.getFirst(hash);
                 newTable.addAsHead(hash, address);
-                chunks.get(address.chunkIndex).setNextAddress(address.chunkOffset, first);
+                chunkFor(address).setNextAddress(address.chunkOffset, first);
             }
         }
 
@@ -292,7 +297,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         try {
             chunks.forEach(MemoryPoolChunk::destroy);
             chunks.clear();
-            currentChunkIndex = -1;
+            currentWriteChunk = null;
             size = 0;
             table.release();
         } finally {
@@ -307,7 +312,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         try {
             chunks.forEach(MemoryPoolChunk::destroy);
             chunks.clear();
-            currentChunkIndex = -1;
+            currentWriteChunk = null;
             size = 0;
             table.clear();
         } finally {
@@ -357,7 +362,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
     @Override
     long numberOfSlots() {
-        return chunks.size() * chunkSize / fixedSlotSize;
+        return chunks.size() * chunkSize / slotSize;
     }
 
     @Override
@@ -384,7 +389,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     void updateBucketHistogram(EstimatedHistogram hist) {
         boolean wasFirst = lock();
         try {
-            table.updateBucketHistogram(hist, chunks);
+            table.updateBucketHistogram(hist, this);
         } finally {
             unlock(wasFirst);
         }
@@ -397,19 +402,21 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         private boolean released;
 
         static Table create(int hashTableSize) {
-            int msz = Ints.checkedCast(HashTableUtil.MEMORY_POOL_BUCKET_ENTRY_LEN * hashTableSize);
+            int pow2Size = HashTableUtil.roundUpToPowerOf2(hashTableSize, MAX_TABLE_POWER);
+
+            int msz = Ints.checkedCast(HashTableUtil.MEMORY_POOL_BUCKET_ENTRY_LEN * pow2Size);
             long address = Uns.allocate(msz, true);
-            return address != 0L ? new Table(address, hashTableSize) : null;
+            return address != 0L ? new Table(address, pow2Size) : null;
         }
 
-        private Table(long address, int hashTableSize) {
+        private Table(long address, int pow2Size) {
             this.address = address;
-            this.mask = hashTableSize - 1;
+            this.mask = pow2Size - 1;
             clear();
         }
 
         void clear() {
-            Uns.setMemory(address, 0L, HashTableUtil.MEMORY_POOL_BUCKET_ENTRY_LEN * size(), (byte) -1);
+            Uns.setMemory(address, 0L, HashTableUtil.MEMORY_POOL_BUCKET_ENTRY_LEN * size(), (byte) 0);
         }
 
         void release() {
@@ -430,12 +437,11 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             byte chunkIndex = Uns.getByte(bOffset, 0);
             int chunkOffset = Uns.getInt(bOffset, 1);
             return new MemoryPoolAddress(chunkIndex, chunkOffset);
-
         }
 
         void addAsHead(long hash, MemoryPoolAddress entryAddress) {
             long bOffset = address + bucketOffset(hash);
-            Uns.putByte(bOffset, 0, entryAddress.chunkIndex);
+            Uns.putByte(bOffset, 0, (byte) entryAddress.chunkIndex);
             Uns.putInt(bOffset, 1, entryAddress.chunkOffset);
         }
 
@@ -451,11 +457,11 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             return mask + 1;
         }
 
-        <E extends HashEntry> void updateBucketHistogram(EstimatedHistogram h, final List<MemoryPoolChunk<E>> chunks) {
+        <E extends HashEntry> void updateBucketHistogram(EstimatedHistogram h, final SegmentWithMemoryPool<E> segment) {
             for (int i = 0; i < size(); i++) {
                 int len = 0;
-                for (MemoryPoolAddress adr = getFirst(i); adr.chunkIndex >= 0;
-                     adr = chunks.get(adr.chunkIndex).getNextAddress(adr.chunkOffset)) {
+                for (MemoryPoolAddress adr = getFirst(i); adr.chunkIndex > 0;
+                     adr = segment.getNext(adr)) {
                     len++;
                 }
                 h.add(len + 1);

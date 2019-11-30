@@ -24,7 +24,7 @@ public class MemoryPoolChunkTest {
     private int fixedEntryLength;
     private ByteArrayEntrySerializer serializer;
 
-    MemoryPoolAddress nowhere = new MemoryPoolAddress((byte)-1, -1);
+    MemoryPoolAddress nowhere = MemoryPoolAddress.empty;
 
     private void createChunk() {
         serializer = ByteArrayEntrySerializer.ofSize(Math.max(fixedEntryLength - 5, 0)); // uses 2 bytes for key size
@@ -196,7 +196,7 @@ public class MemoryPoolChunkTest {
 
         createChunk();
 
-        MemoryPoolAddress nextAddress = new MemoryPoolAddress((byte)r.nextInt(Byte.MAX_VALUE), r.nextInt());
+        MemoryPoolAddress nextAddress = new MemoryPoolAddress((byte)(r.nextInt(255) + 1), r.nextInt());
         int offset = r.nextInt(chunkSize - fixedKeyLength - fixedEntryLength - MemoryPoolHashEntries.HEADER_SIZE);
         chunk.setNextAddress(offset, nextAddress);
 

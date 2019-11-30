@@ -18,7 +18,7 @@ class MemoryPoolChunk<E extends HashEntry> {
     private final int chunkSize;
     private final int fixedKeyLength;
     private final int fixedEntryLength;
-    private final int fixedSlotSize;
+    private final int slotSize;
     private int writeOffset = 0;
     private final HashEntrySerializer<E> serializer;
 
@@ -27,7 +27,7 @@ class MemoryPoolChunk<E extends HashEntry> {
         this.chunkSize = chunkSize;
         this.fixedKeyLength = fixedKeyLength;
         this.fixedEntryLength = serializer.entrySize();
-        this.fixedSlotSize = HEADER_SIZE + fixedKeyLength + fixedEntryLength;
+        this.slotSize = HEADER_SIZE + fixedKeyLength + fixedEntryLength;
         this.serializer = serializer;
     }
 
@@ -52,7 +52,7 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     void setNextAddress(int slotOffset, MemoryPoolAddress next) {
-        Uns.putByte(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_INDEX, next.chunkIndex);
+        Uns.putByte(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_INDEX, (byte) next.chunkIndex);
         Uns.putInt(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_OFFSET, next.chunkOffset);
     }
 
@@ -61,7 +61,7 @@ class MemoryPoolChunk<E extends HashEntry> {
      */
     void fillNextSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
         fillSlot(writeOffset, key, entry, nextAddress);
-        writeOffset += fixedSlotSize;
+        writeOffset += slotSize;
     }
 
     /**
@@ -74,10 +74,10 @@ class MemoryPoolChunk<E extends HashEntry> {
                               key.length, fixedKeyLength)
             );
         }
-        if (chunkSize - slotOffset < fixedSlotSize) {
+        if (chunkSize - slotOffset < slotSize) {
             throw new IllegalArgumentException(
                 String.format("Invalid offset %d. Chunk size %d. fixed slot size %d",
-                              slotOffset, chunkSize, fixedSlotSize)
+                              slotOffset, chunkSize, slotSize)
             );
         }
 
@@ -91,6 +91,10 @@ class MemoryPoolChunk<E extends HashEntry> {
 
     int getWriteOffset() {
         return writeOffset;
+    }
+
+    boolean isFull() {
+        return remaining() < slotSize;
     }
 
     int remaining() {
@@ -127,14 +131,14 @@ class MemoryPoolChunk<E extends HashEntry> {
     }
 
     boolean compareKey(int slotOffset, byte[] key) {
-        if (key.length > fixedKeyLength || slotOffset + fixedSlotSize > chunkSize) {
+        if (key.length > fixedKeyLength || slotOffset + slotSize > chunkSize) {
             throw new IllegalArgumentException("Invalid request. slotOffset - " + slotOffset + " key.length - " + key.length);
         }
        return getKeyLength(slotOffset) == key.length && compare(slotOffset + HEADER_SIZE, key);
     }
 
     boolean compareEntry(int slotOffset, E entry) {
-        if (slotOffset + fixedSlotSize > chunkSize) {
+        if (slotOffset + slotSize > chunkSize) {
             throw new IllegalArgumentException("Invalid request. slotOffset - " + slotOffset + " chunkSize - " + chunkSize);
         }
         long sizeAddress = entryAddress(slotOffset);

@@ -11,18 +11,18 @@ package com.oath.halodb;
  */
 class MemoryPoolAddress {
 
-    static final MemoryPoolAddress empty = new MemoryPoolAddress((byte)-1, -1);
+    static final MemoryPoolAddress empty = new MemoryPoolAddress((byte)0, 0);
 
-    final byte chunkIndex;
+    final int chunkIndex;
     final int chunkOffset;
 
     MemoryPoolAddress(byte chunkIndex, int chunkOffset) {
-        this.chunkIndex = chunkIndex;
+        this.chunkIndex = 0xFF & chunkIndex;
         this.chunkOffset = chunkOffset;
     }
 
     final boolean isEmpty() {
-        return chunkIndex == -1 & chunkOffset == -1;
+        return chunkIndex == 0;
     }
 
     @Override

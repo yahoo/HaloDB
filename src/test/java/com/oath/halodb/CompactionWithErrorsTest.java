@@ -5,20 +5,15 @@
 
 package com.oath.halodb;
 
-import com.google.common.util.concurrent.RateLimiter;
+import java.io.IOException;
+import java.util.List;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import sun.nio.ch.FileChannelImpl;
-
-import java.io.IOException;
-import java.nio.channels.WritableByteChannel;
-import java.nio.file.Paths;
-import java.util.List;
+import com.google.common.util.concurrent.RateLimiter;
 
 import mockit.Expectations;
-import mockit.Invocation;
 import mockit.Mock;
 import mockit.MockUp;
 import mockit.Mocked;
@@ -35,7 +30,7 @@ public class CompactionWithErrorsTest extends TestBase {
             @Mock
             public double acquire(int permits) {
                 if (++callCount == 3) {
-                    // throw an exception when copying the third record. 
+                    // throw an exception when copying the third record.
                     throw new OutOfMemoryError("Throwing mock exception form compaction thread.");
                 }
                 return 10;
@@ -56,7 +51,7 @@ public class CompactionWithErrorsTest extends TestBase {
         TestUtils.waitForCompactionToComplete(db);
 
         // An exception was thrown while copying a record in the compaction thread.
-        // Make sure that all records are still correct. 
+        // Make sure that all records are still correct.
         Assert.assertEquals(db.size(), records.size());
         for (Record r : records) {
             Assert.assertEquals(db.get(r.getKey()), r.getValue());
@@ -67,7 +62,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         // Make sure that everything is good after
         // we open the db again. Since compaction had failed
-        // there would be two copies of the same record in two different files. 
+        // there would be two copies of the same record in two different files.
         Assert.assertEquals(db.size(), records.size());
         for (Record r : records) {
             Assert.assertEquals(db.get(r.getKey()), r.getValue());
@@ -88,7 +83,7 @@ public class CompactionWithErrorsTest extends TestBase {
             @Mock
             public double acquire(int permits) {
                 if (++callCount == 3 || callCount == 8) {
-                    // throw exceptions twice, each time compaction thread should crash and restart. 
+                    // throw exceptions twice, each time compaction thread should crash and restart.
                     throw new OutOfMemoryError("Throwing mock exception from compaction thread.");
                 }
                 return 10;
@@ -106,6 +101,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         List<Record> records = insertAndUpdate(db, numberOfRecords);
 
+        Thread.sleep(200);
         TestUtils.waitForCompactionToComplete(db);
 
         // An exception was thrown while copying a record in the compaction thread.
@@ -130,14 +126,14 @@ public class CompactionWithErrorsTest extends TestBase {
             // called when db.open()
             compactionManager.startCompactionThread();
 
-            // compaction thread should have crashed twice and each time it should have been restarted.  
+            // compaction thread should have crashed twice and each time it should have been restarted.
             compactionManager.startCompactionThread();
             compactionManager.startCompactionThread();
 
             // called after db.close()
-            compactionManager.stopCompactionThread(true);
+            compactionManager.stopCompactionThread(true, false);
 
-            // called when db.open() the second time. 
+            // called when db.open() the second time.
             compactionManager.startCompactionThread();
         }};
 
@@ -150,15 +146,6 @@ public class CompactionWithErrorsTest extends TestBase {
 
     @Test
     public void testCompactionThreadStopWithIOException() throws HaloDBException, InterruptedException, IOException {
-        // Throw an IOException while stopping compaction thread.
-        new MockUp<CompactionManager>() {
-
-            @Mock
-            boolean stopCompactionThread(boolean flag) throws IOException {
-                throw new IOException("Throwing mock IOException while stopping compaction thread.");
-
-            }
-        };
 
         String directory = TestUtils.getTestDirectory("CompactionManagerTest", "testCompactionThreadStopWithIOException");
 
@@ -171,12 +158,22 @@ public class CompactionWithErrorsTest extends TestBase {
 
         insertAndUpdate(db, numberOfRecords);
         TestUtils.waitForCompactionToComplete(db);
+
+        // Throw an IOException while stopping compaction thread.
+        new MockUp<CompactionManager>() {
+
+            @Mock
+            boolean stopCompactionThread(boolean flag, boolean otherFlag) throws IOException {
+                throw new IOException("Throwing mock IOException while stopping compaction thread.");
+
+            }
+        };
         db.close();
 
         DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.loadFromFileIfExists();
 
-        // Since there was an IOException while stopping compaction IOError flag must have been set. 
+        // Since there was an IOException while stopping compaction IOError flag must have been set.
         Assert.assertTrue(dbMetaData.isIOError());
     }
 

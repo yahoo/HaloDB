@@ -8,10 +8,10 @@
 package com.oath.halodb;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import org.testng.Assert;
 
-import com.google.common.primitives.Longs;
 import com.oath.halodb.histo.EstimatedHistogram;
 
 /**
@@ -88,7 +88,7 @@ public class DoubleCheckOffHeapHashTableImpl<E extends HashEntry> implements Off
     {
         E rProd = prod.get(key);
         E rCheck = check.get(key);
-        Assert.assertEquals(rProd, rCheck, "for key='" + Longs.fromByteArray(key) + '\'');
+        Assert.assertEquals(rProd, rCheck, "for key=" + Arrays.toString(key));
         return rProd;
     }
 
@@ -97,7 +97,7 @@ public class DoubleCheckOffHeapHashTableImpl<E extends HashEntry> implements Off
     {
         boolean rProd = prod.containsKey(key);
         boolean rCheck = check.containsKey(key);
-        Assert.assertEquals(rProd, rCheck, "for key='" + key + '\'');
+        Assert.assertEquals(rProd, rCheck, "for key=" + Arrays.toString(key));
         return rProd;
     }
 

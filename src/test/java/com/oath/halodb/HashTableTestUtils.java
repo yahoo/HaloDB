@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.google.common.primitives.Longs;
-
 final class HashTableTestUtils {
     static int manyCount = 20000;
 
@@ -25,13 +23,25 @@ final class HashTableTestUtils {
     {
         List<KeyEntryPair> many = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            byte[] key = Longs.toByteArray(i);
+            byte[] key = HashTableTestUtils.randomBytesOfRange(6, 8, 40);
             ByteArrayEntry entry = serializer.randomEntry(key.length);
             cache.put(key, entry);
             many.add(new KeyEntryPair(key, entry));
         }
 
         return many;
+    }
+
+    /** return a byte[] that has a 50% chance of being in [min, pivot] and a 50% chance of being in (pivot, max] **/
+    static byte[] randomBytesOfRange(int min, int pivot, int max) {
+        Random r = new Random();
+        int size;
+        if (r.nextBoolean()) {
+            size = min + r.nextInt(pivot - min + 1);
+        } else {
+            size = pivot + 1 + r.nextInt(max - pivot);
+        }
+        return randomBytes(size);
     }
 
     static byte[] randomBytes(int len)

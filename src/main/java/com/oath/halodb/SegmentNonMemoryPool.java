@@ -41,7 +41,7 @@ class SegmentNonMemoryPool<E extends HashEntry> extends Segment<E> {
     private static final boolean throwOOME = true;
 
     SegmentNonMemoryPool(OffHeapHashTableBuilder<E> builder) {
-        super(builder.getEntrySerializer(), builder.getHasher());
+        super(builder.getEntrySerializer());
 
         this.hashAlgorithm = builder.getHashAlgorighm();
 
@@ -167,17 +167,19 @@ class SegmentNonMemoryPool<E extends HashEntry> extends Segment<E> {
     }
 
     @Override
-    boolean putEntry(byte[] key, E entry, long hash, boolean ifAbsent, E oldEntry) {
-        short keySize = Utils.validateKeySize(key.length);
-        long hashEntryAdr = Uns.allocate(HashTableUtil.allocLen(key.length, serializer.entrySize()), throwOOME);
+    boolean putEntry(KeyBuffer key, E entry, boolean ifAbsent, E oldEntry) {
+        byte[] keybytes = key.buffer;
+        long hash = key.hash();
+        short keySize = Utils.validateKeySize(keybytes.length);
+        long hashEntryAdr = Uns.allocate(HashTableUtil.allocLen(keybytes.length, serializer.entrySize()), throwOOME);
         if (hashEntryAdr == 0L) {
             // entry too large to be inserted or OS is not able to provide enough memory
-            removeEntry(keySource(key));
+            removeEntry(key);
             return false;
         }
         // initialize hash entry
         NonMemoryPoolHashEntries.init(hashEntryAdr);
-        serializeForPut(key, entry, hashEntryAdr);
+        serializeForPut(keybytes, entry, hashEntryAdr);
 
         if (putEntry(hashEntryAdr, hash, keySize, ifAbsent, oldEntry)) {
             return true;

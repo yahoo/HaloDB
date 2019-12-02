@@ -16,21 +16,18 @@ abstract class Segment<E extends HashEntry> {
     final HashEntrySerializer<E> serializer;
     final int fixedKeyLength;
 
-    private final Hasher hasher;
-
     private volatile long lock;
 
     private static final AtomicLongFieldUpdater<Segment> lockFieldUpdater =
         AtomicLongFieldUpdater.newUpdater(Segment.class, "lock");
 
-    Segment(HashEntrySerializer<E> entrySerializer, Hasher hasher) {
-        this(entrySerializer, -1, hasher);
+    Segment(HashEntrySerializer<E> entrySerializer) {
+        this(entrySerializer, -1);
     }
 
-    Segment(HashEntrySerializer<E> serializer, int fixedKeyLength, Hasher hasher) {
+    Segment(HashEntrySerializer<E> serializer, int fixedKeyLength) {
         this.serializer = serializer;
         this.fixedKeyLength = fixedKeyLength;
-        this.hasher = hasher;
     }
 
     boolean lock() {
@@ -61,16 +58,11 @@ abstract class Segment<E extends HashEntry> {
         assert r;
     }
 
-    KeyBuffer keySource(byte[] key) {
-        KeyBuffer keyBuffer = new KeyBuffer(key);
-        return keyBuffer.finish(hasher);
-    }
-
     abstract E getEntry(KeyBuffer key);
 
     abstract boolean containsEntry(KeyBuffer key);
 
-    abstract boolean putEntry(byte[] key, E entry, long hash, boolean ifAbsent, E oldEntry);
+    abstract boolean putEntry(KeyBuffer key, E entry, boolean ifAbsent, E oldEntry);
 
     abstract boolean removeEntry(KeyBuffer key);
 

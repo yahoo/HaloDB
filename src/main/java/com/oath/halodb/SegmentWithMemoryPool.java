@@ -50,7 +50,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     private final HashAlgorithm hashAlgorithm;
 
     SegmentWithMemoryPool(OffHeapHashTableBuilder<E> builder) {
-        super(builder.getEntrySerializer(), builder.getFixedKeySize(), builder.getHasher());
+        super(builder.getEntrySerializer(), builder.getFixedKeySize());
 
         this.chunkSize = builder.getMemoryPoolChunkSize();
         this.serializer = builder.getEntrySerializer();
@@ -79,119 +79,165 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
     @Override
     public E getEntry(KeyBuffer key) {
-        boolean wasFirst = lock();
-        try {
-            for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex > 0;
-                 address = getNext(address)) {
+        return search(key, this::foundEntry, this::notFoundEntry);
+    }
 
-                MemoryPoolChunk<E> chunk = chunkFor(address);
-                if (chunk.compareKey(address.chunkOffset, key.buffer)) {
-                    hitCount++;
-                    return chunk.readEntry(address.chunkOffset);
-                }
-            }
+    private E foundEntry(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
+        hitCount++;
+        return headChunk.readEntry(headAddress.chunkOffset);
+    }
 
-            missCount++;
-            return null;
-        } finally {
-            unlock(wasFirst);
-        }
+    private E notFoundEntry(MemoryPoolAddress slot) {
+        missCount++;
+        return null;
     }
 
     @Override
     public boolean containsEntry(KeyBuffer key) {
-        boolean wasFirst = lock();
-        try {
-            for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex > 0;
-                 address = getNext(address)) {
-
-                MemoryPoolChunk<?> chunk = chunkFor(address);
-                if (chunk.compareKey(address.chunkOffset, key.buffer)) {
-                    hitCount++;
-                    return true;
-                }
-            }
-
-            missCount++;
-            return false;
-        } finally {
-            unlock(wasFirst);
-        }
+        return search(key, this::foundKey, this::notFoundKey);
     }
 
-    @Override
-    boolean putEntry(byte[] key, E entry, long hash, boolean putIfAbsent, E oldEntry) {
-        boolean wasFirst = lock();
-        try {
-            MemoryPoolAddress first = table.getFirst(hash);
-            for (MemoryPoolAddress address = first; address.chunkIndex > 0; address = getNext(address)) {
-                MemoryPoolChunk<E> chunk = chunkFor(address);
-                if (chunk.compareKey(address.chunkOffset, key)) {
-                    // key is already present in the segment.
-
-                    // putIfAbsent is true, but key is already present, return.
-                    if (putIfAbsent) {
-                        return false;
-                    }
-
-                    // code for replace() operation
-                    if (oldEntry != null) {
-                        if (!chunk.compareEntry(address.chunkOffset, oldEntry)) {
-                            return false;
-                        }
-                    }
-
-                    // replace value with the new one.
-                    chunk.setEntry(address.chunkOffset, entry);
-                    putReplaceCount++;
-                    return true;
-                }
-            }
-
-            if (oldEntry != null) {
-                // key is not present but old value is not null.
-                // we consider this as a mismatch and return.
-                return false;
-            }
-
-            if (size >= threshold) {
-                rehash();
-                first = table.getFirst(hash);
-            }
-
-            // key is not present in the segment, we need to add a new entry.
-            MemoryPoolAddress nextSlot = writeToFreeSlot(key, entry, first);
-            table.addAsHead(hash, nextSlot);
-            size++;
-            putAddCount++;
-        } finally {
-            unlock(wasFirst);
-        }
-
+    private boolean foundKey(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
+        hitCount++;
         return true;
     }
 
+    private boolean notFoundKey(MemoryPoolAddress slot) {
+        missCount++;
+        return false;
+    }
+
+    @Override
+    boolean putEntry(KeyBuffer key, E entry, boolean dontOverwrite, E oldEntry) {
+        return search(key,
+            (headChunk, headAddress, previous, tail, chainLength) -> {
+                // key is already present in the segment.
+
+                // putIfAbsent is true, but key is already present, return.
+                if (dontOverwrite) {
+                    return false;
+                }
+
+                // code for replace() operation
+                if (oldEntry != null) {
+                    if (!headChunk.compareEntry(headAddress.chunkOffset, oldEntry)) {
+                        return false;
+                    }
+                }
+
+                // replace value with the new one.
+                headChunk.setEntry(headAddress.chunkOffset, entry);
+                putReplaceCount++;
+                return true;
+            },
+            (slotHead) ->  {
+                // key is not present
+                if (oldEntry != null) {
+                    // key is not present but old value is not null.
+                    // we consider this as a mismatch and return.
+                    return false;
+                }
+
+                long hash = key.hash();
+                if (size >= threshold) {
+                    rehash();
+                    slotHead = table.getFirst(hash);
+                }
+
+                // key is not present in the segment, we need to add a new entry.
+                MemoryPoolAddress nextSlot = writeToFreeSlots(key.buffer, entry, slotHead);
+                table.addAsHead(hash, nextSlot);
+                size++;
+                putAddCount++;
+                return true;
+            });
+    }
+
+
     @Override
     public boolean removeEntry(KeyBuffer key) {
+        return search(key,
+            (headChunk, headAddress, previous, tail, chainLength) -> {
+                removeInternal(headAddress, previous, tail, chainLength, key.hash());
+                removeCount++;
+                size--;
+                return true;
+            }, (first) -> {
+                return false;
+            });
+    }
+
+    @FunctionalInterface
+    private interface FoundEntryVisitor<E extends HashEntry, A> {
+        /**
+         * @param headChunk The chunk corresponding to the headAddress
+         * @param headAddress  The address of the first slot containing the key
+         * @param previous  The address of the slot in the list prior to the key, if it exists
+         * @param tail  The last slot in the chain for this key, the same as the headAddress if the chain is size 1
+         * @param chainLength  The number of slots in the chain for the key
+         * @return  The result that the search function will return when the key is found.
+         */
+        A found(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength);
+    }
+
+    @FunctionalInterface
+    private interface NotFoundEntryVisitor<A> {
+        /**
+         *
+         * @param firstAddress  The first address for the slot corresponding to the hash of this key
+         * @return  The result that the search function will return when the key is not found.
+         */
+        A notFound(MemoryPoolAddress firstAddress);
+    }
+
+    private <A> A search(KeyBuffer key,
+                         FoundEntryVisitor<E, A> whenFound,
+                         NotFoundEntryVisitor<A> whenNotFound) {
         boolean wasFirst = lock();
         try {
             MemoryPoolAddress previous = null;
-            for (MemoryPoolAddress address = table.getFirst(key.hash());
-                 address.chunkIndex > 0;
-                 previous = address, address = getNext(address)) {
-
+            MemoryPoolAddress firstAddress = table.getFirst(key.hash());
+            MemoryPoolAddress address = firstAddress;
+            while (!address.isEmpty()) {
                 MemoryPoolChunk<E> chunk = chunkFor(address);
-                if (chunk.compareKey(address.chunkOffset, key.buffer)) {
-                    removeInternal(address, previous, key.hash());
-                    removeCount++;
-                    size--;
-                    return true;
+                int ksize = key.buffer.length;
+                int slotKeySize = chunk.getKeyLength(address.chunkOffset);
+                if (slotKeySize <= fixedKeyLength) {
+                    // one slot, simple match and move on
+                    if (slotKeySize == ksize && chunk.compareFixedKey(address.chunkOffset, key.buffer, ksize)) {
+                        return whenFound.found(chunk, address, previous, address, 1);
+                    }
+                } else {
+                    // multiple slots, we must always traverse to the end of the chain for this key, even when it mismatches
+                    int chainLength = 1;
+                    MemoryPoolChunk<E> headChunk = chunk;
+                    MemoryPoolAddress headAddress = address;
+                    int remaining = slotKeySize - fixedKeyLength;
+                    int maxFragmentSize = fixedKeyLength + serializer.entrySize();
+                    boolean fragmentMatches = slotKeySize == ksize && chunk.compareFixedKey(address.chunkOffset, key.buffer, fixedKeyLength);
+                    do {
+                        address = chunk.getNextAddress(address.chunkOffset);
+                        if (address.isEmpty()) {
+                            throw new IllegalStateException("Corrupted slot state, extended key slot expected, found none");
+                        }
+                        if (fragmentMatches) {
+                            chunk = chunkFor(address);
+                            int compareOffset = ksize - remaining;
+                            int compareLen = Math.min(maxFragmentSize, remaining);
+                            fragmentMatches = chunk.compareExtendedKey(address.chunkOffset, key.buffer, compareOffset, compareLen);
+                            chainLength++;
+                        }
+                        remaining -= maxFragmentSize;
+                    } while (remaining > 0);
+                    // we got through the key and all fragments matched, key found
+                    if (fragmentMatches) {
+                        return whenFound.found(headChunk, headAddress, previous, address, chainLength);
+                    }
                 }
+                previous = address;
+                address = chunk.getNextAddress(address.chunkOffset);
             }
-
-            return false;
+            return whenNotFound.notFound(firstAddress);
         } finally {
             unlock(wasFirst);
         }
@@ -213,47 +259,60 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return chunk.getNextAddress(address.chunkOffset);
     }
 
-    private MemoryPoolAddress writeToFreeSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
-        if (!freeListHead.isEmpty()) {
-            // write to the head of the free list.
-            MemoryPoolAddress temp = freeListHead;
-            freeListHead = getNext(freeListHead);
-            chunkFor(temp).fillSlot(temp.chunkOffset, key, entry, nextAddress);
-            --freeListSize;
-            return temp;
-        }
+    private MemoryPoolAddress writeToFreeSlots(byte[] key, E entry, MemoryPoolAddress nextAddress) {
+        MemoryPoolAddress firstSlot = getFreeSlot();
+        MemoryPoolAddress slot = firstSlot;
+        MemoryPoolAddress next = (key.length <= fixedKeyLength) ? nextAddress : getFreeSlot();
 
+        chunkFor(slot).fillSlot(slot.chunkOffset, key, entry, next);
+
+        int keyWritten = fixedKeyLength;
+        while (keyWritten < key.length) {
+            slot = next;
+            int keyRemaining = key.length - keyWritten;
+            int overflowSlotSpace = fixedKeyLength + serializer.entrySize();
+            if (keyRemaining > overflowSlotSpace) {
+                next = getFreeSlot();
+                chunkFor(slot).fillOverflowSlot(slot.chunkOffset, key, keyWritten, overflowSlotSpace, next);
+            } else {
+                chunkFor(slot).fillOverflowSlot(slot.chunkOffset, key, keyWritten, keyRemaining, nextAddress);
+            }
+            keyWritten += overflowSlotSpace;
+        }
+        return firstSlot;
+    }
+
+    MemoryPoolAddress getFreeSlot() {
+        if (!freeListHead.isEmpty() ) {
+            MemoryPoolAddress free = freeListHead;
+            freeListHead = getNext(free);
+            freeListSize--;
+            return free;
+        }
         if (currentWriteChunk == null || currentWriteChunk.remaining() < slotSize) {
             if (chunks.size() >= 255) {
                 logger.error("No more memory left. Each segment can have at most {} chunks.", 255);
                 throw new OutOfMemoryError("Each segment can have at most " + 255 + " chunks.");
             }
-
             // There is no chunk allocated for this segment or the current chunk being written to has no space left.
             // allocate an new one.
             currentWriteChunk = MemoryPoolChunk.create(chunkSize, fixedKeyLength, serializer);
             chunks.add(currentWriteChunk);
         }
-
-        MemoryPoolAddress slotAddress = new MemoryPoolAddress((byte) chunks.size(), currentWriteChunk.getWriteOffset());
-        currentWriteChunk.fillNextSlot(key, entry, nextAddress);
-        return slotAddress;
+        return new MemoryPoolAddress((byte) chunks.size(), currentWriteChunk.allocateSlot());
     }
 
-    private void removeInternal(MemoryPoolAddress address, MemoryPoolAddress previous, long hash) {
-        MemoryPoolAddress next = getNext(address);
-        if (table.getFirst(hash).equals(address)) {
+    private void removeInternal(MemoryPoolAddress head, MemoryPoolAddress previous, MemoryPoolAddress tail, int length, long hash) {
+        MemoryPoolAddress next = getNext(tail);
+        if (previous == null) {
             table.addAsHead(hash, next);
-        } else if (previous == null) {
-            //this should never happen.
-            throw new IllegalArgumentException("Removing entry which is not head but with previous null");
         } else {
             chunkFor(previous).setNextAddress(previous.chunkOffset, next);
         }
 
-        chunkFor(address).setNextAddress(address.chunkOffset, freeListHead);
-        freeListHead = address;
-        ++freeListSize;
+        chunkFor(tail).setNextAddress(tail.chunkOffset, freeListHead);
+        freeListHead = head;
+        freeListSize += length;
     }
 
     private void rehash() {
@@ -266,16 +325,45 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
         Table newTable = Table.create(tableSize * 2);
         Hasher hasher = Hasher.create(hashAlgorithm);
-        MemoryPoolAddress next;
 
-        for (int i = 0; i < tableSize; i++) {
-            for (MemoryPoolAddress address = table.getFirst(i); address.chunkIndex > 0; address = next) {
-                long hash = chunkFor(address).computeHash(address.chunkOffset, hasher);
-                next = getNext(address);
-                MemoryPoolAddress first = newTable.getFirst(hash);
-                newTable.addAsHead(hash, address);
-                chunkFor(address).setNextAddress(address.chunkOffset, first);
+        long hashBuffer = Uns.allocate(2048, true); // larger than max key size
+        try {
+            for (int i = 0; i < tableSize; i++) {
+                // each table slot is a chain of entries, individual keys can span more than one entry if the key
+                // size is larger than fixedKeyLength
+                MemoryPoolAddress address = table.getFirst(i);
+                while (!address.isEmpty()) {
+                    MemoryPoolChunk<E> chunk = chunkFor(address);
+                    MemoryPoolAddress headAddress = address;
+                    int keySize = chunk.getKeyLength(address.chunkOffset);
+                    long hash;
+                    if (keySize <= fixedKeyLength) {
+                        // hash calculation is simple if the key fits in one slot
+                        hash = chunk.computeFixedKeyHash(address.chunkOffset, hasher, keySize);
+                    } else {
+                        // otherwise, since hasher doesn't support incremental hashes, we have to copy the data to a buffer
+                        // then hash
+                        chunk.copyEntireFixedKey(address.chunkOffset, hashBuffer);
+                        int copied = fixedKeyLength;
+                        do {
+                            address = getNext(address);
+                            chunk = chunkFor(address);
+                            copied += chunk.copyExtendedKey(address.chunkOffset, hashBuffer, copied, keySize - copied);
+                        } while (copied < keySize);
+                        hash = hasher.hash(hashBuffer, 0, keySize);
+                    }
+                    // get the address the tail of this key points to
+                    MemoryPoolAddress next = getNext(address);
+                    MemoryPoolAddress first = newTable.getFirst(hash);
+                    // put the head of this key as the entry in the table
+                    newTable.addAsHead(hash, headAddress);
+                    // set the tail of this key to point to whatever was in the head of the new table
+                    chunk.setNextAddress(address.chunkOffset, first);
+                    address = next;
+                }
             }
+        } finally {
+            Uns.free(hashBuffer);
         }
 
         threshold = (long) (newTable.size() * loadFactor);

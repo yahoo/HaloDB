@@ -24,7 +24,6 @@ final class KeyBuffer {
 
     KeyBuffer finish(Hasher hasher) {
         hash = hasher.hash(buffer);
-
         return this;
     }
 

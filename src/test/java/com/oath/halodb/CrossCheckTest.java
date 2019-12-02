@@ -93,7 +93,7 @@ public class CrossCheckTest
     {
         try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool))
         {
-            byte[] key = HashTableTestUtils.randomBytes(12);
+            byte[] key = HashTableTestUtils.randomBytesOfRange(fixedKeySize / 2, fixedKeySize, fixedKeySize * 8);
             ByteArrayEntry value = serializer.randomEntry(key.length);
             cache.put(key, value);
 
@@ -105,7 +105,7 @@ public class CrossCheckTest
             Map<byte[], ByteArrayEntry> keyValues = new HashMap<>();
 
             for (int i = 0; i < 100; i++) {
-                byte[] k = HashTableTestUtils.randomBytes(8);
+                byte[] k = HashTableTestUtils.randomBytesOfRange(fixedKeySize / 2, fixedKeySize, fixedKeySize * 8);
                 ByteArrayEntry v = serializer.randomEntry(k.length);
                 keyValues.put(k, v);
                 cache.put(k, v);
@@ -265,9 +265,9 @@ public class CrossCheckTest
 
     @Test(dataProvider = "hashAlgorithms", dependsOnMethods = "testBasics",
             expectedExceptions = IllegalArgumentException.class,
-            expectedExceptionsMessageRegExp = ".*exceeds max permitted size of 127")
+            expectedExceptionsMessageRegExp = "Key size must be between 0 and 2047, but was: 2048")
     public void testPutTooLargeKey(HashAlgorithm hashAlgorithm, boolean useMemoryPool) throws IOException, InterruptedException {
-        byte[] key = HashTableTestUtils.randomBytes(1024);
+        byte[] key = HashTableTestUtils.randomBytes(2048);
         ByteArrayEntry largeEntry = bigSerializer.randomEntry(key.length);
 
         try (OffHeapHashTable<ByteArrayEntry> cache = cache(hashAlgorithm, useMemoryPool, 1, -1)) {

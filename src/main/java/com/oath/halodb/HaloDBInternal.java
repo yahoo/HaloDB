@@ -51,7 +51,7 @@ class HaloDBInternal {
 
     private volatile Thread tombstoneMergeThread;
 
-    private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
+    private final Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
     HaloDBOptions options;
 
@@ -167,7 +167,7 @@ class HaloDBInternal {
             isClosing = true;
 
             try {
-                if(!compactionManager.stopCompactionThread(true))
+                if(!compactionManager.stopCompactionThread(true, false))
                     setIOErrorFlag();
             } catch (IOException e) {
                 logger.error("Error while stopping compaction thread. Setting IOError flag", e);
@@ -314,7 +314,7 @@ class HaloDBInternal {
 
         try {
             final int currentWriteFileId;
-            compactionManager.pauseCompactionThread();
+            compactionManager.pauseCompactionThread(false);
 
             // Only support one snapshot now
             // TODO: support multiple snapshots if needed
@@ -417,8 +417,8 @@ class HaloDBInternal {
         metaData.storeToFile();
     }
 
-    void pauseCompaction() throws IOException {
-        compactionManager.pauseCompactionThread();
+    void pauseCompaction(boolean awaitPending) throws IOException {
+        compactionManager.pauseCompactionThread(awaitPending);
     }
 
     void resumeCompaction() {
@@ -479,6 +479,15 @@ class HaloDBInternal {
     private void markPreviousVersionAsStale(byte[] key, InMemoryIndexMetaData recordMetaData) {
         int staleRecordSize = Utils.getRecordSize(key.length, recordMetaData.getValueSize());
         addFileToCompactionQueueIfThresholdCrossed(recordMetaData.getFileId(), staleRecordSize);
+    }
+
+    void forceCompaction(float compactionThreshold) {
+        staleDataPerFileMap.forEach((fileId, staleData) -> {
+            HaloDBFile file = readFileMap.get(fileId);
+            if (staleData > 0 && staleData >= file.getSize() * compactionThreshold) {
+                compactionManager.submitFileForCompaction(fileId);
+            }
+        });
     }
 
     void addFileToCompactionQueueIfThresholdCrossed(int fileId, int staleRecordSize) {
@@ -955,11 +964,6 @@ class HaloDBInternal {
     }
 
     // Used only in tests.
-    @VisibleForTesting
-    boolean isCompactionComplete() {
-        return compactionManager.isCompactionComplete();
-    }
-
     @VisibleForTesting
     boolean isTombstoneFilesMerging() {
         return isTombstoneFilesMerging;

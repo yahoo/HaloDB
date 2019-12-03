@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,6 +24,9 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
@@ -212,22 +212,16 @@ public class TestUtils {
 
     /**
      * This method will work correctly only after all the writes to the db have been completed.
+     * @throws HaloDBException
      */
-    static void waitForCompactionToComplete(HaloDB db) {
-        while (!db.isCompactionComplete()) {
-            try {
-                Thread.sleep(1_000);
-            } catch (InterruptedException e) {
-                logger.error("Thread interrupted while waiting for compaction to complete");
-                throw new RuntimeException(e);
-            }
-        }
+    static void waitForCompactionToComplete(HaloDB db) throws HaloDBException {
+        db.pauseCompaction(true);
     }
 
     static void waitForTombstoneFileMergeComplete(HaloDB db) {
         while (db.isTombstoneFilesMerging()) {
             try {
-                Thread.sleep(1_000);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 logger.error("Thread interrupted while waiting for tombstone file merge to complete");
                 throw new RuntimeException(e);

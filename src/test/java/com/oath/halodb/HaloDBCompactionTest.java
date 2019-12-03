@@ -5,16 +5,16 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
-
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+import com.google.common.primitives.Longs;
 
 public class HaloDBCompactionTest extends TestBase {
 
@@ -145,14 +145,14 @@ public class HaloDBCompactionTest extends TestBase {
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, 50, 1024-Record.Header.HEADER_SIZE);
 
         // Delete all records, which means that all data files would have crossed the
-        // stale data threshold.  
+        // stale data threshold.
         for (Record r : records) {
             db.delete(r.getKey());
         }
 
         db.close();
 
-        // open the db withe compaction enabled. 
+        // open the db withe compaction enabled.
         options.setCompactionDisabled(false);
         options.setMaxFileSize(10 * 1024);
 
@@ -172,7 +172,7 @@ public class HaloDBCompactionTest extends TestBase {
 
         db = getTestDBWithoutDeletingFiles(directory, options);
 
-        // insert 20 records into two files. 
+        // insert 20 records into two files.
         records = TestUtils.insertRandomRecordsOfSize(db, 20, 1024-Record.Header.HEADER_SIZE);
         File[] dataFilesToDelete = FileUtils.listDataFiles(new File(directory));
 
@@ -260,6 +260,42 @@ public class HaloDBCompactionTest extends TestBase {
         // all the data files created before update were deleted by compaction thread.
         dataFiles.forEach(f -> Assert.assertFalse(f.exists(), "data file " + f.getName() + " still exists"));
     }
+
+    @Test
+    public void testForceCompaction() throws HaloDBException, InterruptedException {
+        String directory = TestUtils.getTestDirectory("HaloDBCompactionTest", "testForceCompaction");
+
+        HaloDBOptions options = new HaloDBOptions();
+        options.setCompactionThresholdPerFile(1.0);
+
+        HaloDB db = getTestDB(directory, options);
+
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, 10, 1000);
+
+        db.close();
+
+        db = getTestDBWithoutDeletingFiles(directory, options);
+        // nothing deleted, should not trigger compaction
+        db.forceCompaction(0f);
+        db.pauseCompaction(true);
+        Assert.assertEquals(db.stats().getNumberOfRecordsScanned(), 0);
+        db.resumeCompaction();
+        db.delete(records.get(0).getKey());
+
+        // should not compact, only 1 in 10 records are deleted, but the size threshold is 50%
+        db.forceCompaction(0.5f);
+        db.pauseCompaction(true);
+        Assert.assertEquals(db.stats().getNumberOfRecordsScanned(), 0);
+        db.resumeCompaction();
+
+        db.forceCompaction(0.01f);
+        db.pauseCompaction(true);
+        Assert.assertEquals(db.stats().getNumberOfRecordsScanned(), 10);
+        Assert.assertEquals(db.stats().getNumberOfRecordsCopied(), 9);
+        Assert.assertEquals(db.stats().getNumberOfRecordsReplaced(), 9);
+    }
+
+
 
     private Record[] insertAndUpdateRecords(int numberOfRecords, HaloDB db) throws HaloDBException {
         int valueSize = recordSize - Record.Header.HEADER_SIZE - 8; // 8 is the key size.

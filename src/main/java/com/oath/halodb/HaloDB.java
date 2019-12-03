@@ -5,11 +5,10 @@
 
 package com.oath.halodb;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.Set;
+
+import com.google.common.annotations.VisibleForTesting;
 
 public final class HaloDB {
 
@@ -80,12 +79,25 @@ public final class HaloDB {
         return new HaloDBIterator(dbInternal);
     }
 
-    public void pauseCompaction() throws HaloDBException {
+    /**
+     * Force a compaction on all data files that have more stale data than the provided threshold ratio.
+     * A compactionThreshold of 0 would force all files that have any stale data to compact,
+     * 0.1 would force those that have more than 10% space stale to compact.
+     **/
+    public void forceCompaction(float compactionThreshold) {
+        dbInternal.forceCompaction(compactionThreshold);
+    }
+
+    public void pauseCompaction(boolean awaitPending) throws HaloDBException {
         try {
-            dbInternal.pauseCompaction();
+            dbInternal.pauseCompaction(awaitPending);
         } catch (IOException e) {
             throw new HaloDBException("Error while trying to pause compaction thread", e);
         }
+    }
+
+    public void pauseCompaction() throws HaloDBException {
+        pauseCompaction(false);
     }
 
     public boolean snapshot() {
@@ -105,12 +117,6 @@ public final class HaloDB {
     }
 
     // methods used in tests.
-
-    @VisibleForTesting
-    boolean isCompactionComplete() {
-        return dbInternal.isCompactionComplete();
-    }
-
     @VisibleForTesting
     boolean isTombstoneFilesMerging() {
         return dbInternal.isTombstoneFilesMerging();

@@ -14,11 +14,12 @@ class MemoryPoolAddress {
     static final MemoryPoolAddress empty = new MemoryPoolAddress((byte)0, 0);
 
     final int chunkIndex;
-    final int chunkOffset;
+    final int slot;
 
-    MemoryPoolAddress(byte chunkIndex, int chunkOffset) {
+    MemoryPoolAddress(byte chunkIndex, int slot) {
         this.chunkIndex = 0xFF & chunkIndex;
-        this.chunkOffset = chunkOffset;
+        if ((slot & 0xFF000000) != 0) throw new IllegalArgumentException();
+        this.slot = slot;
     }
 
     final boolean isEmpty() {
@@ -34,11 +35,11 @@ class MemoryPoolAddress {
             return false;
         }
         MemoryPoolAddress m = (MemoryPoolAddress) o;
-        return m.chunkIndex == chunkIndex && m.chunkOffset == chunkOffset;
+        return m.chunkIndex == chunkIndex && m.slot == slot;
     }
 
     @Override
     public int hashCode() {
-        return 31 * ((31 * chunkIndex) + chunkOffset);
+        return 31 * ((31 * chunkIndex) + slot);
     }
 }

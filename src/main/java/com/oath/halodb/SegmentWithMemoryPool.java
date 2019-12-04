@@ -82,9 +82,10 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return search(key, this::foundEntry, this::notFoundEntry);
     }
 
-    private E foundEntry(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
+    private E foundEntry(MemoryPoolChunk<E> headChunk, int headOffset, MemoryPoolAddress head,
+                         MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
         hitCount++;
-        return headChunk.readEntry(headAddress.chunkOffset);
+        return headChunk.readEntry(headOffset);
     }
 
     private E notFoundEntry(MemoryPoolAddress slot) {
@@ -97,7 +98,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return search(key, this::foundKey, this::notFoundKey);
     }
 
-    private boolean foundKey(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
+    private boolean foundKey(MemoryPoolChunk<E> headChunk, int headOffset, MemoryPoolAddress head,
+                             MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength) {
         hitCount++;
         return true;
     }
@@ -110,7 +112,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     @Override
     boolean putEntry(KeyBuffer key, E entry, boolean dontOverwrite, E oldEntry) {
         return search(key,
-            (headChunk, headAddress, previous, tail, chainLength) -> {
+            (headChunk, headOffset, head, previous, tail, chainLength) -> {
                 // key is already present in the segment.
 
                 // putIfAbsent is true, but key is already present, return.
@@ -120,13 +122,15 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
                 // code for replace() operation
                 if (oldEntry != null) {
-                    if (!headChunk.compareEntry(headAddress.chunkOffset, oldEntry)) {
+                    if (!headChunk.compareEntry(headOffset, oldEntry)) {
                         return false;
                     }
                 }
 
                 // replace value with the new one.
-                headChunk.setEntry(headAddress.chunkOffset, entry);
+                // if the key matches, we only have to modify the data in the head chunk that has
+                // the value data, extended key data remains in other chunks unaltered
+                headChunk.setEntry(headOffset, entry);
                 putReplaceCount++;
                 return true;
             },
@@ -157,8 +161,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     @Override
     public boolean removeEntry(KeyBuffer key) {
         return search(key,
-            (headChunk, headAddress, previous, tail, chainLength) -> {
-                removeInternal(headAddress, previous, tail, chainLength, key.hash());
+            (headChunk, headOffset, head, previous, tail, chainLength) -> {
+                removeInternal(headChunk, headOffset, head, previous, tail, chainLength, key.hash());
                 removeCount++;
                 size--;
                 return true;
@@ -170,14 +174,16 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     @FunctionalInterface
     private interface FoundEntryVisitor<E extends HashEntry, A> {
         /**
-         * @param headChunk The chunk corresponding to the headAddress
-         * @param headAddress  The address of the first slot containing the key
+         * @param headChunk The chunk corresponding to the headOffset
+         * @param headOffset  The offset into the headChunk for the first slot containing the key
+         * @param head The address of the first slot in the chain for the key
          * @param previous  The address of the slot in the list prior to the key, if it exists
          * @param tail  The last slot in the chain for this key, the same as the headAddress if the chain is size 1
          * @param chainLength  The number of slots in the chain for the key
          * @return  The result that the search function will return when the key is found.
          */
-        A found(MemoryPoolChunk<E> headChunk, MemoryPoolAddress headAddress, MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength);
+        A found(MemoryPoolChunk<E> headChunk, int headOffset, MemoryPoolAddress head,
+                MemoryPoolAddress previous, MemoryPoolAddress tail, int chainLength);
     }
 
     @FunctionalInterface
@@ -201,41 +207,44 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             while (!address.isEmpty()) {
                 MemoryPoolChunk<E> chunk = chunkFor(address);
                 int ksize = key.buffer.length;
-                int slotKeySize = chunk.getKeyLength(address.chunkOffset);
+                int chunkOffset = chunk.slotToOffset(address.slot);
+                int slotKeySize = chunk.getKeyLength(chunkOffset);
                 if (slotKeySize <= fixedKeyLength) {
                     // one slot, simple match and move on
-                    if (slotKeySize == ksize && chunk.compareFixedKey(address.chunkOffset, key.buffer, ksize)) {
-                        return whenFound.found(chunk, address, previous, address, 1);
+                    if (slotKeySize == ksize && chunk.compareFixedKey(chunkOffset, key.buffer, ksize)) {
+                        return whenFound.found(chunk, chunkOffset, address, previous, address, 1);
                     }
                 } else {
                     // multiple slots, we must always traverse to the end of the chain for this key, even when it mismatches
                     int chainLength = 1;
                     MemoryPoolChunk<E> headChunk = chunk;
                     MemoryPoolAddress headAddress = address;
+                    int headChunkOffset = chunkOffset;
                     int remaining = slotKeySize - fixedKeyLength;
                     int maxFragmentSize = fixedKeyLength + serializer.entrySize();
-                    boolean fragmentMatches = slotKeySize == ksize && chunk.compareFixedKey(address.chunkOffset, key.buffer, fixedKeyLength);
+                    boolean fragmentMatches = slotKeySize == ksize && chunk.compareFixedKey(chunkOffset, key.buffer, fixedKeyLength);
                     do {
-                        address = chunk.getNextAddress(address.chunkOffset);
+                        address = chunk.getNextAddress(chunkOffset);
+                        chunk = chunkFor(address);
+                        chunkOffset = chunk.slotToOffset(address.slot);
                         if (address.isEmpty()) {
                             throw new IllegalStateException("Corrupted slot state, extended key slot expected, found none");
                         }
                         if (fragmentMatches) {
-                            chunk = chunkFor(address);
                             int compareOffset = ksize - remaining;
                             int compareLen = Math.min(maxFragmentSize, remaining);
-                            fragmentMatches = chunk.compareExtendedKey(address.chunkOffset, key.buffer, compareOffset, compareLen);
+                            fragmentMatches = chunk.compareExtendedKey(chunkOffset, key.buffer, compareOffset, compareLen);
                             chainLength++;
                         }
                         remaining -= maxFragmentSize;
                     } while (remaining > 0);
                     // we got through the key and all fragments matched, key found
                     if (fragmentMatches) {
-                        return whenFound.found(headChunk, headAddress, previous, address, chainLength);
+                        return whenFound.found(headChunk, headChunkOffset, headAddress, previous, address, chainLength);
                     }
                 }
                 previous = address;
-                address = chunk.getNextAddress(address.chunkOffset);
+                address = chunk.getNextAddress(chunkOffset);
             }
             return whenNotFound.notFound(firstAddress);
         } finally {
@@ -256,7 +265,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
     private MemoryPoolAddress getNext(MemoryPoolAddress address) {
         MemoryPoolChunk<E> chunk = chunkFor(address);
-        return chunk.getNextAddress(address.chunkOffset);
+        int slotOffset = chunk.slotToOffset(address.slot);
+        return chunk.getNextAddress(slotOffset);
     }
 
     private MemoryPoolAddress writeToFreeSlots(byte[] key, E entry, MemoryPoolAddress nextAddress) {
@@ -264,7 +274,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         MemoryPoolAddress slot = firstSlot;
         MemoryPoolAddress next = (key.length <= fixedKeyLength) ? nextAddress : getFreeSlot();
 
-        chunkFor(slot).fillSlot(slot.chunkOffset, key, entry, next);
+        chunkFor(slot).fillSlot(slot.slot, key, entry, next);
 
         int keyWritten = fixedKeyLength;
         while (keyWritten < key.length) {
@@ -273,9 +283,9 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             int overflowSlotSpace = fixedKeyLength + serializer.entrySize();
             if (keyRemaining > overflowSlotSpace) {
                 next = getFreeSlot();
-                chunkFor(slot).fillOverflowSlot(slot.chunkOffset, key, keyWritten, overflowSlotSpace, next);
+                chunkFor(slot).fillOverflowSlot(slot.slot, key, keyWritten, overflowSlotSpace, next);
             } else {
-                chunkFor(slot).fillOverflowSlot(slot.chunkOffset, key, keyWritten, keyRemaining, nextAddress);
+                chunkFor(slot).fillOverflowSlot(slot.slot, key, keyWritten, keyRemaining, nextAddress);
             }
             keyWritten += overflowSlotSpace;
         }
@@ -289,28 +299,31 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             freeListSize--;
             return free;
         }
-        if (currentWriteChunk == null || currentWriteChunk.remaining() < slotSize) {
+        if (currentWriteChunk == null || currentWriteChunk.isFull()) {
             if (chunks.size() >= 255) {
                 logger.error("No more memory left. Each segment can have at most {} chunks.", 255);
                 throw new OutOfMemoryError("Each segment can have at most " + 255 + " chunks.");
             }
             // There is no chunk allocated for this segment or the current chunk being written to has no space left.
             // allocate an new one.
-            currentWriteChunk = MemoryPoolChunk.create(chunkSize, fixedKeyLength, serializer);
+            currentWriteChunk = MemoryPoolChunk.create(chunks.size() + 1, chunkSize, fixedKeyLength, serializer);
             chunks.add(currentWriteChunk);
         }
-        return new MemoryPoolAddress((byte) chunks.size(), currentWriteChunk.allocateSlot());
+        return new MemoryPoolAddress((byte) currentWriteChunk.chunkId(), currentWriteChunk.allocateSlot());
     }
 
-    private void removeInternal(MemoryPoolAddress head, MemoryPoolAddress previous, MemoryPoolAddress tail, int length, long hash) {
+    private void removeInternal(MemoryPoolChunk<?> headChunk, int headOffset, MemoryPoolAddress head,
+                                MemoryPoolAddress previous, MemoryPoolAddress tail, int length, long hash) {
         MemoryPoolAddress next = getNext(tail);
         if (previous == null) {
             table.addAsHead(hash, next);
         } else {
-            chunkFor(previous).setNextAddress(previous.chunkOffset, next);
+            MemoryPoolChunk<?> previousChunk = chunkFor(previous);
+            previousChunk.setNextAddress(previousChunk.slotToOffset(previous.slot), next);
         }
 
-        chunkFor(tail).setNextAddress(tail.chunkOffset, freeListHead);
+        MemoryPoolChunk<?> tailChunk = chunkFor(tail);
+        tailChunk.setNextAddress(tailChunk.slotToOffset(tail.slot), freeListHead);
         freeListHead = head;
         freeListSize += length;
     }
@@ -333,22 +346,24 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
                 // size is larger than fixedKeyLength
                 MemoryPoolAddress address = table.getFirst(i);
                 while (!address.isEmpty()) {
-                    MemoryPoolChunk<E> chunk = chunkFor(address);
                     MemoryPoolAddress headAddress = address;
-                    int keySize = chunk.getKeyLength(address.chunkOffset);
+                    MemoryPoolChunk<E> chunk = chunkFor(address);
+                    int chunkOffset = chunk.slotToOffset(address.slot);
+                    int keySize = chunk.getKeyLength(chunkOffset);
                     long hash;
                     if (keySize <= fixedKeyLength) {
                         // hash calculation is simple if the key fits in one slot
-                        hash = chunk.computeFixedKeyHash(address.chunkOffset, hasher, keySize);
+                        hash = chunk.computeFixedKeyHash(chunkOffset, hasher, keySize);
                     } else {
                         // otherwise, since hasher doesn't support incremental hashes, we have to copy the data to a buffer
                         // then hash
-                        chunk.copyEntireFixedKey(address.chunkOffset, hashBuffer);
+                        chunk.copyEntireFixedKey(chunkOffset, hashBuffer);
                         int copied = fixedKeyLength;
                         do {
                             address = getNext(address);
                             chunk = chunkFor(address);
-                            copied += chunk.copyExtendedKey(address.chunkOffset, hashBuffer, copied, keySize - copied);
+                            chunkOffset = chunk.slotToOffset(address.slot);
+                            copied += chunk.copyExtendedKey(chunkOffset, hashBuffer, copied, keySize - copied);
                         } while (copied < keySize);
                         hash = hasher.hash(hashBuffer, 0, keySize);
                     }
@@ -358,7 +373,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
                     // put the head of this key as the entry in the table
                     newTable.addAsHead(hash, headAddress);
                     // set the tail of this key to point to whatever was in the head of the new table
-                    chunk.setNextAddress(address.chunkOffset, first);
+                    chunk.setNextAddress(chunkOffset, first);
                     address = next;
                 }
             }
@@ -523,14 +538,14 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         MemoryPoolAddress getFirst(long hash) {
             long bOffset = address + bucketOffset(hash);
             byte chunkIndex = Uns.getByte(bOffset, 0);
-            int chunkOffset = Uns.getInt(bOffset, 1);
-            return new MemoryPoolAddress(chunkIndex, chunkOffset);
+            int slot = Uns.getInt(bOffset, 1);
+            return new MemoryPoolAddress(chunkIndex, slot);
         }
 
         void addAsHead(long hash, MemoryPoolAddress entryAddress) {
             long bOffset = address + bucketOffset(hash);
             Uns.putByte(bOffset, 0, (byte) entryAddress.chunkIndex);
-            Uns.putInt(bOffset, 1, entryAddress.chunkOffset);
+            Uns.putInt(bOffset, 1, entryAddress.slot);
         }
 
         long bucketOffset(long hash) {
@@ -548,7 +563,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         <E extends HashEntry> void updateBucketHistogram(EstimatedHistogram h, final SegmentWithMemoryPool<E> segment) {
             for (int i = 0; i < size(); i++) {
                 int len = 0;
-                for (MemoryPoolAddress adr = getFirst(i); adr.chunkIndex > 0;
+                for (MemoryPoolAddress adr = getFirst(i); !adr.isEmpty();
                      adr = segment.getNext(adr)) {
                     len++;
                 }

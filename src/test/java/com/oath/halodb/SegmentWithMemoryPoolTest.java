@@ -55,7 +55,7 @@ public class SegmentWithMemoryPoolTest {
     @Test
     public void testTinyKeys() {
         segment = new SegmentWithMemoryPool<>(builder());
-        Record rec = createRecord(2);
+        Record rec = createRecord(0);
         validateBasicPutGet(rec, 1);
         Record rec2 = createRecord(1);
         validateBasicPutGet(rec2, 1);
@@ -114,7 +114,7 @@ public class SegmentWithMemoryPoolTest {
         long initialHitCount = segment.hitCount();
         long initialMissCount = segment.missCount();
 
-        // put when not present, but old value is should not add
+        // put when not present, but old value exists and doesn't match, so this should not add
         Assert.assertFalse(segment.putEntry(key, entry, false, entry));
         Assert.assertFalse(segment.containsEntry(key));
         Assert.assertNull(segment.getEntry(key));

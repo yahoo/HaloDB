@@ -60,7 +60,7 @@ public class MemoryPoolChunkTest {
         createChunk();
         int slotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + fixedEntryLength;
         int slots = chunkSize / slotSize;
-        int offset = chunk.getWriteOffset();
+        final int firstOffset = chunk.getWriteOffset();
 
         Assert.assertEquals(chunk.remainingSlots(), chunkSize/slotSize);
         Assert.assertEquals(chunk.getWriteOffset(), 0);
@@ -69,16 +69,17 @@ public class MemoryPoolChunkTest {
         byte[] key = Longs.toByteArray(101);
         ByteArrayEntry entry = randomEntry(key.length);
         MemoryPoolAddress nextAddress = new MemoryPoolAddress((byte) 10, 34343);
-        int freeSlot = chunk.allocateSlot();
-        chunk.fillSlot(freeSlot, key, entry, nextAddress);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.allocateSlot();
+        slot.fillSlot(key, entry, nextAddress);
 
-        Assert.assertEquals(chunk.getWriteOffset(), offset + slotSize);
+        Assert.assertEquals(chunk.getWriteOffset(), firstOffset + slotSize);
         Assert.assertEquals(chunk.remainingSlots(), slots - 1);
-        Assert.assertEquals(chunk.getKeyLength(offset), key.length);
-        Assert.assertTrue(chunk.compareFixedKey(offset, key, key.length));
-        Assert.assertTrue(chunk.compareEntry(offset, entry));
+        Assert.assertEquals(slot.getKeyLength(), key.length);
+        Assert.assertTrue(slot.compareFixedKey(key, key.length));
+        Assert.assertTrue(slot.compareEntry(entry));
+        Assert.assertEquals(slot.readEntry(), entry);
 
-        MemoryPoolAddress actual = chunk.getNextAddress(offset);
+        MemoryPoolAddress actual = slot.getNextAddress();
         Assert.assertEquals(actual.chunkIndex, nextAddress.chunkIndex);
         Assert.assertEquals(actual.slot, nextAddress.slot);
 
@@ -86,17 +87,17 @@ public class MemoryPoolChunkTest {
         byte[] key2 = randomKey();
         ByteArrayEntry entry2 = randomEntry(key2.length);
         MemoryPoolAddress nextAddress2 = new MemoryPoolAddress((byte) 0, 4454545);
-        freeSlot = chunk.allocateSlot();
-        chunk.fillSlot(freeSlot, key2, entry2, nextAddress2);
-        Assert.assertEquals(chunk.getWriteOffset(), offset + 2*slotSize);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot2 = chunk.allocateSlot();
+        slot2.fillSlot(key2, entry2, nextAddress2);
+        Assert.assertEquals(chunk.getWriteOffset(), firstOffset + 2*slotSize);
         Assert.assertEquals(chunk.remainingSlots(), slots - 2);
 
-        offset += slotSize;
-        Assert.assertEquals(chunk.getKeyLength(offset), key2.length);
-        Assert.assertTrue(chunk.compareFixedKey(offset, key2, key2.length));
-        Assert.assertTrue(chunk.compareEntry(offset, entry2));
+        Assert.assertEquals(slot2.getKeyLength(), key2.length);
+        Assert.assertTrue(slot2.compareFixedKey(key2, key2.length));
+        Assert.assertTrue(slot2.compareEntry(entry2));
+        Assert.assertEquals(slot2.readEntry(), entry2);
 
-        actual = chunk.getNextAddress(offset);
+        actual = slot2.getNextAddress();
         Assert.assertEquals(actual.chunkIndex, nextAddress2.chunkIndex);
         Assert.assertEquals(actual.slot, nextAddress2.slot);
 
@@ -104,38 +105,62 @@ public class MemoryPoolChunkTest {
         byte[] key3 = Longs.toByteArray(0x64735981289L);
         ByteArrayEntry entry3 = randomEntry(key3.length);
         MemoryPoolAddress nextAddress3 = nowhere;
-        chunk.fillSlot(0, key3, entry3, nextAddress3);
+        slot.fillSlot(key3, entry3, nextAddress3);
 
-        offset = 0;
-        Assert.assertEquals(chunk.getKeyLength(offset), key3.length);
-        Assert.assertTrue(chunk.compareFixedKey(offset, key3, key3.length));
-        Assert.assertTrue(chunk.compareEntry(offset, entry3));
+        Assert.assertEquals(slot.getKeyLength(), key3.length);
+        Assert.assertTrue(slot.compareFixedKey(key3, key3.length));
+        Assert.assertTrue(slot.compareEntry(entry3));
+        Assert.assertEquals(slot.readEntry(), entry3);
 
         // write offset should remain unchanged.
-        Assert.assertEquals(chunk.getWriteOffset(), offset + 2*slotSize);
+        Assert.assertEquals(chunk.getWriteOffset(), firstOffset + 2*slotSize);
         Assert.assertEquals(chunk.remainingSlots(), slots - 2);
+
+        Hasher hasher = Hasher.create(HashAlgorithm.MURMUR3);
+        long keyHash = hasher.hash(key3);
+        long entryKeyHash = slot.computeFixedKeyHash(hasher, key3.length);
+        Assert.assertEquals(entryKeyHash, keyHash);
+
+        ByteArrayEntry entry4 = randomEntry(key3.length);
+        slot.setEntry(entry4);
+        Assert.assertEquals(slot.readEntry(), entry4);
+
+        long address = Uns.allocate(fixedKeyLength);
+        try {
+            slot.copyEntireFixedKey(address);
+            Uns.compare(address, key3, 0, key3.length);
+        } finally {
+            Uns.free(address);
+        }
+    }
+
+    @Test
+    public void testExtendedSlot() {
+        createChunk();
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.allocateSlot();
+        byte[] key = HashTableTestUtils.randomBytes(200);
+        MemoryPoolAddress next = new MemoryPoolAddress((byte) 33, 5);
+
+        int writeLen = fixedKeyLength + fixedEntryLength - 7;
+        slot.fillOverflowSlot(key, key.length - writeLen, writeLen, next);
+        Assert.assertTrue(slot.compareExtendedKey(key, key.length - writeLen, writeLen));
+
+        long address = Uns.allocate(writeLen);
+        try {
+            slot.copyExtendedKey(address, 0, writeLen);
+            Uns.compare(address, key, key.length - writeLen, writeLen);
+        } finally {
+            Uns.free(address);
+        }
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid request.*")
-    public void testWithInvalidOffset() {
+    public void testWithInvalidSlot() {
         chunkSize = 256;
         fixedKeyLength = 100;
         fixedEntryLength = 100;
         createChunk();
-        byte[] key = randomKey();
-        ByteArrayEntry entry = randomEntry(key.length);
-        chunk.fillSlot(chunkSize - 5, key, entry, nowhere);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid request.*")
-    public void testWithInvalidKey() {
-        chunkSize = 256;
-        fixedKeyLength = 32;
-        fixedEntryLength = 100;
-        createChunk();
-        byte[] key =  HashTableTestUtils.randomBytes(fixedKeyLength + 10);
-        ByteArrayEntry entry = randomEntry(key.length);
-        chunk.fillSlot(chunkSize - 5, key, entry, nowhere);
+        chunk.slotFor(999);
     }
 
     @Test
@@ -147,23 +172,23 @@ public class MemoryPoolChunkTest {
 
         byte[] key = randomKey();
         ByteArrayEntry entry = randomEntry(key.length);
-        int offset = 0;
-        chunk.fillSlot(offset, key, entry, nowhere);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.allocateSlot();
+        slot.fillSlot(key, entry, nowhere);
 
-        Assert.assertEquals(chunk.getKeyLength(offset), key.length);
-        Assert.assertTrue(chunk.compareFixedKey(offset, key, key.length));
-        Assert.assertTrue(chunk.compareEntry(offset, entry));
+        Assert.assertEquals(slot.getKeyLength(), key.length);
+        Assert.assertTrue(slot.compareFixedKey(key, key.length));
+        Assert.assertTrue(slot.compareEntry(entry));
 
         byte[] smallKey = new byte[key.length-1];
         System.arraycopy(key, 0, smallKey, 0, smallKey.length);
-        Assert.assertNotEquals(chunk.getKeyLength(offset), smallKey.length);
+        Assert.assertNotEquals(slot.getKeyLength(), smallKey.length);
 
         key[fixedKeyLength-1] = (byte)~key[fixedKeyLength-1];
-        Assert.assertEquals(chunk.getKeyLength(offset), key.length);
-        Assert.assertFalse(chunk.compareFixedKey(offset, key, key.length));
+        Assert.assertEquals(slot.getKeyLength(), key.length);
+        Assert.assertFalse(slot.compareFixedKey(key, key.length));
 
         entry.bytes[0] = (byte)~entry.bytes[0];
-        Assert.assertFalse(chunk.compareEntry(offset, entry));
+        Assert.assertFalse(slot.compareEntry(entry));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid request.*")
@@ -175,11 +200,11 @@ public class MemoryPoolChunkTest {
         createChunk();
         byte[] key = randomKey();
         ByteArrayEntry entry = randomEntry(key.length);
-        int slot = 0;
-        chunk.fillSlot(slot, key, entry, nowhere);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.allocateSlot();
+        slot.fillSlot(key, entry, nowhere);
 
         byte[] bigKey = HashTableTestUtils.randomBytes(fixedKeyLength + 1);
-        chunk.compareFixedKey(chunk.slotToOffset(slot), bigKey, bigKey.length);
+        slot.compareFixedKey(bigKey, bigKey.length);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid request.*")
@@ -190,7 +215,8 @@ public class MemoryPoolChunkTest {
 
         createChunk();
         byte[] key = randomKey();
-        chunk.compareExtendedKey(0, key, 0, 300);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.allocateSlot();
+        slot.compareExtendedKey(key, 0, 300);
     }
 
     @Test
@@ -205,9 +231,10 @@ public class MemoryPoolChunkTest {
         int numSlots = chunkSize / slotSize;
 
         MemoryPoolAddress nextAddress = new MemoryPoolAddress((byte)(r.nextInt(255) + 1), r.nextInt(numSlots));
-        int offset = chunk.slotToOffset(r.nextInt(numSlots));
-        chunk.setNextAddress(offset, nextAddress);
+        MemoryPoolChunk<ByteArrayEntry>.Slot slot = chunk.slotFor(r.nextInt(numSlots));
 
-        Assert.assertEquals(chunk.getNextAddress(offset), nextAddress);
+        slot.setNextAddress(nextAddress);
+
+        Assert.assertEquals(slot.getNextAddress(), nextAddress);
     }
 }

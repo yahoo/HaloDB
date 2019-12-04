@@ -301,6 +301,31 @@ final class Uns {
         return true;
     }
 
+    static boolean compare(long address, byte[] array, int arrayoffset, int len) {
+        int p = 0, length = len;
+        for (; length - p >= 8; p += 8) {
+            if (Uns.getLong(address, p) != Uns.getLongFromByteArray(array, p + arrayoffset)) {
+                return false;
+            }
+        }
+        for (; length - p >= 4; p += 4) {
+            if (Uns.getInt(address, p) != Uns.getIntFromByteArray(array, p + arrayoffset)) {
+                return false;
+            }
+        }
+        for (; length - p >= 2; p += 2) {
+            if (Uns.getShort(address, p) != Uns.getShortFromByteArray(array, p + arrayoffset)) {
+                return false;
+            }
+        }
+        for (; length - p >= 1; p += 1) {
+            if (Uns.getByte(address, p) != array[p + arrayoffset]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static long crc32(long address, long offset, long len) {
         validate(address, offset, len);
         return ext.crc32(address, offset, len);

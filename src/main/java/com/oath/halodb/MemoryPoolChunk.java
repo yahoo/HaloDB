@@ -85,56 +85,17 @@ class MemoryPoolChunk<E extends HashEntry> {
         return chunkId;
     }
 
-    MemoryPoolAddress getNextAddress(int slotOffset) {
-
-        byte chunk = Uns.getByte(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_INDEX);
-        int slot = Uns.getInt(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_OFFSET);
-
-        return new MemoryPoolAddress(chunk, slot);
+    Slot slotFor(int slot) {
+        return new Slot(slot);
     }
 
-    void setNextAddress(int slotOffset, MemoryPoolAddress next) {
-
-        Uns.putByte(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_INDEX, (byte) next.chunkIndex);
-        Uns.putInt(address, slotOffset + ENTRY_OFF_NEXT_CHUNK_OFFSET, next.slot);
-    }
-
-    int allocateSlot() {
+    Slot allocateSlot() {
         if (isFull()) {
             throw new IllegalStateException("can not allocate a slot when already full");
         }
-        int writtenSlot = writeSlot;
+        Slot slot = slotFor(writeSlot);
         writeSlot++;
-        return writtenSlot;
-    }
-
-    /**
-     * Absolute put method. Writes to the slot pointed to by the offset.
-     */
-    void fillSlot(int slot, byte[] key, E entry, MemoryPoolAddress nextAddress) {
-        int slotOffset = slotToOffset(slot);
-        // pointer to next slot
-        setNextAddress(slotOffset, nextAddress);
-        // key and value sizes
-        entry.serializeSizes(sizeAddress(slotOffset));
-        // key data, in fixed slot
-        setKey(slotOffset, key, Math.min(key.length, fixedKeyLength));
-        // entry metadata
-        entry.serializeLocation(locationAddress(slotOffset));
-    }
-
-    void fillOverflowSlot(int slot, byte[] key, int keyoffset, int len, MemoryPoolAddress nextAddress) {
-        int slotOffset = slotToOffset(slot);
-        //poiner to next slot
-        setNextAddress(slotOffset, nextAddress);
-        // set key data
-        setExtendedKey(slotOffset, key, keyoffset, len);
-    }
-
-    void setEntry(int slotOffset, E entry) {
-
-        entry.serializeSizes(sizeAddress(slotOffset));
-        entry.serializeLocation(locationAddress(slotOffset));
+        return slot;
     }
 
     int getWriteOffset() {
@@ -149,106 +110,128 @@ class MemoryPoolChunk<E extends HashEntry> {
         return slots - writeSlot;
     }
 
-    E readEntry(int slotOffset) {
-        return serializer.deserialize(sizeAddress(slotOffset), locationAddress(slotOffset));
-    }
-
-    int slotToOffset(int slot) {
+    private int slotToOffset(int slot) {
         if (slot > slots) {
             throw new IllegalArgumentException("Invalid request. slot - " + slot + " total slots - " + slots);
         }
         return slot * slotSize;
     }
 
-    private long sizeAddress(int slotOffset) {
-        return address + slotOffset + sizesOffset;
-    }
-
-    private long locationAddress(int slotOffset) {
-        return address + slotOffset + locationOffset;
-    }
-
-    private long keyAddress(int slotOffset) {
-        return address + slotOffset + fixedKeyOffset;
-    }
-
-    private long extendedKeyAddress(int slotOffset) {
-        return sizeAddress(slotOffset);
-    }
-
-    private void setKey(int slotOffset, byte[] key, int len) {
-        if (len > fixedKeyLength) {
-            throw new IllegalArgumentException("Invalid key write beyond fixedKeyLength, length - " + len);
+    /** Represents a valid Slot within a MemoryPoolChunk **/
+    class Slot {
+        private final int slot;
+        private final int offset;
+        private Slot(int slot) {
+            this.slot = slot;
+            this.offset = slotToOffset(slot);
         }
-        Uns.copyMemory(key, 0, keyAddress(slotOffset), 0, len);
-    }
 
-    private void setExtendedKey(int slotOffset, byte[] key, int keyoffset, int len) {
-        if (len > slotSize - sizesOffset) {
-            throw new IllegalArgumentException("Invalid key write beyond slot with extended key, length - " + len);
+        MemoryPoolAddress toAddress() {
+            return new MemoryPoolAddress((byte) chunkId, slot);
         }
-        Uns.copyMemory(key, keyoffset, extendedKeyAddress(slotOffset), 0, len);
-    }
 
-    long computeFixedKeyHash(int slotOffset, Hasher hasher, int keySize) {
-        return hasher.hash(keyAddress(slotOffset), 0, keySize);
-    }
-
-    void copyEntireFixedKey(int slotOffset, long destinationAddress) {
-        Uns.copyMemory(keyAddress(slotOffset), 0, destinationAddress, 0, fixedKeyLength);
-    }
-
-    int copyExtendedKey(int slotOffset, long destinationAddress, int destinationOffset, int len) {
-        int copied = Math.min(len, slotSize - sizesOffset);
-        Uns.copyMemory(extendedKeyAddress(slotOffset), 0, destinationAddress, destinationOffset, copied);
-        return copied;
-    }
-
-    boolean compareFixedKey(int slotOffset, byte[] key, int len) {
-        if (len > fixedKeyLength) {
-            throw new IllegalArgumentException("Invalid request. key fragment larger than fixedKeyLength - " + len);
+        short getKeyLength() {
+            return serializer.readKeySize(sizeAddress());
         }
-        return compare(keyAddress(slotOffset), key, 0, len);
-    }
 
-    boolean compareExtendedKey(int slotOffset, byte[] key, int keyoffset, int len) {
-        if (len > fixedKeyLength + serializer.entrySize()) {
-            throw new IllegalArgumentException("Invalid request. key fragment larger than slot capacity - " + len);
+        MemoryPoolAddress getNextAddress() {
+            byte chunk = Uns.getByte(address, offset + ENTRY_OFF_NEXT_CHUNK_INDEX);
+            int slot = Uns.getInt(address, offset + ENTRY_OFF_NEXT_CHUNK_OFFSET);
+            return new MemoryPoolAddress(chunk, slot);
         }
-        return compare(extendedKeyAddress(slotOffset), key, keyoffset, len);
-    }
 
-    boolean compareEntry(int slotOffset, E entry) {
-        return entry.compare(sizeAddress(slotOffset), locationAddress(slotOffset));
-    }
+        void setNextAddress(MemoryPoolAddress next) {
+            Uns.putByte(address, offset + ENTRY_OFF_NEXT_CHUNK_INDEX, (byte) next.chunkIndex);
+            Uns.putInt(address, offset + ENTRY_OFF_NEXT_CHUNK_OFFSET, next.slot);
+        }
 
-    private boolean compare(long address, byte[] array, int arrayoffset, int len) {
-        int p = 0, length = len;
-        for (; length - p >= 8; p += 8) {
-            if (Uns.getLong(address, p) != Uns.getLongFromByteArray(array, p + arrayoffset)) {
-                return false;
+        void fillSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
+            // pointer to next slot
+            setNextAddress(nextAddress);
+            // key and value sizes
+            entry.serializeSizes(sizeAddress());
+            // key data, in fixed slot
+            setKey(key, Math.min(key.length, fixedKeyLength));
+            // entry metadata
+            entry.serializeLocation(locationAddress());
+        }
+
+        void fillOverflowSlot(byte[] key, int keyoffset, int len, MemoryPoolAddress nextAddress) {
+            //poiner to next slot
+            setNextAddress(nextAddress);
+            // set key data
+            setExtendedKey(key, keyoffset, len);
+        }
+
+        void setEntry(E entry) {
+            entry.serializeSizes(sizeAddress());
+            entry.serializeLocation(locationAddress());
+        }
+
+        E readEntry() {
+            return serializer.deserialize(sizeAddress(), locationAddress());
+        }
+
+        long computeFixedKeyHash(Hasher hasher, int keySize) {
+            return hasher.hash(keyAddress(), 0, keySize);
+        }
+
+        void copyEntireFixedKey(long destinationAddress) {
+            Uns.copyMemory(keyAddress(), 0, destinationAddress, 0, fixedKeyLength);
+        }
+
+        int copyExtendedKey(long destinationAddress, int destinationOffset, int len) {
+            int copied = Math.min(len, slotSize - sizesOffset);
+            Uns.copyMemory(extendedKeyAddress(), 0, destinationAddress, destinationOffset, copied);
+            return copied;
+        }
+
+        boolean compareFixedKey(byte[] key, int len) {
+            if (len > fixedKeyLength) {
+                throw new IllegalArgumentException("Invalid request. key fragment larger than fixedKeyLength: " + len);
             }
+            return Uns.compare(keyAddress(), key, 0, len);
         }
-        for (; length - p >= 4; p += 4) {
-            if (Uns.getInt(address, p) != Uns.getIntFromByteArray(array, p + arrayoffset)) {
-                return false;
-            }
-        }
-        for (; length - p >= 2; p += 2) {
-            if (Uns.getShort(address, p) != Uns.getShortFromByteArray(array, p + arrayoffset)) {
-                return false;
-            }
-        }
-        for (; length - p >= 1; p += 1) {
-            if (Uns.getByte(address, p) != array[p + arrayoffset]) {
-                return false;
-            }
-        }
-        return true;
-    }
 
-    short getKeyLength(int slotOffset) {
+        boolean compareExtendedKey(byte[] key, int keyoffset, int len) {
+            if (len > fixedKeyLength + serializer.entrySize()) {
+                throw new IllegalArgumentException("Invalid request. key fragment larger than slot capacity: " + len);
+            }
+            return Uns.compare(extendedKeyAddress(), key, keyoffset, len);
+        }
 
-        return serializer.readKeySize(sizeAddress(slotOffset));
+        boolean compareEntry(E entry) {
+            return entry.compare(sizeAddress(), locationAddress());
+        }
+
+        private void setKey(byte[] key, int len) {
+            if (len > fixedKeyLength) {
+                throw new IllegalArgumentException("Invalid key write beyond fixedKeyLength, length: " + len);
+            }
+            Uns.copyMemory(key, 0, keyAddress(), 0, len);
+        }
+
+        private void setExtendedKey(byte[] key, int keyoffset, int len) {
+            if (len > slotSize - sizesOffset) {
+                throw new IllegalArgumentException("Invalid key write beyond slot with extended key, length: " + len);
+            }
+            Uns.copyMemory(key, keyoffset, extendedKeyAddress(), 0, len);
+        }
+
+        private long sizeAddress() {
+            return address + offset + sizesOffset;
+        }
+
+        private long locationAddress() {
+            return address + offset + locationOffset;
+        }
+
+        private long keyAddress() {
+            return address + offset + fixedKeyOffset;
+        }
+
+        private long extendedKeyAddress() {
+            return sizeAddress();
+        }
     }
 }

@@ -5,10 +5,6 @@
 
 package com.oath.halodb;
 
-import static com.oath.halodb.MemoryPoolHashEntries.ENTRY_OFF_NEXT_CHUNK_INDEX;
-import static com.oath.halodb.MemoryPoolHashEntries.ENTRY_OFF_NEXT_CHUNK_OFFSET;
-import static com.oath.halodb.MemoryPoolHashEntries.HEADER_SIZE;
-
 /**
  * Memory pool is divided into chunks of configurable sized slots. This represents such a chunk.
  *
@@ -19,7 +15,7 @@ import static com.oath.halodb.MemoryPoolHashEntries.HEADER_SIZE;
  * that is less than or equal to the fixedKeyLength, then the key and data all
  * fit in one slot.  In this case, the slot is as follows:
  *
- * 5 bytes -- MemoryPoolAddress pointer (next)
+ * 4 bytes -- MemoryPoolAddress pointer (next)
  * 5 bytes -- HashEntry sizes (key/value length)
  * fixedKeyLength bytes -- key data
  * 16 bytes -- HashEntry location data (fileId, fileOffset, sequenceId)
@@ -28,7 +24,7 @@ import static com.oath.halodb.MemoryPoolHashEntries.HEADER_SIZE;
  * slots in the list, chained together.  The remainder of the key 'overflows' into
  * additional slots structured as follows:
  *
- * 5 bytes -- MemoryPoolAddress pointer (next)
+ * 4 bytes -- MemoryPoolAddress pointer (next)
  * remaining slot bytes -- key fragment
  *
  * The number of slots that a key of size K requires is
@@ -44,7 +40,7 @@ import static com.oath.halodb.MemoryPoolHashEntries.HEADER_SIZE;
  */
 class MemoryPoolChunk<E extends HashEntry> {
 
-    private static final int sizesOffset = HEADER_SIZE;
+    private static final int sizesOffset = MemoryPoolAddress.ADDRESS_SIZE;
 
     private final int chunkId;
     private final long address;
@@ -55,6 +51,7 @@ class MemoryPoolChunk<E extends HashEntry> {
     private final int slots;
     private final HashEntrySerializer<E> serializer;
     private int writeSlot = 0;
+    private boolean destroyed = false;
 
     private MemoryPoolChunk(long address, int chunkId, int slots, int fixedKeyLength, HashEntrySerializer<E> serializer) {
         this.address = address;
@@ -63,26 +60,31 @@ class MemoryPoolChunk<E extends HashEntry> {
         this.fixedKeyLength = fixedKeyLength;
         this.fixedKeyOffset = sizesOffset + serializer.sizesSize();
         this.locationOffset = fixedKeyOffset + fixedKeyLength;
-        this.slotSize = MemoryPoolHashEntries.slotSize(fixedKeyLength, serializer);
+        this.slotSize = MemoryPoolChunk.slotSize(fixedKeyLength, serializer);
         this.serializer = serializer;
     }
 
     static <E extends HashEntry> MemoryPoolChunk<E> create(int id, int chunkSize, int fixedKeyLength, HashEntrySerializer<E> serializer) {
-        int fixedSlotSize = MemoryPoolHashEntries.slotSize(fixedKeyLength, serializer);
-        int slots = chunkSize / fixedSlotSize;
+        int fixedSlotSize = MemoryPoolChunk.slotSize(fixedKeyLength, serializer);
+        int slots = Math.min((chunkSize / fixedSlotSize), MemoryPoolAddress.MAX_NUMBER_OF_SLOTS);
         if (slots < 1) {
-            throw new IllegalArgumentException("fixedSlotSize " + fixedSlotSize + " must be smaller than chunkSize " + chunkSize);
+            throw new IllegalArgumentException("fixedSlotSize " + fixedSlotSize + " must not be larger than chunkSize " + chunkSize);
         }
         long address = Uns.allocate(slots * fixedSlotSize);
         return new MemoryPoolChunk<>(address, id, slots, fixedKeyLength, serializer);
     }
 
     void destroy() {
-        Uns.free(address);
+        if (!destroyed) {
+            Uns.free(address);
+            destroyed = true;
+        }
     }
 
-    public int chunkId() {
-        return chunkId;
+    @Override
+    protected void finalize() throws Throwable {
+        destroy();
+        super.finalize();
     }
 
     Slot slotFor(int slot) {
@@ -117,6 +119,10 @@ class MemoryPoolChunk<E extends HashEntry> {
         return slot * slotSize;
     }
 
+    public static int slotSize(int fixedKeySize, HashEntrySerializer<?> serializer) {
+        return sizesOffset + fixedKeySize + serializer.entrySize();
+    }
+
     /** Represents a valid Slot within a MemoryPoolChunk **/
     class Slot {
         private final int slot;
@@ -126,26 +132,23 @@ class MemoryPoolChunk<E extends HashEntry> {
             this.offset = slotToOffset(slot);
         }
 
-        MemoryPoolAddress toAddress() {
-            return new MemoryPoolAddress((byte) chunkId, slot);
-        }
-
         short getKeyLength() {
             return serializer.readKeySize(sizeAddress());
         }
 
-        MemoryPoolAddress getNextAddress() {
-            byte chunk = Uns.getByte(address, offset + ENTRY_OFF_NEXT_CHUNK_INDEX);
-            int slot = Uns.getInt(address, offset + ENTRY_OFF_NEXT_CHUNK_OFFSET);
-            return new MemoryPoolAddress(chunk, slot);
+        int toAddress() {
+            return MemoryPoolAddress.encode(chunkId, slot);
         }
 
-        void setNextAddress(MemoryPoolAddress next) {
-            Uns.putByte(address, offset + ENTRY_OFF_NEXT_CHUNK_INDEX, (byte) next.chunkIndex);
-            Uns.putInt(address, offset + ENTRY_OFF_NEXT_CHUNK_OFFSET, next.slot);
+        int getNextAddress() {
+            return Uns.getInt(address, offset);
         }
 
-        void fillSlot(byte[] key, E entry, MemoryPoolAddress nextAddress) {
+        void setNextAddress(int nextAddress) {
+            Uns.putInt(address, offset, nextAddress);
+        }
+
+        void fillSlot(byte[] key, E entry, int nextAddress) {
             // pointer to next slot
             setNextAddress(nextAddress);
             // key and value sizes
@@ -156,7 +159,7 @@ class MemoryPoolChunk<E extends HashEntry> {
             entry.serializeLocation(locationAddress());
         }
 
-        void fillOverflowSlot(byte[] key, int keyoffset, int len, MemoryPoolAddress nextAddress) {
+        void fillOverflowSlot(byte[] key, int keyoffset, int len, int nextAddress) {
             //poiner to next slot
             setNextAddress(nextAddress);
             // set key data

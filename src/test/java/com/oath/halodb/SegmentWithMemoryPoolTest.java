@@ -42,7 +42,7 @@ public class SegmentWithMemoryPoolTest {
         fixedKeySize = 8;
         noOfEntries = 100;
         noOfChunks = 2;
-        fixedSlotSize = MemoryPoolHashEntries.slotSize(fixedKeySize, serializer);
+        fixedSlotSize = MemoryPoolChunk.slotSize(fixedKeySize, serializer);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -106,7 +106,7 @@ public class SegmentWithMemoryPoolTest {
         ByteArrayEntry entry = rec.entry;
 
         long initialSize = segment.size();
-        MemoryPoolAddress initialFreeListHead = segment.getFreeListHead();
+        int initialFreeListHead = segment.getFreeListHead();
         long initialFreeListSize = segment.freeListSize();
         long initialPutAddCount = segment.putAddCount();
         long initialPutReplaceCount = segment.putReplaceCount();
@@ -135,7 +135,7 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.putAddCount(), initialPutAddCount + 1);
         Assert.assertEquals(segment.putReplaceCount(), initialPutReplaceCount);
         Assert.assertEquals(segment.freeListSize(), Math.max(initialFreeListSize - expectedSlotsPerEntry, 0));
-        if(initialFreeListHead.isEmpty()) {
+        if(MemoryPoolAddress.isEmpty(initialFreeListHead)) {
             Assert.assertEquals(segment.freeListSize(), initialFreeListSize);
         } else {
             Assert.assertNotEquals(segment.getFreeListHead(), initialFreeListHead);
@@ -163,7 +163,7 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.getEntry(key), entry2);
         Assert.assertEquals(segment.size(), initialSize + 1);
         Assert.assertEquals(segment.freeListSize(), Math.max(initialFreeListSize - expectedSlotsPerEntry, 0));
-        if(initialFreeListHead.isEmpty()) {
+        if(MemoryPoolAddress.isEmpty(initialFreeListHead)) {
             Assert.assertEquals(segment.getFreeListHead(), initialFreeListHead);
         } else {
             Assert.assertNotEquals(segment.getFreeListHead(), initialFreeListHead);
@@ -180,7 +180,7 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.putAddCount(), initialPutAddCount + 1);
         Assert.assertEquals(segment.putReplaceCount(), initialPutReplaceCount + 1);
         Assert.assertEquals(segment.freeListSize(), Math.max(initialFreeListSize, expectedSlotsPerEntry));
-        if(initialFreeListHead.isEmpty()) {
+        if(MemoryPoolAddress.isEmpty(initialFreeListHead)) {
             Assert.assertNotEquals(segment.getFreeListHead(), initialFreeListHead);
         } else {
             Assert.assertEquals(segment.getFreeListHead(), initialFreeListHead);
@@ -229,7 +229,7 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.size(), totalEntries);
         Assert.assertEquals(segment.putAddCount(), totalEntries);
         Assert.assertEquals(segment.freeListSize(), 0);
-        Assert.assertTrue(segment.getFreeListHead().isEmpty());
+        Assert.assertTrue(MemoryPoolAddress.isEmpty(segment.getFreeListHead()));
 
         // remove all entries from the segment
         // all slots should now be part of the free list.
@@ -237,7 +237,7 @@ public class SegmentWithMemoryPoolTest {
         Lists.reverse(bigRecords).forEach(k -> segment.removeEntry(k.keyBuffer));
 
         Assert.assertEquals(segment.freeListSize(), totalSlots);
-        Assert.assertFalse(segment.getFreeListHead().isEmpty());
+        Assert.assertFalse(MemoryPoolAddress.isEmpty(segment.getFreeListHead()));
         Assert.assertEquals(segment.removeCount(), totalEntries);
         Assert.assertEquals(segment.size(), 0);
 
@@ -252,7 +252,7 @@ public class SegmentWithMemoryPoolTest {
 
         // after all slots in the free list are used head should point to
         // an empty list.
-        Assert.assertTrue(segment.getFreeListHead().isEmpty());
+        Assert.assertTrue(MemoryPoolAddress.isEmpty(segment.getFreeListHead()));
 
         // remove only some of the elements.
         Random r = new Random();
@@ -268,7 +268,7 @@ public class SegmentWithMemoryPoolTest {
         }
 
         Assert.assertEquals(segment.freeListSize(), elementsRemoved + (bigElementsRemoved * 4));
-        Assert.assertFalse(segment.getFreeListHead().isEmpty());
+        Assert.assertFalse(MemoryPoolAddress.isEmpty(segment.getFreeListHead()));
         Assert.assertEquals(segment.size(), totalEntries - (elementsRemoved + bigElementsRemoved));
 
         // add removed elements back.
@@ -278,7 +278,7 @@ public class SegmentWithMemoryPoolTest {
         Assert.assertEquals(segment.numberOfChunks(), noOfChunks * 2);
         Assert.assertEquals(segment.size(), totalEntries);
         Assert.assertEquals(segment.freeListSize(), 0);
-        Assert.assertTrue(segment.getFreeListHead().isEmpty());
+        Assert.assertTrue(MemoryPoolAddress.isEmpty(segment.getFreeListHead()));
     }
 
     @Test(expectedExceptions = OutOfMemoryError.class, expectedExceptionsMessageRegExp = "Each segment can have at most 255 chunks.")

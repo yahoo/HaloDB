@@ -54,7 +54,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
         this.chunkSize = builder.getMemoryPoolChunkSize();
         this.serializer = builder.getEntrySerializer();
-        this.slotSize = MemoryPoolHashEntries.HEADER_SIZE + fixedKeyLength + serializer.entrySize();
+        this.slotSize = MemoryPoolChunk.slotSize(fixedKeyLength, serializer);
         this.hashAlgorithm = builder.getHashAlgorighm();
 
         int hts = builder.getHashTableSize();
@@ -88,7 +88,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return head.readEntry();
     }
 
-    private E notFoundEntry(MemoryPoolAddress slot) {
+    private E notFoundEntry(int slotAddress) {
         missCount++;
         return null;
     }
@@ -104,7 +104,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return true;
     }
 
-    private boolean notFoundKey(MemoryPoolAddress slot) {
+    private boolean notFoundKey(int slotAddress) {
         missCount++;
         return false;
     }
@@ -149,8 +149,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
                 }
 
                 // key is not present in the segment, we need to add a new entry.
-                MemoryPoolAddress nextSlot = writeToFreeSlots(key.buffer, entry, slotHead).toAddress();
-                table.addAsHead(hash, nextSlot);
+                int nextSlotAddress = writeToFreeSlots(key.buffer, entry, slotHead).toAddress();
+                table.addAsHead(hash, nextSlotAddress);
                 size++;
                 putAddCount++;
                 return true;
@@ -193,7 +193,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
          * @param firstAddress  The first address for the slot corresponding to the hash of this key
          * @return  The result that the search function will return when the key is not found.
          */
-        A notFound(MemoryPoolAddress firstAddress);
+        A notFound(int firstAddress);
     }
 
     private <A> A search(KeyBuffer key,
@@ -202,7 +202,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         boolean wasFirst = lock();
         try {
             MemoryPoolChunk<E>.Slot previous = null;
-            MemoryPoolAddress firstAddress = table.getFirst(key.hash());
+            int firstAddress = table.getFirst(key.hash());
             MemoryPoolChunk<E>.Slot slot = slotFor(firstAddress);
             while (slot != null) {
                 int ksize = key.buffer.length;
@@ -246,11 +246,13 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         }
     }
 
-    private MemoryPoolChunk<E>.Slot slotFor(MemoryPoolAddress poolAddress) {
-        if (poolAddress.isEmpty()) {
+    private MemoryPoolChunk<E>.Slot slotFor(int poolAddress) {
+        if (MemoryPoolAddress.isEmpty(poolAddress)) {
             return null;
         }
-        return chunkFor(poolAddress.chunkIndex).slotFor(poolAddress.slot);
+        int chunkIndex = MemoryPoolAddress.chunkIndex(poolAddress);
+        int slot = MemoryPoolAddress.slot(poolAddress);
+        return chunkFor(chunkIndex).slotFor(slot);
     }
 
     private MemoryPoolChunk<E> chunkFor(int chunkIndex) {
@@ -260,15 +262,15 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         return chunks.get(chunkIndex - 1);
     }
 
-    private MemoryPoolAddress getNext(MemoryPoolAddress address) {
-        return slotFor(address).getNextAddress();
+    private int getNext(int poolAddress) {
+        return slotFor(poolAddress).getNextAddress();
     }
 
-    private MemoryPoolChunk<E>.Slot writeToFreeSlots(byte[] key, E entry, MemoryPoolAddress nextAddress) {
+    private MemoryPoolChunk<E>.Slot writeToFreeSlots(byte[] key, E entry, int nextAddress) {
         MemoryPoolChunk<E>.Slot firstSlot = getFreeSlot();
         MemoryPoolChunk<E>.Slot slot = firstSlot;
         MemoryPoolChunk<E>.Slot nextSlot = null;
-        MemoryPoolAddress next;
+        int next;
         if (key.length <= fixedKeyLength) {
             next = nextAddress;
         } else {
@@ -316,7 +318,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
 
     private void removeInternal(MemoryPoolChunk<E>.Slot head, MemoryPoolChunk<E>.Slot previous,
                                 MemoryPoolChunk<E>.Slot tail, int length, long hash) {
-        MemoryPoolAddress next = tail.getNextAddress();
+        int next = tail.getNextAddress();
         if (previous == null) {
             table.addAsHead(hash, next);
         } else {
@@ -348,9 +350,9 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             for (int i = 0; i < tableSize; i++) {
                 // each table slot is a chain of entries, individual keys can span more than one entry if the key
                 // size is larger than fixedKeyLength
-                MemoryPoolAddress address = table.getFirst(i);
-                while (!address.isEmpty()) {
-                    MemoryPoolAddress headAddress = address;
+                int address = table.getFirst(i);
+                while (MemoryPoolAddress.nonEmpty(address)) {
+                    int headAddress = address;
                     MemoryPoolChunk<E>.Slot slot = slotFor(address);
                     int keySize = slot.getKeyLength();
                     long hash;
@@ -370,8 +372,8 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
                         hash = hasher.hash(hashBuffer, 0, keySize);
                     }
                     // get the address the tail of this key points to
-                    MemoryPoolAddress next = slot.getNextAddress();
-                    MemoryPoolAddress first = newTable.getFirst(hash);
+                    int next = slot.getNextAddress();
+                    int first = newTable.getFirst(hash);
                     // put the head of this key as the entry in the table
                     newTable.addAsHead(hash, headAddress);
                     // set the tail of this key to point to whatever was in the head of the new table
@@ -537,17 +539,14 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
             super.finalize();
         }
 
-        MemoryPoolAddress getFirst(long hash) {
+        int getFirst(long hash) {
             long bOffset = address + bucketOffset(hash);
-            byte chunkIndex = Uns.getByte(bOffset, 0);
-            int slot = Uns.getInt(bOffset, 1);
-            return new MemoryPoolAddress(chunkIndex, slot);
+            return Uns.getInt(bOffset, 0);
         }
 
-        void addAsHead(long hash, MemoryPoolAddress entryAddress) {
+        void addAsHead(long hash, int entryAddress) {
             long bOffset = address + bucketOffset(hash);
-            Uns.putByte(bOffset, 0, (byte) entryAddress.chunkIndex);
-            Uns.putInt(bOffset, 1, entryAddress.slot);
+            Uns.putInt(bOffset, 0, entryAddress);
         }
 
         long bucketOffset(long hash) {
@@ -565,8 +564,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
         <E extends HashEntry> void updateBucketHistogram(EstimatedHistogram h, final SegmentWithMemoryPool<E> segment) {
             for (int i = 0; i < size(); i++) {
                 int len = 0;
-                for (MemoryPoolAddress adr = getFirst(i); !adr.isEmpty();
-                     adr = segment.getNext(adr)) {
+                for (int adr = getFirst(i); !MemoryPoolAddress.isEmpty(adr); adr = segment.getNext(adr)) {
                     len++;
                 }
                 h.add(len + 1);
@@ -575,7 +573,7 @@ class SegmentWithMemoryPool<E extends HashEntry> extends Segment<E> {
     }
 
     @VisibleForTesting
-    MemoryPoolAddress getFreeListHead() {
+    int getFreeListHead() {
         if (freeListHead == null) {
             return MemoryPoolAddress.empty;
         } else {

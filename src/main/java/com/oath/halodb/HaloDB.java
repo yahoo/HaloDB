@@ -80,6 +80,10 @@ public final class HaloDB {
         return new HaloDBIterator(dbInternal);
     }
 
+    public HaloDBKeyIterator newKeyIterator() {
+        return new HaloDBKeyIterator(dbInternal);
+    }
+
     public void pauseCompaction() throws HaloDBException {
         try {
             dbInternal.pauseCompaction();

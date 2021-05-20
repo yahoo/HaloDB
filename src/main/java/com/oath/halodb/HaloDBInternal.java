@@ -120,7 +120,7 @@ class HaloDBInternal {
                 options.getFixedKeySize(), options.getMemoryPoolChunkSize()
             );
 
-            long maxSequenceNumber = dbInternal.buildInMemoryIndex(options);
+            long maxSequenceNumber = dbInternal.buildInMemoryIndex();
             if (maxSequenceNumber == -1L) {
                 dbInternal.nextSequenceNumber = 1;
                 logger.info("Didn't find any existing records; initializing max sequence number to 1");
@@ -564,7 +564,21 @@ class HaloDBInternal {
             .max(Comparator.comparingInt(HaloDBFile::getFileId));
     }
 
-    private long buildInMemoryIndex(HaloDBOptions options) throws IOException {
+    private long buildInMemoryIndex() throws IOException {
+
+        int nThreads = options.getBuildIndexThreads();
+        logger.info("Building index in parallel with {} threads", nThreads);
+
+        ExecutorService executor = Executors.newFixedThreadPool(nThreads);
+        try {
+            return buildInMemoryIndex(executor);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    private long buildInMemoryIndex(ExecutorService executor) throws IOException {
+
         List<Integer> indexFiles = dbDirectory.listIndexFiles();
 
         logger.info("About to scan {} index files to construct index ...", indexFiles.size());
@@ -578,10 +592,6 @@ class HaloDBInternal {
             indexFileTasks.add(new ProcessIndexFileTask(indexFile, fileId));
         }
 
-        int nThreads = options.getBuildIndexThreads();
-        logger.info("Building index in parallel with {} threads", nThreads);
-
-        ExecutorService executor = Executors.newFixedThreadPool(nThreads);
         try {
             List<Future<Long>> results = executor.invokeAll(indexFileTasks);
             for (Future<Long> result : results) {
@@ -614,7 +624,6 @@ class HaloDBInternal {
         } catch (ExecutionException ee) {
             throw new IOException("Error happened during building in-memory index", ee);
         }
-        executor.shutdown();
         logger.info("Completed scanning all tombstone files in {}s", (System.currentTimeMillis() - start) / 1000);
 
         return maxSequenceNumber;

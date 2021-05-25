@@ -181,7 +181,7 @@ public class HaloDBOptions implements Cloneable {
 
     public void setBuildIndexThreads(int buildIndexThreads) {
         int numOfProcessors = Runtime.getRuntime().availableProcessors();
-        if (buildIndexThreads < 0 || buildIndexThreads > numOfProcessors) {
+        if (buildIndexThreads <= 0 || buildIndexThreads > numOfProcessors) {
             throw new IllegalArgumentException("buildIndexThreads should be > 0 and <= " + numOfProcessors);
         }
         this.buildIndexThreads = buildIndexThreads;

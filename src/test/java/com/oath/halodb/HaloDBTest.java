@@ -77,6 +77,33 @@ public class HaloDBTest extends TestBase {
     }
 
     @Test(dataProvider = "Options")
+    public void testPutAndContainsDB(HaloDBOptions options) throws HaloDBException {
+        String directory = TestUtils.getTestDirectory("HaloDBTest", "testPutAndGetDB");
+
+        options.setCompactionDisabled(true);
+
+        HaloDB db = getTestDB(directory, options);
+
+        int noOfRecords = 10_000;
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 128);
+
+        List<byte[]> missingKeys = new ArrayList<>();
+        for (int i = 0; i < noOfRecords; i++) {
+            missingKeys.add(TestUtils.generateRandomByteArray(64));
+        }
+
+        List<Record> actual = new ArrayList<>();
+        db.newIterator().forEachRemaining(actual::add);
+
+        Assert.assertTrue(actual.containsAll(records) && records.containsAll(actual));
+
+        records.forEach(record -> Assert.assertTrue(db.contains(record.getKey())));
+
+        missingKeys.forEach(key -> Assert.assertFalse(db.contains(key)));
+    }
+
+
+    @Test(dataProvider = "Options")
     public void testCreateCloseAndOpenDB(HaloDBOptions options) throws HaloDBException {
 
         String directory = TestUtils.getTestDirectory("HaloDBTest", "testCreateCloseAndOpenDB");

@@ -7,14 +7,14 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
+import java.io.IOException;
 
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public class HashTableValueSerializerTest
 {
@@ -27,14 +27,14 @@ public class HashTableValueSerializerTest
     @Test
     public void testFailingValueSerializerOnPut() throws IOException, InterruptedException
     {
-        try (OffHeapHashTable<byte[]> cache = OffHeapHashTableBuilder.<byte[]>newBuilder()
-                                                            .valueSerializer(HashTableTestUtils.byteArraySerializerFailSerialize)
-                                                            .fixedValueSize(8)
-                                                            .build())
+        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(8);
+        try (OffHeapHashTable<ByteArrayEntry> cache = OffHeapHashTableBuilder.newBuilder(serializer).build())
         {
+            byte[] key = Ints.toByteArray(1);
+            ByteArrayEntry entry = new ByteArrayEntry(key.length, Longs.toByteArray(1), true);
             try
             {
-                cache.put(Ints.toByteArray(1), Longs.toByteArray(1));
+                cache.put(key, entry);
                 Assert.fail();
             }
             catch (RuntimeException ignored)
@@ -44,7 +44,7 @@ public class HashTableValueSerializerTest
 
             try
             {
-                cache.putIfAbsent(Ints.toByteArray(1), Longs.toByteArray(1));
+                cache.putIfAbsent(key, entry);
                 Assert.fail();
             }
             catch (RuntimeException ignored)
@@ -54,7 +54,7 @@ public class HashTableValueSerializerTest
 
             try
             {
-                cache.addOrReplace(Ints.toByteArray(1), Longs.toByteArray(1), Longs.toByteArray(2));
+                cache.addOrReplace(key, entry, entry);
                 Assert.fail();
             }
             catch (RuntimeException ignored)

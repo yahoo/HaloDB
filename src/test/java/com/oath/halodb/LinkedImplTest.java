@@ -7,38 +7,38 @@
 
 package com.oath.halodb;
 
+import java.io.IOException;
+
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+public class LinkedImplTest {
+    static ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(33);
 
-public class LinkedImplTest
-{
     @AfterMethod(alwaysRun = true)
     public void deinit()
     {
         Uns.clearUnsDebugForTest();
     }
 
-    static OffHeapHashTable<String> cache()
+    static OffHeapHashTable<?> cache()
     {
         return cache(256);
     }
 
-    static OffHeapHashTable<String> cache(long capacity)
+    static OffHeapHashTable<?> cache(long capacity)
     {
         return cache(capacity, -1);
     }
 
-    static OffHeapHashTable<String> cache(long capacity, int hashTableSize)
+    static OffHeapHashTable<?> cache(long capacity, int hashTableSize)
     {
         return cache(capacity, hashTableSize, -1, -1);
     }
 
-    static OffHeapHashTable<String> cache(long capacity, int hashTableSize, int segments, long maxEntrySize)
+    static OffHeapHashTable<?> cache(long capacity, int hashTableSize, int segments, long maxEntrySize)
     {
-        OffHeapHashTableBuilder<String> builder = OffHeapHashTableBuilder.<String>newBuilder()
-                                                  .valueSerializer(HashTableTestUtils.stringSerializer);
+        OffHeapHashTableBuilder<?> builder = OffHeapHashTableBuilder.newBuilder(serializer);
         if (hashTableSize > 0)
             builder.hashTableSize(hashTableSize);
         if (segments > 0)
@@ -53,8 +53,7 @@ public class LinkedImplTest
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testExtremeHashTableSize() throws IOException
     {
-        OffHeapHashTableBuilder<Object> builder = OffHeapHashTableBuilder.newBuilder()
-                                                               .hashTableSize(1 << 30);
+        OffHeapHashTableBuilder<?> builder = OffHeapHashTableBuilder.newBuilder(serializer).hashTableSize(1 << 30);
         builder.build().close();
     }
 

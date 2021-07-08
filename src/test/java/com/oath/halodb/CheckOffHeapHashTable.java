@@ -9,16 +9,13 @@ package com.oath.halodb;
 
 import com.oath.halodb.histo.EstimatedHistogram;
 
-import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
  * This is a {@link OffHeapHashTable} implementation used to validate functionality of
  * {@link OffHeapHashTableImpl} - this implementation is <b>not</b> for production use!
  */
-final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
+final class CheckOffHeapHashTable<E extends HashEntry> implements OffHeapHashTable<E>
 {
-    private final HashTableValueSerializer<V> valueSerializer;
+    private final HashEntrySerializer<E> serializer;
 
     private final CheckSegment[] maps;
     private final int segmentShift;
@@ -27,7 +24,7 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
     private long putFailCount;
     private final Hasher hasher;
 
-    CheckOffHeapHashTable(OffHeapHashTableBuilder<V> builder)
+    CheckOffHeapHashTable(OffHeapHashTableBuilder<E> builder)
     {
         loadFactor = builder.getLoadFactor();
         hasher = Hasher.create(builder.getHashAlgorighm());
@@ -41,47 +38,51 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         for (int i = 0; i < maps.length; i++)
             maps[i] = new CheckSegment(builder.getHashTableSize(), builder.getLoadFactor());
 
-        valueSerializer = builder.getValueSerializer();
+        serializer = builder.getEntrySerializer();
     }
 
-    public boolean put(byte[] key, V value)
+    @Override
+    public boolean put(byte[] key, E entry)
     {
         KeyBuffer keyBuffer = keySource(key);
-        byte[] data = value(value);
+        byte[] data = entry(entry);
 
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, false, null);
     }
 
-    public boolean addOrReplace(byte[] key, V old, V value)
+    @Override
+    public boolean addOrReplace(byte[] key, E old, E entry)
     {
         KeyBuffer keyBuffer = keySource(key);
-        byte[] data = value(value);
-        byte[] oldData = value(old);
+        byte[] data = entry(entry);
+        byte[] oldData = entry(old);
 
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, false, oldData);
     }
 
-    public boolean putIfAbsent(byte[] key, V v)
+    @Override
+    public boolean putIfAbsent(byte[] key, E v)
     {
         KeyBuffer keyBuffer = keySource(key);
-        byte[] data = value(v);
+        byte[] data = entry(v);
 
         CheckSegment segment = segment(keyBuffer.hash());
         return segment.put(keyBuffer, data, true, null);
     }
 
-    public boolean putIfAbsent(byte[] key, V value, long expireAt)
+    public boolean putIfAbsent(byte[] key, E entry, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
-    public boolean put(byte[] key, V value, long expireAt)
+    public boolean put(byte[] key, E entry, long expireAt)
     {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public boolean remove(byte[] key)
     {
         KeyBuffer keyBuffer = keySource(key);
@@ -89,24 +90,34 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return segment.remove(keyBuffer);
     }
 
+    @Override
     public void clear()
     {
         for (CheckSegment map : maps)
             map.clear();
     }
 
-    public V get(byte[] key)
+    @Override
+    public E get(byte[] key)
     {
         KeyBuffer keyBuffer = keySource(key);
         CheckSegment segment = segment(keyBuffer.hash());
-        byte[] value = segment.get(keyBuffer);
+        byte[] entry = segment.get(keyBuffer);
 
-        if (value == null)
+        if (entry == null) {
             return null;
-
-        return valueSerializer.deserialize(ByteBuffer.wrap(value));
+        }
+        int entryLen = serializer.entrySize();
+        long adr = Uns.allocate(entryLen);
+        try {
+            Uns.copyMemory(entry, 0, adr, 0, entryLen);
+            return serializer.deserialize(adr, adr + serializer.sizesSize());
+        } finally {
+            Uns.free(adr);
+        }
     }
 
+    @Override
     public boolean containsKey(byte[] key)
     {
         KeyBuffer keyBuffer = keySource(key);
@@ -114,6 +125,7 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return segment.get(keyBuffer) != null;
     }
 
+    @Override
     public void resetStatistics()
     {
         for (CheckSegment map : maps)
@@ -121,6 +133,7 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         putFailCount = 0;
     }
 
+    @Override
     public long size()
     {
         long r = 0;
@@ -129,12 +142,14 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return r;
     }
 
+    @Override
     public int[] hashTableSizes()
     {
         // no hash table size info
         return new int[maps.length];
     }
 
+    @Override
     public SegmentStats[] perSegmentStats() {
         SegmentStats[] stats = new SegmentStats[maps.length];
         for (int i = 0; i < stats.length; i++) {
@@ -145,21 +160,25 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return stats;
     }
 
+    @Override
     public EstimatedHistogram getBucketHistogram()
     {
         throw new UnsupportedOperationException();
     }
 
+    @Override
     public int segments()
     {
         return maps.length;
     }
 
+    @Override
     public float loadFactor()
     {
         return loadFactor;
     }
 
+    @Override
     public OffHeapHashTableStats stats()
     {
         return new OffHeapHashTableStats(
@@ -215,6 +234,7 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return missCount;
     }
 
+    @Override
     public void close()
     {
         clear();
@@ -235,13 +255,21 @@ final class CheckOffHeapHashTable<V> implements OffHeapHashTable<V>
         return keyBuffer.finish(hasher);
     }
 
-    private byte[] value(V value)
+    private byte[] entry(E entry)
     {
-        if (value == null) {
+        if (entry == null) {
             return null;
         }
-        ByteBuffer buf = ByteBuffer.allocate(valueSerializer.serializedSize(value));
-        valueSerializer.serialize(value, buf);
-        return buf.array();
+        int entryLen = serializer.entrySize();
+        long adr = Uns.allocate(entryLen);
+        try {
+            entry.serializeSizes(adr);
+            entry.serializeLocation(adr + serializer.sizesSize());
+            byte[] out = new byte[entryLen];
+            Uns.copyMemory(adr, 0, out, 0, entryLen);
+            return out;
+        } finally {
+            Uns.free(adr);
+        }
     }
 }

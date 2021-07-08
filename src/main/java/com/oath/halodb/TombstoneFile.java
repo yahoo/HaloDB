@@ -5,8 +5,8 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,13 +18,14 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Objects;
 
-import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class TombstoneFile {
     private static final Logger logger = LoggerFactory.getLogger(TombstoneFile.class);
 
     private final File backingFile;
+    private RandomAccessFile raf;
     private FileChannel channel;
     private final DBDirectory dbDirectory;
 
@@ -58,12 +59,13 @@ class TombstoneFile {
     }
 
     void open() throws IOException {
-        channel = new RandomAccessFile(backingFile, "rw").getChannel();
+        raf = new RandomAccessFile(backingFile, "rw");
+        channel = raf.getChannel();
     }
 
     void close() throws IOException {
-        if (channel != null) {
-            channel.close();
+        if (raf != null) {
+            raf.close();
         }
     }
 
@@ -129,7 +131,7 @@ class TombstoneFile {
         logger.info("Recovered {} records from file {} with size {}. Size after repair {}.", count, getName(), getSize(), repairFile.getSize());
         repairFile.flushToDisk();
         Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
-        dbDirectory.syncMetaData();  
+        dbDirectory.syncMetaData();
         repairFile.close();
         close();
         open();
@@ -193,7 +195,7 @@ class TombstoneFile {
             if (hasNext()) {
                 if (discardCorruptedRecords)
                     return TombstoneEntry.deserializeIfNotCorrupted(buffer);
-                
+
                 return TombstoneEntry.deserialize(buffer);
             }
 

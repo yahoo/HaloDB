@@ -5,7 +5,10 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
+import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,10 +16,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.nio.ByteBuffer;
-import java.util.HashSet;
-import java.util.Random;
-import java.util.Set;
+import com.google.common.primitives.Longs;
 
 public class DataConsistencyTest extends TestBase {
     private static final Logger logger = LoggerFactory.getLogger(DataConsistencyTest.class);
@@ -35,7 +35,7 @@ public class DataConsistencyTest extends TestBase {
     private ByteBuffer[] keys;
 
     private RandomDataGenerator randDataGenerator;
-    private Random random = new Random();
+    private final Random random = new Random();
 
     private HaloDB haloDB;
 

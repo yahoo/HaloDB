@@ -24,10 +24,10 @@ final class KeyBuffer {
 
     KeyBuffer finish(Hasher hasher) {
         hash = hasher.hash(buffer);
-
         return this;
     }
 
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -45,6 +45,7 @@ final class KeyBuffer {
         return buffer.length;
     }
 
+    @Override
     public int hashCode() {
         return (int) hash;
     }
@@ -69,40 +70,5 @@ final class KeyBuffer {
             sb.append(' ');
         }
         return sb.toString();
-    }
-
-    // This is meant to be used only with non-pooled memory.
-    //TODO: move to another class. 
-    boolean sameKey(long hashEntryAdr) {
-        long serKeyLen = NonMemoryPoolHashEntries.getKeyLen(hashEntryAdr);
-        return serKeyLen == buffer.length && compareKey(hashEntryAdr);
-    }
-
-    private boolean compareKey(long hashEntryAdr) {
-        int blkOff = (int) NonMemoryPoolHashEntries.ENTRY_OFF_DATA;
-        int p = 0;
-        int endIdx = buffer.length;
-        for (; endIdx - p >= 8; p += 8) {
-            if (Uns.getLong(hashEntryAdr, blkOff + p) != Uns.getLongFromByteArray(buffer, p)) {
-                return false;
-            }
-        }
-        for (; endIdx - p >= 4; p += 4) {
-            if (Uns.getInt(hashEntryAdr, blkOff + p) != Uns.getIntFromByteArray(buffer, p)) {
-                return false;
-            }
-        }
-        for (; endIdx - p >= 2; p += 2) {
-            if (Uns.getShort(hashEntryAdr, blkOff + p) != Uns.getShortFromByteArray(buffer, p)) {
-                return false;
-            }
-        }
-        for (; endIdx - p >= 1; p += 1) {
-            if (Uns.getByte(hashEntryAdr, blkOff + p) != buffer[p]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

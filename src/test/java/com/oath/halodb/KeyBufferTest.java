@@ -7,19 +7,19 @@
 
 package com.oath.halodb;
 
-import com.google.common.hash.HashCode;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+import java.nio.ByteBuffer;
 
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.nio.ByteBuffer;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 
 public class KeyBufferTest
 {
@@ -152,20 +152,27 @@ public class KeyBufferTest
     }
 
     private void compareKey(byte[] randomKey) {
+        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(13);
+        ByteArrayEntry randomEntry = serializer.randomEntry(randomKey.length);
+        long entryOffset = NonMemoryPoolHashEntries.ENTRY_OFF_DATA;
+        long locationOffset = entryOffset + serializer.sizesSize();
+        long keyOffset = entryOffset + serializer.entrySize();
 
-        long adr = Uns.allocate(NonMemoryPoolHashEntries.ENTRY_OFF_DATA + randomKey.length, true);
+        long adr = Uns.allocate(keyOffset + randomKey.length, true);
         try {
             KeyBuffer key = new KeyBuffer(randomKey);
             key.finish(com.oath.halodb.Hasher.create(HashAlgorithm.MURMUR3));
 
-            NonMemoryPoolHashEntries.init(randomKey.length, adr);
-            Uns.setMemory(adr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, randomKey.length, (byte) 0);
+            NonMemoryPoolHashEntries.init(adr);
+            randomEntry.serializeSizes(adr + entryOffset);
+            randomEntry.serializeLocation(adr + locationOffset);
+            Uns.setMemory(adr, keyOffset, randomKey.length, (byte) 0);
 
-            assertFalse(key.sameKey(adr));
+            assertFalse(SegmentNonMemoryPool.sameKey(randomKey, adr, serializer));
 
-            Uns.copyMemory(randomKey, 0, adr, NonMemoryPoolHashEntries.ENTRY_OFF_DATA, randomKey.length);
-            NonMemoryPoolHashEntries.init(randomKey.length, adr);
-            assertTrue(key.sameKey(adr));
+            Uns.copyMemory(randomKey, 0, adr, keyOffset, randomKey.length);
+            NonMemoryPoolHashEntries.init(adr);
+            assertTrue(SegmentNonMemoryPool.sameKey(randomKey, adr , serializer));
         } finally {
             Uns.free(adr);
         }

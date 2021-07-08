@@ -1,11 +1,11 @@
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import mockit.Invocation;
 import mockit.Mock;
@@ -62,15 +62,15 @@ public class SyncWriteTest extends TestBase {
         };
 
         HaloDBOptions options = new HaloDBOptions();
-        // value set to make sure that flush to disk will be called once.  
+        // value set to make sure that flush to disk will be called once.
         options.setFlushDataSizeBytes(10 * 1024 - 1);
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10;
-        TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - Record.Header.HEADER_SIZE);
+        TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - RecordEntry.Header.HEADER_SIZE);
 
         // 10 records of size 1024 each was inserted and flush size was set to 10 * 1024 - 1,
-        // therefore data will be flushed to disk once. 
+        // therefore data will be flushed to disk once.
         Assert.assertEquals(dataFileCount.get(), 1);
     }
 
@@ -95,12 +95,12 @@ public class SyncWriteTest extends TestBase {
         };
 
         HaloDBOptions options = new HaloDBOptions();
-        // value set to make sure that flush to disk will not be called. 
+        // value set to make sure that flush to disk will not be called.
         options.setFlushDataSizeBytes(1024 * 1024 * 1024);
 
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 100;
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024 - RecordEntry.Header.HEADER_SIZE);
         for (Record r : records) {
             db.delete(r.getKey());
         }

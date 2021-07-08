@@ -5,20 +5,15 @@
 
 package com.oath.halodb;
 
-import com.google.common.util.concurrent.RateLimiter;
+import java.io.IOException;
+import java.util.List;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import sun.nio.ch.FileChannelImpl;
-
-import java.io.IOException;
-import java.nio.channels.WritableByteChannel;
-import java.nio.file.Paths;
-import java.util.List;
+import com.google.common.util.concurrent.RateLimiter;
 
 import mockit.Expectations;
-import mockit.Invocation;
 import mockit.Mock;
 import mockit.MockUp;
 import mockit.Mocked;
@@ -35,7 +30,7 @@ public class CompactionWithErrorsTest extends TestBase {
             @Mock
             public double acquire(int permits) {
                 if (++callCount == 3) {
-                    // throw an exception when copying the third record. 
+                    // throw an exception when copying the third record.
                     throw new OutOfMemoryError("Throwing mock exception form compaction thread.");
                 }
                 return 10;
@@ -56,7 +51,7 @@ public class CompactionWithErrorsTest extends TestBase {
         TestUtils.waitForCompactionToComplete(db);
 
         // An exception was thrown while copying a record in the compaction thread.
-        // Make sure that all records are still correct. 
+        // Make sure that all records are still correct.
         Assert.assertEquals(db.size(), records.size());
         for (Record r : records) {
             Assert.assertEquals(db.get(r.getKey()), r.getValue());
@@ -67,7 +62,7 @@ public class CompactionWithErrorsTest extends TestBase {
 
         // Make sure that everything is good after
         // we open the db again. Since compaction had failed
-        // there would be two copies of the same record in two different files. 
+        // there would be two copies of the same record in two different files.
         Assert.assertEquals(db.size(), records.size());
         for (Record r : records) {
             Assert.assertEquals(db.get(r.getKey()), r.getValue());
@@ -88,7 +83,7 @@ public class CompactionWithErrorsTest extends TestBase {
             @Mock
             public double acquire(int permits) {
                 if (++callCount == 3 || callCount == 8) {
-                    // throw exceptions twice, each time compaction thread should crash and restart. 
+                    // throw exceptions twice, each time compaction thread should crash and restart.
                     throw new OutOfMemoryError("Throwing mock exception from compaction thread.");
                 }
                 return 10;
@@ -130,14 +125,14 @@ public class CompactionWithErrorsTest extends TestBase {
             // called when db.open()
             compactionManager.startCompactionThread();
 
-            // compaction thread should have crashed twice and each time it should have been restarted.  
+            // compaction thread should have crashed twice and each time it should have been restarted.
             compactionManager.startCompactionThread();
             compactionManager.startCompactionThread();
 
             // called after db.close()
             compactionManager.stopCompactionThread(true);
 
-            // called when db.open() the second time. 
+            // called when db.open() the second time.
             compactionManager.startCompactionThread();
         }};
 
@@ -176,12 +171,12 @@ public class CompactionWithErrorsTest extends TestBase {
         DBMetaData dbMetaData = new DBMetaData(dbDirectory);
         dbMetaData.loadFromFileIfExists();
 
-        // Since there was an IOException while stopping compaction IOError flag must have been set. 
+        // Since there was an IOException while stopping compaction IOError flag must have been set.
         Assert.assertTrue(dbMetaData.isIOError());
     }
 
     private List<Record> insertAndUpdate(HaloDB db, int numberOfRecords) throws HaloDBException {
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, numberOfRecords, 1024 - Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, numberOfRecords, 1024 - RecordEntry.Header.HEADER_SIZE);
 
         // Update first 5 records in each file.
         for (int i = 0; i < 5; i++) {

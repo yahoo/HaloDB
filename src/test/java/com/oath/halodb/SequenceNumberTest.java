@@ -5,15 +5,15 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 /**
  * @author Pulkit Goel
@@ -38,7 +38,7 @@ public class SequenceNumberTest extends TestBase {
         List<Long> sequenceNumbers = new ArrayList<>();
         int count = 1;
         while (haloDBFileIterator.hasNext()) {
-            Record record = haloDBFileIterator.next();
+            RecordEntry record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
             Assert.assertEquals(record.getSequenceNumber(), count++);
         }
@@ -47,11 +47,11 @@ public class SequenceNumberTest extends TestBase {
 
         // open and read the content again
         HaloDB reopenedDb = getTestDBWithoutDeletingFiles(directory, options);
-        List<Record> records = new ArrayList<>();
-        reopenedDb.newIterator().forEachRemaining(records::add);
+        List<RecordIterated> records = new ArrayList<>();
+        reopenedDb.newIterator().forEachRemaining(record -> records.add((RecordIterated) record));
 
         // Verify that the sequence number is still present after reopening the DB
-        sequenceNumbers = records.stream().map(record -> record.getRecordMetaData().getSequenceNumber()).collect(Collectors.toList());
+        sequenceNumbers = records.stream().map(record -> record.getSequenceNumber()).collect(Collectors.toList());
         count = 1;
         for (long s : sequenceNumbers) {
             Assert.assertEquals(s, count++);
@@ -68,7 +68,7 @@ public class SequenceNumberTest extends TestBase {
         sequenceNumbers = new ArrayList<>();
         count = 110;
         while (haloDBFileIterator.hasNext()) {
-            Record record = haloDBFileIterator.next();
+            RecordEntry record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
             Assert.assertEquals(record.getSequenceNumber(), count++);
         }
@@ -109,7 +109,7 @@ public class SequenceNumberTest extends TestBase {
         sequenceNumbers = new ArrayList<>();
         count = 229;
         while (haloDBFileIterator.hasNext()) {
-            Record record = haloDBFileIterator.next();
+            RecordEntry record = haloDBFileIterator.next();
             sequenceNumbers.add(record.getSequenceNumber());
             Assert.assertEquals(record.getSequenceNumber(), count++);
         }

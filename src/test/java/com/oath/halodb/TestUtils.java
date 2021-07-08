@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,6 +24,9 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
@@ -51,7 +51,7 @@ public class TestUtils {
         for (int i = 0; i < noOfRecords; i++) {
             byte[] key;
             if (size > 0) {
-             key = TestUtils.generateRandomByteArray(random.nextInt(Math.min(Byte.MAX_VALUE-1, size))+1);
+                key = TestUtils.generateRandomByteArray(random.nextInt(Math.min(Byte.MAX_VALUE-1, size))+1);
             }
             else {
                 key = TestUtils.generateRandomByteArray();
@@ -118,7 +118,7 @@ public class TestUtils {
 
         records.forEach(record -> {
             try {
-                byte[] value = TestUtils.generateRandomByteArray(size-record.getKey().length-Record.Header.HEADER_SIZE);
+                byte[] value = TestUtils.generateRandomByteArray(size-record.getKey().length-RecordEntry.Header.HEADER_SIZE);
                 db.put(record.getKey(), value);
                 updated.add(new Record(record.getKey(), value));
             } catch (HaloDBException e) {

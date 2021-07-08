@@ -5,20 +5,27 @@
 
 package com.oath.halodb;
 
-import java.nio.ByteBuffer;
+class InMemoryIndexMetaDataSerializer extends HashEntrySerializer<InMemoryIndexMetaData> {
 
-class InMemoryIndexMetaDataSerializer implements HashTableValueSerializer<InMemoryIndexMetaData> {
-
-    public void serialize(InMemoryIndexMetaData recordMetaData, ByteBuffer byteBuffer) {
-        recordMetaData.serialize(byteBuffer);
-        byteBuffer.flip();
+    @Override
+    final InMemoryIndexMetaData deserialize(long sizeAddress, long locationAddress) {
+        int firstWord = Uns.getInt(sizeAddress, 0);
+        byte nextByte = Uns.getByte(sizeAddress, 4);
+        short keySize = HashEntry.extractKeySize(firstWord);
+        int valueSize = HashEntry.extractValueSize(firstWord, nextByte);
+        int fileId = HashEntryLocation.readFileId(locationAddress);
+        int valueOffset = HashEntryLocation.readValueOffset(locationAddress);
+        long sequenceNumber = HashEntryLocation.readSequenceNumber(locationAddress);
+        return new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber, keySize);
     }
 
-    public InMemoryIndexMetaData deserialize(ByteBuffer byteBuffer) {
-        return InMemoryIndexMetaData.deserialize(byteBuffer);
+    @Override
+    final int locationSize() {
+        return HashEntryLocation.ENTRY_LOCATION_SIZE;
     }
 
-    public int serializedSize(InMemoryIndexMetaData recordMetaData) {
-        return InMemoryIndexMetaData.SERIALIZED_SIZE;
+    @Override
+    boolean validSize(InMemoryIndexMetaData entry) {
+        return true;
     }
 }

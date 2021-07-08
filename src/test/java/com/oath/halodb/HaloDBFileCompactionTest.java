@@ -5,17 +5,17 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
-
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.testng.annotations.Test;
+
+import com.google.common.primitives.Longs;
 
 public class HaloDBFileCompactionTest extends TestBase {
 
@@ -31,7 +31,7 @@ public class HaloDBFileCompactionTest extends TestBase {
 
         HaloDB db = getTestDB(directory, options);
 
-        byte[] data = new byte[recordSize - Record.Header.HEADER_SIZE - 8 - 8];
+        byte[] data = new byte[recordSize - RecordEntry.Header.HEADER_SIZE - 8 - 8];
         for (int i = 0; i < data.length; i++) {
             data[i] = (byte)i;
         }
@@ -46,7 +46,7 @@ public class HaloDBFileCompactionTest extends TestBase {
 
         List<Record> freshRecords = new ArrayList<>();
 
-        // There are two data files. make the first half of both the files stale. 
+        // There are two data files. make the first half of both the files stale.
         for (int i = 0; i < 5; i++) {
             db.put(records[i].getKey(), records[i].getValue());
             db.put(records[i+10].getKey(), records[i+10].getValue());

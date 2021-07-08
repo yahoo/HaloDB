@@ -5,17 +5,6 @@
 
 package com.oath.halodb;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.primitives.Ints;
-
-import com.google.common.util.concurrent.RateLimiter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.regex.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,6 +12,9 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,11 +24,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.RateLimiter;
 
 class HaloDBInternal {
 
@@ -51,7 +56,7 @@ class HaloDBInternal {
 
     private volatile Thread tombstoneMergeThread;
 
-    private Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
+    private final Map<Integer, HaloDBFile> readFileMap = new ConcurrentHashMap<>();
 
     HaloDBOptions options;
 
@@ -216,16 +221,10 @@ class HaloDBInternal {
     }
 
     boolean put(byte[] key, byte[] value) throws IOException, HaloDBException {
-        if (key.length > Byte.MAX_VALUE) {
-            throw new HaloDBException("key length cannot exceed " + Byte.MAX_VALUE);
-        }
-
-        //TODO: more fine-grained locking is possible. 
+        //TODO: more fine-grained locking is possible.
         writeLock.lock();
         try {
-            Record record = new Record(key, value);
-            record.setSequenceNumber(getNextSequenceNumber());
-            record.setVersion(Versions.CURRENT_DATA_FILE_VERSION);
+            RecordEntry record = RecordEntry.newEntry(key, value, getNextSequenceNumber());
             InMemoryIndexMetaData entry = writeRecordToFile(record);
             markPreviousVersionAsStale(key);
 
@@ -262,7 +261,7 @@ class HaloDBInternal {
                 return get(key, attemptNumber+1);
             }
 
-            // trying to read after HaloDB.close() method called. 
+            // trying to read after HaloDB.close() method called.
             throw e;
         }
     }
@@ -425,13 +424,13 @@ class HaloDBInternal {
         compactionManager.resumeCompaction();
     }
 
-    private InMemoryIndexMetaData writeRecordToFile(Record record) throws IOException, HaloDBException {
+    private InMemoryIndexMetaData writeRecordToFile(RecordEntry record) throws IOException, HaloDBException {
         rollOverCurrentWriteFile(record);
         return currentWriteFile.writeRecord(record);
     }
 
     private void rollOverCurrentWriteFile(Record record) throws IOException {
-        int size = record.getKey().length + record.getValue().length + Record.Header.HEADER_SIZE;
+        int size = record.getKey().length + record.getValue().length + RecordEntry.Header.HEADER_SIZE;
         if ((currentWriteFile == null || currentWriteFile.getWriteOffset() + size > options.getMaxFileSize())
             && !isClosing) {
             forceRollOverCurrentWriteFile();
@@ -477,7 +476,7 @@ class HaloDBInternal {
     }
 
     private void markPreviousVersionAsStale(byte[] key, InMemoryIndexMetaData recordMetaData) {
-        int staleRecordSize = Utils.getRecordSize(key.length, recordMetaData.getValueSize());
+        int staleRecordSize = RecordEntry.getRecordSize(key.length, recordMetaData.getValueSize());
         addFileToCompactionQueueIfThresholdCrossed(recordMetaData.getFileId(), staleRecordSize);
     }
 
@@ -648,28 +647,24 @@ class HaloDBInternal {
             int count = 0, inserted = 0;
             while (iterator.hasNext()) {
                 IndexFileEntry indexFileEntry = iterator.next();
+                InMemoryIndexMetaData metaData = new InMemoryIndexMetaData(indexFileEntry, fileId);
                 byte[] key = indexFileEntry.getKey();
-                int recordOffset = indexFileEntry.getRecordOffset();
-                int recordSize = indexFileEntry.getRecordSize();
                 long sequenceNumber = indexFileEntry.getSequenceNumber();
                 maxSequenceNumber = Long.max(sequenceNumber, maxSequenceNumber);
-                int valueOffset = Utils.getValueOffset(recordOffset, key);
-                int valueSize = recordSize - (Record.Header.HEADER_SIZE + key.length);
                 count++;
-
-                InMemoryIndexMetaData metaData = new InMemoryIndexMetaData(fileId, valueOffset, valueSize, sequenceNumber);
 
                 if (!inMemoryIndex.putIfAbsent(key, metaData)) {
                     while (true) {
                         InMemoryIndexMetaData existing = inMemoryIndex.get(key);
                         if (existing.getSequenceNumber() >= sequenceNumber) {
                             // stale data, update stale data map.
-                            addFileToCompactionQueueIfThresholdCrossed(fileId, recordSize);
+                            addFileToCompactionQueueIfThresholdCrossed(fileId, indexFileEntry.getRecordSize());
                             break;
                         }
                         if (inMemoryIndex.replace(key, existing, metaData)) {
                             // update stale data map for the previous version.
-                            addFileToCompactionQueueIfThresholdCrossed(existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                            addFileToCompactionQueueIfThresholdCrossed(
+                                existing.getFileId(),RecordEntry.getRecordSize(key.length, existing.getValueSize()));
                             inserted++;
                             break;
                         }
@@ -716,7 +711,7 @@ class HaloDBInternal {
 
                     // update stale data map for the previous version.
                     addFileToCompactionQueueIfThresholdCrossed(
-                        existing.getFileId(), Utils.getRecordSize(key.length, existing.getValueSize()));
+                        existing.getFileId(), RecordEntry.getRecordSize(key.length, existing.getValueSize()));
                     active++;
 
                     if (options.isCleanUpTombstonesDuringOpen()) {

@@ -5,9 +5,6 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.attribute.FileTime;
@@ -15,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class DBRepairTest extends TestBase {
 
@@ -26,9 +26,9 @@ public class DBRepairTest extends TestBase {
         options.setCompactionDisabled(true);
 
         HaloDB db = getTestDB(directory, options);
-        int noOfRecords = 5 * 1024 + 512; // 5 files with 1024 records and 1 with 512 records. 
+        int noOfRecords = 5 * 1024 + 512; // 5 files with 1024 records and 1 with 512 records.
 
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         // delete half the records.
         for (int i = 0; i < noOfRecords; i++) {
@@ -88,7 +88,7 @@ public class DBRepairTest extends TestBase {
         HaloDB db = getTestDB(directory, options);
         int noOfRecords = 10 * 1024 + 512;
 
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
         List<Record> toUpdate = IntStream.range(0, noOfRecords).filter(i -> i%2==0).mapToObj(i -> records.get(i)).collect(Collectors.toList());
         List<Record> updatedRecords = TestUtils.updateRecords(db, toUpdate);
         for (int i = 0; i < updatedRecords.size(); i++) {

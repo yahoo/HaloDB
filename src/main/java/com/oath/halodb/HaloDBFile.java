@@ -176,11 +176,13 @@ class HaloDBFile {
         logger.info("Recovered {} records from file {} with size {}. Size after repair {}.", count, getName(), getSize(), repairFile.getSize());
         repairFile.flushToDisk();
         repairFile.indexFile.flushToDisk();
+        indexFile.close();
+        repairFile.indexFile.close();
         Files.move(repairFile.indexFile.getPath(), indexFile.getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
-        Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
-        dbDirectory.syncMetaData();
         repairFile.close();
         close();
+        Files.move(repairFile.getPath(), getPath(), REPLACE_EXISTING, ATOMIC_MOVE);
+        dbDirectory.syncMetaData();
         return openForReading(dbDirectory, getPath().toFile(), fileType, options);
     }
 

@@ -5,12 +5,12 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class HaloDBStatsTest extends TestBase {
 
@@ -50,11 +50,11 @@ public class HaloDBStatsTest extends TestBase {
 
         HaloDB db = getTestDB(dir, options);
 
-        // will create 10 files with 10 records each. 
-        int recordSize = 1024 - Record.Header.HEADER_SIZE;
+        // will create 10 files with 10 records each.
+        int recordSize = 1024 - RecordEntry.Header.HEADER_SIZE;
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, 100, recordSize);
 
-        // No updates hence stale data map should be empty. 
+        // No updates hence stale data map should be empty.
         Assert.assertEquals(db.stats().getStaleDataPercentPerFile().size(), 0);
 
         for (int i = 0; i < records.size(); i++) {
@@ -62,7 +62,7 @@ public class HaloDBStatsTest extends TestBase {
                 db.put(records.get(i).getKey(), TestUtils.generateRandomByteArray(recordSize));
         }
 
-        // Updated 1 out of 10 records in each file, hence 10% stale data. 
+        // Updated 1 out of 10 records in each file, hence 10% stale data.
         Assert.assertEquals(db.stats().getStaleDataPercentPerFile().size(), 10);
         db.stats().getStaleDataPercentPerFile().forEach((k, v) -> {
             Assert.assertEquals(v, 10.0);
@@ -82,14 +82,14 @@ public class HaloDBStatsTest extends TestBase {
 
         HaloDB db = getTestDB(dir, options);
         // will create 10 files with 10 records each.
-        int recordSize = 1024 - Record.Header.HEADER_SIZE;
+        int recordSize = 1024 - RecordEntry.Header.HEADER_SIZE;
         int noOfRecords = 100;
         List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, recordSize);
 
         Assert.assertEquals(db.stats().getNumberOfDataFiles(), 10);
         Assert.assertEquals(db.stats().getNumberOfTombstoneFiles(), 0);
 
-        // update 50% of records in each file. 
+        // update 50% of records in each file.
         for (int i = 0; i < records.size(); i++) {
             if (i % 10 < 5)
                 db.put(records.get(i).getKey(), TestUtils.generateRandomByteArray(records.get(i).getValue().length));
@@ -113,7 +113,7 @@ public class HaloDBStatsTest extends TestBase {
 
         TestUtils.waitForCompactionToComplete(db);
 
-        // compaction complete hence stale data map is empty. 
+        // compaction complete hence stale data map is empty.
         HaloDBStats stats = db.stats();
         Assert.assertEquals(stats.getStaleDataPercentPerFile().size(), 0);
 

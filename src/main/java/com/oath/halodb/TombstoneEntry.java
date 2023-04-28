@@ -9,13 +9,10 @@ import java.nio.ByteBuffer;
 import java.util.zip.CRC32;
 
 class TombstoneEntry {
-    //TODO: test.
-
     /**
-     * crc              - 4 byte
-     * version          - 1 byte
-     * Key size         - 1 byte
-     * Sequence number  - 8 byte
+     * crc                - 4 bytes.
+     * version + key size - 2 bytes.  5 bits for version, 11 for keySize,
+     * Sequence number    - 8 bytes.
      */
     static final int TOMBSTONE_ENTRY_HEADER_SIZE = 4 + 1 + 1 + 8;
     static final int CHECKSUM_SIZE = 4;
@@ -28,9 +25,9 @@ class TombstoneEntry {
     private final byte[] key;
     private final long sequenceNumber;
     private final long checkSum;
-    private final int version;
+    private final byte version;
 
-    TombstoneEntry(byte[] key, long sequenceNumber, long checkSum, int version) {
+    TombstoneEntry(byte[] key, long sequenceNumber, long checkSum, byte version) {
         this.key = key;
         this.sequenceNumber = sequenceNumber;
         this.checkSum = checkSum;
@@ -45,7 +42,7 @@ class TombstoneEntry {
         return sequenceNumber;
     }
 
-    int getVersion() {
+    byte getVersion() {
         return version;
     }
 
@@ -57,12 +54,16 @@ class TombstoneEntry {
         return TOMBSTONE_ENTRY_HEADER_SIZE + key.length;
     }
 
-    ByteBuffer[] serialize() {
-        byte keySize = (byte)key.length;
+    private ByteBuffer serializeHeader() {
         ByteBuffer header = ByteBuffer.allocate(TOMBSTONE_ENTRY_HEADER_SIZE);
-        header.put(VERSION_OFFSET, (byte)version);
+        header.put(VERSION_OFFSET, Utils.versionByte(version, key.length));
         header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
-        header.put(KEY_SIZE_OFFSET, keySize);
+        header.put(KEY_SIZE_OFFSET, Utils.keySizeByte(key.length));
+        return header;
+    }
+
+    ByteBuffer[] serialize() {
+        ByteBuffer header = serializeHeader();
         long crc32 = computeCheckSum(header.array());
         header.putInt(CHECKSUM_OFFSET, Utils.toSignedIntFromLong(crc32));
         return new ByteBuffer[] {header, ByteBuffer.wrap(key)};
@@ -70,26 +71,29 @@ class TombstoneEntry {
 
     static TombstoneEntry deserialize(ByteBuffer buffer) {
         long crc32 = Utils.toUnsignedIntFromInt(buffer.getInt());
-        int version = Utils.toUnsignedByte(buffer.get());
+        byte vByte = buffer.get();
         long sequenceNumber = buffer.getLong();
-        int keySize = (int)buffer.get();
+        byte keySizeByte = buffer.get();
+        byte version = Utils.version(vByte);
+        short keySize = Utils.keySize(vByte, keySizeByte);
         byte[] key = new byte[keySize];
         buffer.get(key);
 
         return new TombstoneEntry(key, sequenceNumber, crc32, version);
     }
 
-    // returns null if a corrupted entry is detected. 
+    // returns null if a corrupted entry is detected.
     static TombstoneEntry deserializeIfNotCorrupted(ByteBuffer buffer) {
         if (buffer.remaining() < TOMBSTONE_ENTRY_HEADER_SIZE) {
             return null;
         }
-
         long crc32 = Utils.toUnsignedIntFromInt(buffer.getInt());
-        int version = Utils.toUnsignedByte(buffer.get());
+        byte vByte = buffer.get();
         long sequenceNumber = buffer.getLong();
-        int keySize = (int)buffer.get();
-        if (sequenceNumber < 0 || keySize <= 0 || version < 0 || version > 255 || buffer.remaining() < keySize)
+        byte keySizeByte = buffer.get();
+        byte version = Utils.version(vByte);
+        short keySize = Utils.keySize(vByte, keySizeByte);
+        if (sequenceNumber < 0 || keySize < 0 || version < 0 || version > 31 || buffer.remaining() < keySize)
             return null;
 
         byte[] key = new byte[keySize];
@@ -111,10 +115,7 @@ class TombstoneEntry {
     }
 
     long computeCheckSum() {
-        ByteBuffer header = ByteBuffer.allocate(TOMBSTONE_ENTRY_HEADER_SIZE);
-        header.put(VERSION_OFFSET, (byte)version);
-        header.putLong(SEQUENCE_NUMBER_OFFSET, sequenceNumber);
-        header.put(KEY_SIZE_OFFSET, (byte)key.length);
+        ByteBuffer header = serializeHeader();
         return computeCheckSum(header.array());
     }
 }

@@ -7,26 +7,20 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
-import com.oath.halodb.histo.EstimatedHistogram;
+import java.util.Arrays;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import com.oath.halodb.histo.EstimatedHistogram;
 
-final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
+final class OffHeapHashTableImpl<E extends HashEntry> implements OffHeapHashTable<E> {
 
     private static final Logger logger = LoggerFactory.getLogger(OffHeapHashTableImpl.class);
 
-    private final HashTableValueSerializer<V> valueSerializer;
+    private final HashEntrySerializer<E> serializer;
 
-    private final int fixedValueLength;
-
-    private final List<Segment<V>> segments;
+    private final Segment<E>[] segments;
     private final long segmentMask;
     private final int segmentShift;
 
@@ -34,27 +28,26 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
 
     private volatile long putFailCount;
 
-    private boolean closed;
+    private boolean closed = false;
 
     private final Hasher hasher;
 
-    OffHeapHashTableImpl(OffHeapHashTableBuilder<V> builder) {
+    OffHeapHashTableImpl(OffHeapHashTableBuilder<E> builder) {
         this.hasher = Hasher.create(builder.getHashAlgorighm());
-        this.fixedValueLength = builder.getFixedValueSize();
 
         // build segments
         if (builder.getSegmentCount() <= 0) {
             throw new IllegalArgumentException("Segment count should be > 0");
         }
-        segmentCount = Ints.checkedCast(HashTableUtil.roundUpToPowerOf2(builder.getSegmentCount(), 1 << 30));
-        segments = new ArrayList<>(segmentCount);
+        segmentCount = HashTableUtil.roundUpToPowerOf2(builder.getSegmentCount(), 30);
+        segments = new Segment[segmentCount];
         for (int i = 0; i < segmentCount; i++) {
             try {
-                segments.add(allocateSegment(builder));
+                segments[i] = (allocateSegment(builder));
             } catch (RuntimeException e) {
                 for (; i >= 0; i--) {
-                    if (segments.get(i) != null) {
-                        segments.get(i).release();
+                    if (segments[i] != null) {
+                        segments[i].release();
                     }
                 }
                 throw e;
@@ -66,22 +59,23 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         this.segmentShift = 64 - bitNum;
         this.segmentMask = ((long) segmentCount - 1) << segmentShift;
 
-        this.valueSerializer = builder.getValueSerializer();
-        if (valueSerializer == null) {
-            throw new NullPointerException("valueSerializer == null");
+        this.serializer = builder.getEntrySerializer();
+        if (serializer == null) {
+            throw new NullPointerException("serializer == null");
         }
 
         logger.debug("off-heap index with {} segments created.", segmentCount);
     }
 
-    private Segment<V> allocateSegment(OffHeapHashTableBuilder<V> builder) {
+    private Segment<E> allocateSegment(OffHeapHashTableBuilder<E> builder) {
         if (builder.isUseMemoryPool()) {
             return new SegmentWithMemoryPool<>(builder);
         }
         return new SegmentNonMemoryPool<>(builder);
     }
 
-    public V get(byte[] key) {
+    @Override
+    public E get(byte[] key) {
         if (key == null) {
             throw new NullPointerException();
         }
@@ -90,6 +84,7 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         return segment(keySource.hash()).getEntry(keySource);
     }
 
+    @Override
     public boolean containsKey(byte[] key) {
         if (key == null) {
             throw new NullPointerException();
@@ -99,48 +94,36 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         return segment(keySource.hash()).containsEntry(keySource);
     }
 
-    public boolean put(byte[] k, V v) {
+    @Override
+    public boolean put(byte[] k, E v) {
         return putInternal(k, v, false, null);
     }
 
-    public boolean addOrReplace(byte[] key, V old, V value) {
-        return putInternal(key, value, false, old);
+    @Override
+    public boolean addOrReplace(byte[] key, E old, E entry) {
+        return putInternal(key, entry, false, old);
     }
 
-    public boolean putIfAbsent(byte[] k, V v) {
+    @Override
+    public boolean putIfAbsent(byte[] k, E v) {
         return putInternal(k, v, true, null);
     }
 
-    private boolean putInternal(byte[] key, V value, boolean ifAbsent, V old) {
-        if (key == null || value == null) {
+    private boolean putInternal(byte[] key, E entry, boolean ifAbsent, E old) {
+        if (key == null || entry == null) {
             throw new NullPointerException();
         }
-
-        int valueSize = valueSize(value);
-        if (valueSize != fixedValueLength) {
-            throw new IllegalArgumentException("value size " + valueSize + " greater than fixed value size " + fixedValueLength);
+        Utils.validateKeySize(key.length);
+        serializer.validateSize(entry);
+        if (old != null) {
+            serializer.validateSize(entry);
         }
-
-        if (old != null && valueSize(old) != fixedValueLength) {
-            throw new IllegalArgumentException("old value size " + valueSize(old) + " greater than fixed value size " + fixedValueLength);
-        }
-
-        if (key.length > Byte.MAX_VALUE) {
-            throw new IllegalArgumentException("key size of " + key.length + " exceeds max permitted size of " + Byte.MAX_VALUE);
-        }
-
-        long hash = hasher.hash(key);
-        return segment(hash).putEntry(key, value, hash, ifAbsent, old);
+        KeyBuffer k = new KeyBuffer(key);
+        k.finish(hasher);
+        return segment(k.hash()).putEntry(k, entry, ifAbsent, old);
     }
 
-    private int valueSize(V v) {
-        int sz = valueSerializer.serializedSize(v);
-        if (sz <= 0) {
-            throw new IllegalArgumentException("Illegal value length " + sz);
-        }
-        return sz;
-    }
-
+    @Override
     public boolean remove(byte[] k) {
         if (k == null) {
             throw new NullPointerException();
@@ -150,9 +133,9 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         return segment(keySource.hash()).removeEntry(keySource);
     }
 
-    private Segment<V> segment(long hash) {
+    private Segment<E> segment(long hash) {
         int seg = (int) ((hash & segmentMask) >>> segmentShift);
-        return segments.get(seg);
+        return segments[seg];
     }
 
     private KeyBuffer keySource(byte[] key) {
@@ -164,8 +147,9 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
     // maintenance
     //
 
+    @Override
     public void clear() {
-        for (Segment map : segments) {
+        for (Segment<E> map : segments) {
             map.clear();
         }
     }
@@ -179,12 +163,16 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
 
     }
 
+    @Override
     public void close() {
+        if (closed) {
+          return;
+        }
         closed = true;
-        for (Segment map : segments) {
+        for (Segment<E> map : segments) {
             map.release();
         }
-        Collections.fill(segments, null);
+        Arrays.fill(segments, null);
 
         if (logger.isDebugEnabled()) {
             logger.debug("Closing OHC instance");
@@ -195,17 +183,19 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
     // statistics and related stuff
     //
 
+    @Override
     public void resetStatistics() {
-        for (Segment map : segments) {
+        for (Segment<E> map : segments) {
             map.resetStatistics();
         }
         putFailCount = 0;
     }
 
+    @Override
     public OffHeapHashTableStats stats() {
         long hitCount = 0, missCount = 0, size = 0,
-            freeCapacity = 0, rehashes = 0, putAddCount = 0, putReplaceCount = 0, removeCount = 0;
-        for (Segment map : segments) {
+            rehashes = 0, putAddCount = 0, putReplaceCount = 0, removeCount = 0;
+        for (Segment<E> map : segments) {
             hitCount += map.hitCount();
             missCount += map.missCount();
             size += map.size();
@@ -227,51 +217,57 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
             perSegmentStats());
     }
 
+    @Override
     public long size() {
         long size = 0L;
-        for (Segment map : segments) {
+        for (Segment<E> map : segments) {
             size += map.size();
         }
         return size;
     }
 
+    @Override
     public int segments() {
-        return segments.size();
+        return segments.length;
     }
 
+    @Override
     public float loadFactor() {
-        return segments.get(0).loadFactor();
+        return segments[0].loadFactor();
     }
 
+    @Override
     public int[] hashTableSizes() {
-        int[] r = new int[segments.size()];
-        for (int i = 0; i < segments.size(); i++) {
-            r[i] = segments.get(i).hashTableSize();
+        int[] r = new int[segments.length];
+        for (int i = 0; i < segments.length; i++) {
+            r[i] = segments[i].hashTableSize();
         }
         return r;
     }
 
     public long[] perSegmentSizes() {
-        long[] r = new long[segments.size()];
-        for (int i = 0; i < segments.size(); i++) {
-            r[i] = segments.get(i).size();
+        long[] r = new long[segments.length];
+        for (int i = 0; i < segments.length; i++) {
+            r[i] = segments[i].size();
         }
         return r;
     }
 
+    @Override
     public SegmentStats[] perSegmentStats() {
-        SegmentStats[] stats = new SegmentStats[segments.size()];
+        SegmentStats[] stats = new SegmentStats[segments.length];
         for (int i = 0; i < stats.length; i++) {
-            Segment<V> map = segments.get(i);
+            Segment<E> map = segments[i];
             stats[i] = new SegmentStats(map.size(), map.numberOfChunks(), map.numberOfSlots(), map.freeListSize());
         }
 
         return stats;
     }
 
+    @Override
     public EstimatedHistogram getBucketHistogram() {
         EstimatedHistogram hist = new EstimatedHistogram();
-        for (Segment map : segments) {
+        for (Segment<E> map : segments) {
             map.updateBucketHistogram(hist);
         }
 
@@ -297,7 +293,8 @@ final class OffHeapHashTableImpl<V> implements OffHeapHashTable<V> {
         return new EstimatedHistogram(offsets, buckets);
     }
 
+    @Override
     public String toString() {
-        return getClass().getSimpleName() + " ,segments=" + segments.size();
+        return getClass().getSimpleName() + " ,segments=" + segments.length;
     }
 }

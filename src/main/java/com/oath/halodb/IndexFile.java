@@ -5,18 +5,18 @@
 
 package com.oath.halodb;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class IndexFile {
     private static final Logger logger = LoggerFactory.getLogger(IndexFile.class);
@@ -25,6 +25,7 @@ class IndexFile {
     private final DBDirectory dbDirectory;
     private File backingFile;
 
+    private RandomAccessFile raf;
     private FileChannel channel;
 
     private final HaloDBOptions options;
@@ -45,7 +46,7 @@ class IndexFile {
         if (!backingFile.createNewFile()) {
             throw new IOException("Index file with id " + fileId + " already exists");
         }
-        channel = new RandomAccessFile(backingFile, "rw").getChannel();
+        openFile();
     }
 
     void createRepairFile() throws IOException {
@@ -54,25 +55,31 @@ class IndexFile {
             logger.info("Repair file {} already exists, probably from a previous repair which failed. Deleting a trying again", backingFile.getName());
             backingFile.delete();
         }
-        channel = new RandomAccessFile(backingFile, "rw").getChannel();
+        openFile();
     }
 
     void open() throws IOException {
         backingFile = getIndexFile();
-        channel = new RandomAccessFile(backingFile, "rw").getChannel();
+        openFile();
+    }
+
+    private void openFile() throws FileNotFoundException {
+        raf = new RandomAccessFile(backingFile, "rw");
+        channel = raf.getChannel();
     }
 
     void close() throws IOException {
-        if (channel != null) {
-            channel.close();
+        if (raf != null) {
+            // this closes the associated channel as well
+            raf.close();
         }
     }
 
     void delete() throws IOException {
-        if (channel != null && channel.isOpen())
-            channel.close();
-
-        getIndexFile().delete();
+        close();
+        if (backingFile != null) {
+            backingFile.delete();
+        }
     }
 
     void write(IndexFileEntry entry) throws IOException {

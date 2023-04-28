@@ -5,11 +5,6 @@
 
 package com.oath.halodb;
 
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -20,13 +15,18 @@ import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
 public class TombstoneFileTest {
 
-    private File directory = new File(TestUtils.getTestDirectory("TombstoneFileTest"));
+    private final File directory = new File(TestUtils.getTestDirectory("TombstoneFileTest"));
     private DBDirectory dbDirectory;
     private TombstoneFile file;
     private File backingFile;
-    private int fileId = 100;
+    private final int fileId = 100;
     private FileTime createdTime;
 
     @BeforeMethod
@@ -56,9 +56,9 @@ public class TombstoneFileTest {
         int noOfRecords = 1000;
         List<TombstoneEntry> records = insertTestRecords(noOfRecords);
 
-        // add a corrupted entry to the file. 
+        // add a corrupted entry to the file.
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 21);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, (byte)2);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -80,7 +80,7 @@ public class TombstoneFileTest {
 
         // add a corrupted entry to the file.
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 13);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, (byte)13);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -102,7 +102,7 @@ public class TombstoneFileTest {
 
         // add a corrupted entry to the file.
         int sequenceNumber = noOfRecords + 100;
-        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, 17);
+        TombstoneEntry corrupted = new TombstoneEntry(TestUtils.generateRandomByteArray(), sequenceNumber, -1, (byte)17);
         try(FileChannel channel = FileChannel.open(
             Paths.get(directory.getCanonicalPath(), fileId + TombstoneFile.TOMBSTONE_FILE_NAME).toAbsolutePath(), StandardOpenOption.APPEND)) {
             ByteBuffer[] data = corrupted.serialize();
@@ -137,7 +137,7 @@ public class TombstoneFileTest {
     private List<TombstoneEntry> insertTestRecords(int number) throws IOException {
         List<TombstoneEntry> records = new ArrayList<>();
         for (int i = 0; i < number; i++) {
-            TombstoneEntry e = new TombstoneEntry(TestUtils.generateRandomByteArray(), i, -1, 1);
+            TombstoneEntry e = new TombstoneEntry(TestUtils.generateRandomByteArray(), i, -1, (byte)1);
             file.write(e);
             records.add(new TombstoneEntry(e.getKey(), e.getSequenceNumber(), e.computeCheckSum(), e.getVersion()));
         }

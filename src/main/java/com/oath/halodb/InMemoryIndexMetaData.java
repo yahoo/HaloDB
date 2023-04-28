@@ -6,57 +6,76 @@
 
 package com.oath.halodb;
 
-import java.nio.ByteBuffer;
-
 /**
  * Metadata stored in the in-memory index for each key.
  */
-class InMemoryIndexMetaData {
+class InMemoryIndexMetaData extends HashEntry implements HashEntryLocation {
 
     private final int fileId;
     private final int valueOffset;
-    private final int valueSize;
     private final long sequenceNumber;
 
-    static final int SERIALIZED_SIZE = 4 + 4 + 4 + 8;
+    /*
+     * From HashEntry:
+     * key and value size - 5 bytes, 11 bits for key size and 29 bits for value size
+     *
+     * Additionally in this class, value meta:
+     * file id            - 4 bytes
+     * value offset       - 4 bytes
+     * sequence number    - 8 bytes
+     */
+    static final int VALUE_META_SIZE = 4 + 4 + 8;
 
-    InMemoryIndexMetaData(int fileId, int valueOffset, int valueSize, long sequenceNumber) {
+    InMemoryIndexMetaData(int fileId, int valueOffset, int valueSize, long sequenceNumber, int keySize) {
+        super(keySize, valueSize);
         this.fileId = fileId;
         this.valueOffset = valueOffset;
-        this.valueSize = valueSize;
         this.sequenceNumber = sequenceNumber;
     }
 
-    void serialize(ByteBuffer byteBuffer) {
-        byteBuffer.putInt(getFileId());
-        byteBuffer.putInt(getValueOffset());
-        byteBuffer.putInt(getValueSize());
-        byteBuffer.putLong(getSequenceNumber());
-        byteBuffer.flip();
+    InMemoryIndexMetaData(IndexFileEntry entry, int fileId) {
+        this(fileId,
+             RecordEntry.getValueOffset(entry.getRecordOffset(), entry.getKey().length),
+             RecordEntry.getValueSize(entry.getRecordSize(), entry.getKey().length),
+             entry.getSequenceNumber(),
+             entry.getKey().length);
     }
 
-    static InMemoryIndexMetaData deserialize(ByteBuffer byteBuffer) {
-        int fileId = byteBuffer.getInt();
-        int offset = byteBuffer.getInt();
-        int size = byteBuffer.getInt();
-        long sequenceNumber = byteBuffer.getLong();
-
-        return new InMemoryIndexMetaData(fileId, offset, size, sequenceNumber);
+    InMemoryIndexMetaData(RecordEntry.Header header, int fileId, int offset) {
+        this(fileId,
+             RecordEntry.getValueOffset(offset, header.getKeySize()),
+             header.getValueSize(),
+             header.getSequenceNumber(),
+             header.getKeySize());
     }
 
-    int getFileId() {
+    @Override
+    public int getFileId() {
         return fileId;
     }
 
-    int getValueOffset() {
+    @Override
+    public int getValueOffset() {
         return valueOffset;
     }
 
-    int getValueSize() {
-        return valueSize;
+    @Override
+    public long getSequenceNumber() {
+        return sequenceNumber;
     }
 
-    long getSequenceNumber() {
-        return sequenceNumber;
+    @Override
+    final boolean compareLocation(long address) {
+        return HashEntryLocation.compareLocation(address, getFileId(), getValueOffset(), getSequenceNumber());
+    }
+
+    @Override
+    final void serializeLocation(long address) {
+        HashEntryLocation.serializeLocation(address, getFileId(), getValueOffset(), getSequenceNumber());
+    }
+
+    InMemoryIndexMetaData relocated(int newFileId, int newWriteFileOffset) {
+        int newOffset = RecordEntry.getValueOffset(newWriteFileOffset, getKeySize());
+        return new InMemoryIndexMetaData(newFileId, newOffset, getValueSize(), sequenceNumber, getKeySize());
     }
 }

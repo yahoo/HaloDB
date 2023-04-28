@@ -7,15 +7,15 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Longs;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.io.IOException;
 
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import com.google.common.primitives.Longs;
 
 public class RehashTest
 {
@@ -28,22 +28,21 @@ public class RehashTest
     @Test
     public void testRehash() throws IOException
     {
-        try (OffHeapHashTable<byte[]> cache = OffHeapHashTableBuilder.<byte[]>newBuilder()
-                                                            .valueSerializer(HashTableTestUtils.byteArraySerializer)
+        ByteArrayEntrySerializer serializer = ByteArrayEntrySerializer.ofSize(8);
+        try (OffHeapHashTable<ByteArrayEntry> cache = OffHeapHashTableBuilder.newBuilder(serializer)
                                                             .hashTableSize(64)
                                                             .segmentCount(4)
-                                                            .fixedValueSize(8)
                                                             .build())
         {
             for (int i = 0; i < 100000; i++)
-                cache.put(Longs.toByteArray(i), Longs.toByteArray(i));
+                cache.put(Longs.toByteArray(i), serializer.createEntry(8, Longs.toByteArray(i)));
 
             assertTrue(cache.stats().getRehashCount() > 0);
 
             for (int i = 0; i < 100000; i++)
             {
-                byte[] v = cache.get(Longs.toByteArray(i));
-                assertEquals(Longs.fromByteArray(v), i);
+                ByteArrayEntry v = cache.get(Longs.toByteArray(i));
+                assertEquals(Longs.fromByteArray(v.bytes), i);
             }
         }
     }

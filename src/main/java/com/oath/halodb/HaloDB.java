@@ -5,11 +5,10 @@
 
 package com.oath.halodb;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.Set;
+
+import com.google.common.annotations.VisibleForTesting;
 
 public final class HaloDB {
 

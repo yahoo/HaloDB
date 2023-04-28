@@ -5,16 +5,16 @@
 
 package com.oath.halodb;
 
-import org.hamcrest.MatcherAssert;
-import org.hamcrest.Matchers;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import mockit.Invocation;
 import mockit.Mock;
@@ -50,7 +50,7 @@ public class HaloDBIteratorTest extends TestBase {
         HaloDBIterator iterator = db.newIterator();
         Assert.assertFalse(iterator.hasNext());
 
-        // close and open the db again. 
+        // close and open the db again.
         db.close();
         db = getTestDBWithoutDeletingFiles(directory, options);
         iterator = db.newIterator();
@@ -118,7 +118,7 @@ public class HaloDBIteratorTest extends TestBase {
     }
 
     // Test to make sure that no exceptions are thrown when files are being deleted by
-    // compaction thread and db is being iterated. 
+    // compaction thread and db is being iterated.
     @Test(dataProvider = "Options")
     public void testConcurrentCompactionAndIterator(HaloDBOptions options) throws HaloDBException, InterruptedException {
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIterator");
@@ -130,7 +130,7 @@ public class HaloDBIteratorTest extends TestBase {
 
         // insert 1024 records per file, and a total of 10 files.
         int noOfRecords = 10*1024;
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         int noOfUpdateRuns = 10;
         Thread updateThread = new Thread(() -> {
@@ -138,7 +138,7 @@ public class HaloDBIteratorTest extends TestBase {
                 TestUtils.updateRecordsWithSize(db, records, 1024);
             }
         });
-        // start updating the records. 
+        // start updating the records.
         updateThread.start();
 
         while (updateThread.isAlive()) {
@@ -174,8 +174,8 @@ public class HaloDBIteratorTest extends TestBase {
 
         final HaloDB db = getTestDB(directory, options);
 
-        int noOfRecords = 4; // 2 records on 2 files. 
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        int noOfRecords = 4; // 2 records on 2 files.
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         int noOfUpdateRuns = 1000;
         Thread updateThread = new Thread(() -> {
@@ -197,7 +197,7 @@ public class HaloDBIteratorTest extends TestBase {
     @Test(dataProvider = "Options")
     public void testConcurrentCompactionAndIteratorWithMockedException(HaloDBOptions options) throws HaloDBException {
         // Previous tests are not guaranteed to throw ClosedChannelException. Here we throw a mock exception
-        // to make sure that iterator gracefully handles files being closed and delete by compaction thread. 
+        // to make sure that iterator gracefully handles files being closed and delete by compaction thread.
 
         String directory = TestUtils.getTestDirectory("HaloDBIteratorTest", "testConcurrentCompactionAndIteratorWithMockedException");
 
@@ -219,7 +219,7 @@ public class HaloDBIteratorTest extends TestBase {
         final HaloDB db = getTestDB(directory, options);
 
         int noOfRecords = 50; // 50 records on 5 files.
-        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-Record.Header.HEADER_SIZE);
+        List<Record> records = TestUtils.insertRandomRecordsOfSize(db, noOfRecords, 1024-RecordEntry.Header.HEADER_SIZE);
 
         int noOfUpdateRuns = 100;
         Thread updateThread = new Thread(() -> {

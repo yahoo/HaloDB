@@ -5,12 +5,12 @@
 
 package com.oath.halodb;
 
-import com.google.common.primitives.Ints;
+import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import com.google.common.primitives.Ints;
 
 /**
  * Hash table stored in native memory, outside Java heap.
@@ -28,11 +28,9 @@ class InMemoryIndex {
         maxSizeOfEachSegment = Ints.checkedCast(Utils.roundUpToPowerOf2(numberOfKeys / noOfSegments));
         long start = System.currentTimeMillis();
         OffHeapHashTableBuilder<InMemoryIndexMetaData> builder =
-            OffHeapHashTableBuilder.<InMemoryIndexMetaData>newBuilder()
-                .valueSerializer(new InMemoryIndexMetaDataSerializer())
+            OffHeapHashTableBuilder.newBuilder(new InMemoryIndexMetaDataSerializer())
                 .segmentCount(noOfSegments)
                 .hashTableSize(maxSizeOfEachSegment)
-                .fixedValueSize(InMemoryIndexMetaData.SERIALIZED_SIZE)
                 .loadFactor(1);
 
         if (useMemoryPool) {

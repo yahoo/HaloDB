@@ -40,6 +40,10 @@ public final class HaloDB {
         }
     }
 
+    public int size(byte[] key) {
+        return dbInternal.size(key);
+    }
+
     public boolean put(byte[] key, byte[] value) throws HaloDBException {
         try {
             return dbInternal.put(key, value);
@@ -54,6 +58,10 @@ public final class HaloDB {
         } catch (IOException e) {
             throw new HaloDBException("Delete operation failed.", e);
         }
+    }
+
+    public boolean contains(byte[] key) {
+        return dbInternal.contains(key);
     }
 
     public void close() throws HaloDBException {

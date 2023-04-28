@@ -381,11 +381,15 @@ class HaloDBInternal {
                 return false;
             }
 
-            return  true;
+            return true;
         } else {
             logger.info("snapshot not existed");
             return true;
         }
+    }
+
+    boolean contains(byte[] key) {
+        return inMemoryIndex.containsKey(key);
     }
 
     void delete(byte[] key) throws IOException {
@@ -408,6 +412,15 @@ class HaloDBInternal {
 
     long size() {
         return inMemoryIndex.size();
+    }
+
+    int size(byte[] key) {
+        InMemoryIndexMetaData metaData = inMemoryIndex.get(key);
+        if (metaData == null) {
+            return -1;
+        }
+
+        return metaData.getValueSize();
     }
 
     void setIOErrorFlag() throws IOException {
